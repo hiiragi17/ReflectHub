@@ -10,21 +10,28 @@ export default function AuthCallback() {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
+        const url = new URL(window.location.href);
+        const code = url.searchParams.get('code');
+        const next = url.searchParams.get('next') || '/dashboard';
+
+        if (code) {
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          if (exchangeError) {
+            console.error('コード交換エラー:', exchangeError);
+            router.push('/auth?error=callback_error');
+            return;
+          }
+          router.push(next);
+          return;
+        }
+
         const { data, error } = await supabase.auth.getSession();
-        
         if (error) {
           console.error('セッション取得エラー:', error);
           router.push('/auth?error=callback_error');
           return;
         }
-
-        if (data.session) {
-          // 認証成功 - ダッシュボードへリダイレクト
-          router.push('/dashboard');
-        } else {
-          // セッションなし - ログイン画面に戻る
-          router.push('/auth');
-        }
+        router.push(data.session ? next : '/auth');
       } catch (err) {
         console.error('予期しないエラー:', err);
         router.push('/auth?error=unexpected_error');

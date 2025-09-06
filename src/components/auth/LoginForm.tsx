@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase/client';
-import { ChromeIcon, UserIcon } from 'lucide-react';
+import { Chrome, User } from 'lucide-react';
 
 export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
@@ -63,7 +63,7 @@ export default function LoginForm() {
             className="w-full h-11 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 font-medium text-sm transition-colors"
             variant="outline"
           >
-            <ChromeIcon className="w-4 h-4 mr-3 text-gray-600" />
+            <Chrome className="w-4 h-4 mr-3 text-gray-600" />
             {isLoading ? 'ログイン中...' : 'Googleでログイン'}
           </Button>
 
@@ -92,7 +92,7 @@ export default function LoginForm() {
               className="w-full h-11 bg-gray-100 border border-gray-200 text-gray-600 hover:bg-gray-150 hover:border-gray-300 font-medium text-sm transition-colors"
               variant="outline"
             >
-              <UserIcon className="w-4 h-4 mr-3" />
+              <User className="w-4 h-4 mr-3" />
               ゲストとして始める
             </Button>
           </div>
