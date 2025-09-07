@@ -8,7 +8,6 @@ export function useAuth() {
     isAuthenticated,
     error,
     signInWithGoogle,
-    signInAsGuest,
     signOut,
     initialize,
     clearError,
@@ -25,7 +24,6 @@ export function useAuth() {
     isAuthenticated,
     error,
     signInWithGoogle,
-    signInAsGuest,
     signOut,
     clearError,
   };
@@ -39,19 +37,9 @@ export function useRequireAuth() {
     user,
     isLoading,
     isAuthenticated,
-    isGuest: user?.provider === 'guest',
     canUseFeature: (feature: 'sync' | 'line' | 'ai') => {
-      if (!isAuthenticated) return false;
-      
-      switch (feature) {
-        case 'sync':
-        case 'line':
-        case 'ai':
-          // これらの機能はログインユーザーのみ
-          return user?.provider !== 'guest';
-        default:
-          return true;
-      }
+      // 認証済みユーザーのみすべての機能を利用可能
+      return isAuthenticated;
     },
   };
 }
