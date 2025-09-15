@@ -20,23 +20,34 @@ export const useAuthStore = create<AuthStore>()(
       isAuthenticated: false,
       error: null,
 
-      // Google認証
+      // Google認証 
       signInWithGoogle: async () => {
         set({ isLoading: true, error: null });
 
         try {
+          // 既存のセッションを確認
+          const { data: { session: currentSession } } = await supabase.auth.getSession();
           const { error } = await supabase.auth.signInWithOAuth({
             provider: "google",
             options: {
               redirectTo: `${window.location.origin}/auth/callback`,
+              // Authorization Code Flow を明示的に指定
+              queryParams: {
+                response_type: 'code',
+                flow_type: 'pkce', // PKCE (Proof Key for Code Exchange) を使用
+              },
+              // 追加のオプション
+              skipBrowserRedirect: false, // ブラウザリダイレクトを確実に実行
             },
           });
 
           if (error) {
+            console.error('Google OAuth error:', error);
             set({
               error: "Googleログインに失敗しました。もう一度お試しください。",
               isLoading: false,
             });
+          } else {
           }
         } catch (error) {
           console.error("Google sign in error:", error);
@@ -103,7 +114,6 @@ export const useAuthStore = create<AuthStore>()(
             });
             return null;
           }
-
           return newProfile as ProfileData;
         } catch (error) {
           console.error("Unexpected error creating profile:", error);
@@ -120,38 +130,81 @@ export const useAuthStore = create<AuthStore>()(
         set({ isLoading: true });
 
         try {
-          // Supabase認証状態チェック
+          // サーバーサイドのセッション状態を確認
+          const serverSessionResponse = await fetch('/api/auth/verify', {
+            method: 'GET',
+            credentials: 'include'
+          });
+          
+          if (serverSessionResponse.ok) {
+            const serverSession = await serverSessionResponse.json();
+            
+            if (serverSession.authenticated) {
+              // サーバーサイドにセッションがある場合、プロフィール情報を取得
+              try {
+                const profileResponse = await fetch(`/api/auth/profile/${serverSession.user.id}`, {
+                  method: 'GET',
+                  credentials: 'include'
+                });
+                
+                if (profileResponse.ok) {
+                  const profileData = await profileResponse.json();
+                  
+                  if (profileData.profile) {
+                    const user: User = {
+                      id: profileData.profile.id,
+                      email: profileData.profile.email,
+                      name: profileData.profile.name,
+                      provider: profileData.profile.provider,
+                      avatar_url: profileData.profile.avatar_url,
+                      line_user_id: profileData.profile.line_user_id,
+                      created_at: profileData.profile.created_at,
+                      updated_at: profileData.profile.updated_at,
+                    };
+
+                    set({
+                      user,
+                      isAuthenticated: true,
+                      isLoading: false,
+                    });
+                    return;
+                  }
+                }
+              } catch (profileError) {
+                // プロフィール取得エラーは続行
+              }
+              
+              // プロフィール取得に失敗した場合、最小限のユーザー情報で設定
+              const user: User = {
+                id: serverSession.user.id,
+                email: serverSession.user.email,
+                name: serverSession.user.email?.split('@')[0] || 'ユーザー',
+                provider: 'google',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              };
+
+              set({
+                user,
+                isAuthenticated: true,
+                isLoading: false,
+              });
+              return;
+            }
+          }
+
+          // サーバーサイドにセッションがない場合、クライアントサイドも確認
           const {
             data: { session },
             error,
           } = await supabase.auth.getSession();
 
-          if (error) {
-            console.error("Session error:", error);
-            set({
-              error: "セッションの取得に失敗しました。",
-              isLoading: false,
-            });
-            return;
-          }
-
           if (session?.user) {
-            // プロフィール情報を取得（エラーハンドリング付き）
             const { data: profile, error: profileError } = await supabase
               .from("profiles")
               .select("*")
               .eq("id", session.user.id)
               .single();
-
-            if (profileError && profileError.code !== "PGRST116") {
-              // PGRST116 は "レコードが見つからない" エラー - 下で処理
-              console.error("Profile fetch error:", profileError);
-              set({
-                error: "プロフィールの取得に失敗しました。",
-                isLoading: false,
-              });
-              return;
-            }
 
             if (profile) {
               const user: User = {
@@ -166,16 +219,13 @@ export const useAuthStore = create<AuthStore>()(
               };
 
               set({
-                provider: profile.provider,
+                user,
                 isAuthenticated: true,
                 isLoading: false,
               });
             } else {
-              // プロフィールが見つからない場合：新規ユーザーとしてデフォルトプロフィール作成
               const { createDefaultProfile } = get();
-              const newProfile = await createDefaultProfile(
-                session.user as SupabaseUser
-              );
+              const newProfile = await createDefaultProfile(session.user as SupabaseUser);
 
               if (newProfile) {
                 const user: User = {
@@ -194,14 +244,6 @@ export const useAuthStore = create<AuthStore>()(
                   isAuthenticated: true,
                   isLoading: false,
                 });
-              } else {
-                // プロフィール作成に失敗した場合のみサインアウト
-                await supabase.auth.signOut();
-                set({
-                  user: null,
-                  isAuthenticated: false,
-                  isLoading: false,
-                });
               }
             }
           } else {
@@ -212,7 +254,6 @@ export const useAuthStore = create<AuthStore>()(
             });
           }
         } catch (error) {
-          console.error("Initialize error:", error);
           set({
             error: "初期化に失敗しました。",
             isLoading: false,
