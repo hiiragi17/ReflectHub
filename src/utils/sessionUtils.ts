@@ -53,13 +53,11 @@ export class SessionUtils {
       const hasValidSession = timeRemaining !== 0; // expires_atがnullでない
       
       if (shouldRefresh && hasValidSession) {
-        console.log('Auto-refreshing session... (remaining:', timeRemaining, 'seconds)');
         const { error } = await supabase.auth.refreshSession();
         
         if (error) {
           console.error('Auto-refresh failed:', error);
         } else {
-          console.log('Session refreshed successfully');
         }
       }
     }, 60000); // 1分ごとにチェック
@@ -79,17 +77,7 @@ export class SessionUtils {
       if (session) {
         const timeRemaining = await this.getSessionTimeRemaining();
         const isExpired = timeRemaining < 0;
-        
-        console.log('Session Info:', {
-          userId: session.user.id,
-          email: session.user.email,
-          expiresAt: new Date(session.expires_at! * 1000).toISOString(),
-          timeRemaining: `${timeRemaining}s`,
-          isExpired,
-          status: isExpired ? 'EXPIRED' : timeRemaining <= 300 ? 'EXPIRING_SOON' : 'VALID'
-        });
       } else {
-        console.log('No active session');
       }
     } catch (error) {
       console.error('Failed to log session info:', error);

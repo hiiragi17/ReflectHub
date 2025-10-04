@@ -20,24 +20,20 @@ export function useSessionManager() {
           break;
 
         case "SIGNED_IN":
-          console.log("User signed in:", session?.user?.email);
           await initialize();
           break;
 
         case "SIGNED_OUT":
-          console.log("User signed out");
           await signOut();
           router.push("/auth");
           break;
 
         case "TOKEN_REFRESHED":
-          console.log("Token refreshed");
           // 新しいセッション情報でストアを更新
           await initialize();
           break;
 
         case "USER_UPDATED":
-          console.log("User updated");
           await initialize();
           break;
 
