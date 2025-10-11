@@ -1,9 +1,10 @@
 'use client';
 import { createContext, useContext, ReactNode } from 'react';
 import { useSessionManager } from '@/hooks/useSessionManager';
+import { Session } from '@supabase/supabase-js'; 
 
 interface SessionContextType {
-  checkSession: () => Promise<any>;
+  checkSession: () => Promise<Session | null>;
   refreshSession: () => Promise<boolean>;
 }
 

@@ -4,9 +4,11 @@ import { cookies } from 'next/headers';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }  // ← Promise<...> に変更
 ) {
   try {
+    const { userId } = await params;  // ← await を追加
+    
     const cookieStore = await cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,14 +21,14 @@ export async function GET(
           set(name: string, value: string, options: CookieOptions) {
             try {
               cookieStore.set({ name, value, ...options });
-            } catch (error) {
+            } catch (_error) {  // error → _error (未使用変数の警告対策)
               // Silent failure
             }
           },
           remove(name: string, options: CookieOptions) {
             try {
               cookieStore.delete({ name, ...options });
-            } catch (error) {
+            } catch (_error) {  // error → _error
               // Silent failure
             }
           },
@@ -43,7 +45,7 @@ export async function GET(
       );
     }
 
-    if (session.user.id !== params.userId) {
+    if (session.user.id !== userId) {  // params.userId → userId
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
@@ -53,7 +55,7 @@ export async function GET(
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', params.userId)
+      .eq('id', userId)  // params.userId → userId
       .single();
 
     if (profileError) {
@@ -92,7 +94,7 @@ export async function GET(
 
     return NextResponse.json({ profile });
 
-  } catch (error) {
+  } catch (_error) {  // error → _error
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
