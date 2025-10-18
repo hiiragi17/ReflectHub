@@ -84,74 +84,29 @@ export default function DashboardPage() {
           </Link>
 
           {/* 履歴を見る */}
-            <Card className="cursor-pointer hover:shadow-md transition-shadow h-full">
-              <CardContent className="p-6 text-center">
-                <Calendar className="w-8 h-8 text-green-500 mx-auto mb-3" />
-                <h3 className="font-semibold mb-2">履歴を見る</h3>
-                <p className="text-sm text-gray-600">過去の振り返りを確認</p>
-              </CardContent>
-            </Card>
+          <Card className="h-full">
+            <CardContent className="p-6 text-center">
+              <Calendar className="w-8 h-8 text-green-500 mx-auto mb-3" />
+              <h3 className="font-semibold mb-2">履歴を見る</h3>
+              <p className="text-sm text-gray-600">過去の振り返りを確認</p>
+            </CardContent>
+          </Card>
 
           {/* 統計を見る */}
-            <Card className="cursor-pointer hover:shadow-md transition-shadow h-full">
-              <CardContent className="p-6 text-center">
-                <BarChart3 className="w-8 h-8 text-purple-500 mx-auto mb-3" />
-                <h3 className="font-semibold mb-2">統計を見る</h3>
-                <p className="text-sm text-gray-600">成長の記録を確認</p>
-              </CardContent>
-            </Card>
+          <Card className="h-full">
+            <CardContent className="p-6 text-center">
+              <BarChart3 className="w-8 h-8 text-purple-500 mx-auto mb-3" />
+              <h3 className="font-semibold mb-2">統計を見る</h3>
+              <p className="text-sm text-gray-600">成長の記録を確認</p>
+            </CardContent>
+          </Card>
 
           {/* 設定 */}
-            <Card className="cursor-pointer hover:shadow-md transition-shadow h-full">
-              <CardContent className="p-6 text-center">
-                <Settings className="w-8 h-8 text-gray-500 mx-auto mb-3" />
-                <h3 className="font-semibold mb-2">設定</h3>
-                <p className="text-sm text-gray-600">リマインダーなど</p>
-              </CardContent>
-            </Card>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                今週の実施
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-gray-900">0回</div>
-              <p className="text-sm text-gray-600 mt-1">
-                今週はまだ振り返りがありません
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                継続日数
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-gray-900">0日</div>
-              <p className="text-sm text-gray-600 mt-1">
-                振り返りを始めましょう
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                総振り返り数
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-gray-900">0回</div>
-              <p className="text-sm text-gray-600 mt-1">
-                記録を蓄積していきましょう
-              </p>
+          <Card className="h-full">
+            <CardContent className="p-6 text-center">
+              <Settings className="w-8 h-8 text-gray-500 mx-auto mb-3" />
+              <h3 className="font-semibold mb-2">設定</h3>
+              <p className="text-sm text-gray-600">リマインダーなど</p>
             </CardContent>
           </Card>
         </div>
