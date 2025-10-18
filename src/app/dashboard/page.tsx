@@ -3,15 +3,15 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useEffect } from 'react';
 import { User, LogOut, PlusCircle, Calendar, BarChart3, Settings } from 'lucide-react';
-import DashboardLoading from './loading'; // 既存のloading.tsxをインポート
+import DashboardLoading from './loading';
 
 export default function DashboardPage() {
   const { user, signOut, isLoading } = useAuth();
   const router = useRouter();
 
-  // useEffectでクライアントサイドのリダイレクトを処理
   useEffect(() => {
     if (!isLoading && !user) {
       router.push('/auth');
@@ -23,12 +23,10 @@ export default function DashboardPage() {
     router.push('/auth');
   };
 
-  // ローディング中は既存のスケルトンを表示
   if (isLoading) {
     return <DashboardLoading />;
   }
 
-  // ユーザーがいない場合もスケルトンを表示（リダイレクト中）
   if (!user) {
     return <DashboardLoading />;
   }
@@ -46,12 +44,8 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <User className="w-4 h-4" />
-                <span>{user.email}</span>
-              </div>
               <Button
-                onClick={handleSignOut}
+                // onClick={handleSignOut}
                 variant="outline"
                 size="sm"
                 className="text-gray-600 hover:text-gray-800"
@@ -78,15 +72,19 @@ export default function DashboardPage() {
 
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardContent className="p-6 text-center">
-              <PlusCircle className="w-8 h-8 text-blue-500 mx-auto mb-3" />
-              <h3 className="font-semibold mb-2">新しい振り返り</h3>
-              <p className="text-sm text-gray-600">今週の振り返りを作成</p>
-            </CardContent>
-          </Card>
+          {/* 新しい振り返り */}
+          <Link href="/reflection">
+            <Card className="cursor-pointer hover:shadow-md transition-shadow h-full">
+              <CardContent className="p-6 text-center">
+                <PlusCircle className="w-8 h-8 text-blue-500 mx-auto mb-3" />
+                <h3 className="font-semibold mb-2">新しい振り返り</h3>
+                <p className="text-sm text-gray-600">今週の振り返りを作成</p>
+              </CardContent>
+            </Card>
+          </Link>
 
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
+          {/* 履歴を見る */}
+          <Card className="h-full">
             <CardContent className="p-6 text-center">
               <Calendar className="w-8 h-8 text-green-500 mx-auto mb-3" />
               <h3 className="font-semibold mb-2">履歴を見る</h3>
@@ -94,7 +92,8 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
+          {/* 統計を見る */}
+          <Card className="h-full">
             <CardContent className="p-6 text-center">
               <BarChart3 className="w-8 h-8 text-purple-500 mx-auto mb-3" />
               <h3 className="font-semibold mb-2">統計を見る</h3>
@@ -102,56 +101,12 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
+          {/* 設定 */}
+          <Card className="h-full">
             <CardContent className="p-6 text-center">
               <Settings className="w-8 h-8 text-gray-500 mx-auto mb-3" />
               <h3 className="font-semibold mb-2">設定</h3>
               <p className="text-sm text-gray-600">リマインダーなど</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                今週の実施
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-gray-900">0回</div>
-              <p className="text-sm text-gray-600 mt-1">
-                今週はまだ振り返りがありません
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                継続日数
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-gray-900">0日</div>
-              <p className="text-sm text-gray-600 mt-1">
-                振り返りを始めましょう
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                総振り返り数
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-gray-900">0回</div>
-              <p className="text-sm text-gray-600 mt-1">
-                記録を蓄積していきましょう
-              </p>
             </CardContent>
           </Card>
         </div>
@@ -198,13 +153,6 @@ export default function DashboardPage() {
                   </p>
                 </div>
               </div>
-            </div>
-            
-            <div className="mt-6">
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                <PlusCircle className="w-4 h-4 mr-2" />
-                最初の振り返りを作成
-              </Button>
             </div>
           </CardContent>
         </Card>
