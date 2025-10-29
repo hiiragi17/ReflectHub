@@ -80,7 +80,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // 認証が必要なルートの保護
-    const protectedRoutes = ['/dashboard', '/reflection', '/history', '/settings', '/analysis'];
+    const protectedRoutes = ['/', '/reflection', '/history', '/settings', '/analysis'];
     const isProtectedRoute = protectedRoutes.some(route => 
       request.nextUrl.pathname.startsWith(route)
     );
@@ -96,10 +96,10 @@ export async function middleware(request: NextRequest) {
 
     // ログイン済みユーザーがログインページにアクセスした場合
     if (request.nextUrl.pathname === '/auth' && session) {
-      const rawNext = request.nextUrl.searchParams.get('next') || '/dashboard';
+      const rawNext = request.nextUrl.searchParams.get('next') || '/';
       const safeNext = rawNext.startsWith('/') && !rawNext.startsWith('//') 
         ? rawNext 
-        : '/dashboard';
+        : '/';
       
       return NextResponse.redirect(new URL(safeNext, request.url), {
         headers: response.headers,

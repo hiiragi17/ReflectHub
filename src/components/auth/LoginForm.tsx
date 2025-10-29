@@ -19,7 +19,7 @@ export default function LoginForm() {
   // 認証済みの場合はダッシュボードにリダイレクト
   useEffect(() => {
     if (isAuthenticated) {
-      router.push('/dashboard');
+      router.push('/');
     }
   }, [isAuthenticated, router]);
 
