@@ -1,10 +1,11 @@
-'use client';
+"use client";
 
 import { useAuth } from '@/hooks/useAuth';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createBrowserClient } from '@supabase/ssr';
-import { Plus, Calendar, BarChart3, Settings } from 'lucide-react';
+import Link from 'next/link';
+import { createBrowserClient } from "@supabase/ssr";
+import { Plus, Calendar, BarChart3, Settings } from "lucide-react";
 
 export default function HomePage() {
   const { user, isLoading } = useAuth();
@@ -12,19 +13,9 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      router.push('/dashboard');
+      router.push("/dashboard");
     }
   }, [user, isLoading, router]);
-
-  const handleLogout = async () => {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-
-    await supabase.auth.signOut();
-    window.location.href = '/';
-  };
 
   if (isLoading) {
     return (
@@ -53,27 +44,25 @@ export default function HomePage() {
             ReflectHub
           </h1>
           <div className="flex items-center gap-4">
-            <a
+            <Link
               href="/auth"
               className="px-4 py-2 text-gray-700 hover:text-gray-900 font-medium"
             >
               ログイン
-            </a>
-            <a
-              href="/auth?mode=signup"
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
-            >
-              サインアップ
-            </a>
+            </Link>
+              <Link
+                href="/auth?mode=signup"
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
+              >
+                サインアップ
+              </Link>
+            </div>
           </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        </header>
         {/* ヒーロー セクション */}
-        <section className="py-12 sm:py-20 text-center">
-          <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-6">
-            振り返りを始めましょう
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-6">
+            振り返りで成長を加速しよう
           </h2>
           <p className="text-lg sm:text-xl text-gray-600 mb-4 max-w-2xl mx-auto">
             3分で今週の振り返りを記録し、継続的な成長を実現しましょう。
@@ -90,7 +79,7 @@ export default function HomePage() {
         </section>
 
         {/* 機能紹介 セクション */}
-        <section className="py-12 sm:py-20">
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
           <h3 className="text-2xl sm:text-3xl font-bold text-center text-gray-900 mb-12">
             主な機能
           </h3>
@@ -104,9 +93,7 @@ export default function HomePage() {
               <h4 className="text-lg font-semibold text-gray-900 mb-2">
                 新しい振り返り
               </h4>
-              <p className="text-sm text-gray-600">
-                今週の振り返りを作成
-              </p>
+              <p className="text-sm text-gray-600">今週の振り返りを作成</p>
             </div>
 
             {/* 機能2 */}
@@ -117,9 +104,7 @@ export default function HomePage() {
               <h4 className="text-lg font-semibold text-gray-900 mb-2">
                 履歴を見る
               </h4>
-              <p className="text-sm text-gray-600">
-                過去の振り返りを確認
-              </p>
+              <p className="text-sm text-gray-600">過去の振り返りを確認</p>
             </div>
 
             {/* 機能3 */}
@@ -130,9 +115,7 @@ export default function HomePage() {
               <h4 className="text-lg font-semibold text-gray-900 mb-2">
                 統計を見る
               </h4>
-              <p className="text-sm text-gray-600">
-                成長の記録を確認
-              </p>
+              <p className="text-sm text-gray-600">成長の記録を確認</p>
             </div>
 
             {/* 機能4 */}
@@ -140,32 +123,27 @@ export default function HomePage() {
               <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
                 <Settings className="w-6 h-6 text-gray-600" />
               </div>
-              <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                設定
-              </h4>
-              <p className="text-sm text-gray-600">
-                リマインダーなど
-              </p>
+              <h4 className="text-lg font-semibold text-gray-900 mb-2">設定</h4>
+              <p className="text-sm text-gray-600">リマインダーなど</p>
             </div>
           </div>
         </section>
 
         {/* はじめに セクション */}
-        <section className="py-12 sm:py-20 mb-12">
-          <div className="border border-gray-200 rounded-lg p-8 bg-gray-50">
-            <h3 className="text-2xl font-bold text-gray-900 mb-8">
-              はじめに
-            </h3>
-
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20 mb-12">
+          <h3 className="text-2xl font-bold text-center text-gray-900 mb-12">
+            はじめに
+          </h3>
+          <div className="max-w-2xl mx-auto border border-gray-200 rounded-lg p-8 bg-gray-50">
             <div className="space-y-6">
               {/* ステップ1 */}
               <div className="flex gap-4">
                 <div className="flex-shrink-0">
-                  <div className="flex items-center justify-center h-8 w-8 rounded-full bg-blue-600 text-white font-semibold">
+                  <div className="flex items-center justify-center h-8 w-8 rounded-full bg-blue-600 text-white font-semibold flex-shrink-0">
                     1
                   </div>
                 </div>
-                <div>
+                <div className="flex-1">
                   <h4 className="text-lg font-semibold text-gray-900 mb-1">
                     振り返りフレームワークを選択
                   </h4>
@@ -178,11 +156,11 @@ export default function HomePage() {
               {/* ステップ2 */}
               <div className="flex gap-4">
                 <div className="flex-shrink-0">
-                  <div className="flex items-center justify-center h-8 w-8 rounded-full bg-blue-600 text-white font-semibold">
+                  <div className="flex items-center justify-center h-8 w-8 rounded-full bg-blue-600 text-white font-semibold flex-shrink-0">
                     2
                   </div>
                 </div>
-                <div>
+                <div className="flex-1">
                   <h4 className="text-lg font-semibold text-gray-900 mb-1">
                     3分で振り返りを記録
                   </h4>
@@ -195,11 +173,11 @@ export default function HomePage() {
               {/* ステップ3 */}
               <div className="flex gap-4">
                 <div className="flex-shrink-0">
-                  <div className="flex items-center justify-center h-8 w-8 rounded-full bg-blue-600 text-white font-semibold">
+                  <div className="flex items-center justify-center h-8 w-8 rounded-full bg-blue-600 text-white font-semibold flex-shrink-0">
                     3
                   </div>
                 </div>
-                <div>
+                <div className="flex-1">
                   <h4 className="text-lg font-semibold text-gray-900 mb-1">
                     継続して成長を実感
                   </h4>
@@ -213,7 +191,7 @@ export default function HomePage() {
         </section>
 
         {/* 最後の CTA */}
-        <section className="py-12 sm:py-20 text-center border-t border-gray-200">
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20 text-center border-t border-gray-200">
           <h3 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-6">
             今日から始める
           </h3>
@@ -227,7 +205,6 @@ export default function HomePage() {
             無料で始める
           </a>
         </section>
-      </main>
     </div>
   );
 }
