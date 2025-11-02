@@ -16,7 +16,6 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // /auth/callback パスの場合は認証処理をスキップ
   if (request.nextUrl.pathname === '/auth/callback') {
     return response;
   }
@@ -69,7 +68,6 @@ export async function middleware(request: NextRequest) {
   );
 
   try {
-    // セッション状態を確認してリフレッシュ
     const {
       data: { session },
       error,
@@ -79,14 +77,21 @@ export async function middleware(request: NextRequest) {
       console.error('Middleware session error:', error);
     }
 
-    // 認証が必要なルートの保護
-    const protectedRoutes = ['/dashboard', '/reflection', '/history', '/settings', '/analysis'];
-    const isProtectedRoute = protectedRoutes.some(route => 
-      request.nextUrl.pathname.startsWith(route)
+    const publicRoutes = [
+      '/auth',        
+      '/auth/callback', 
+      '/'
+    ];
+
+    const isPublicRoute = publicRoutes.some(route =>
+      route === '/'
+        ? request.nextUrl.pathname === '/'
+        : request.nextUrl.pathname.startsWith(route)
     );
 
+    const isProtectedRoute = !isPublicRoute;
+
     if (isProtectedRoute && !session) {
-      // 未認証ユーザーをログインページにリダイレクト
       const redirectUrl = new URL('/auth', request.url);
       const nextPath = request.nextUrl.pathname + request.nextUrl.search;
       redirectUrl.searchParams.set('next', nextPath);
@@ -94,7 +99,6 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(redirectUrl, { headers: response.headers });
     }
 
-    // ログイン済みユーザーがログインページにアクセスした場合
     if (request.nextUrl.pathname === '/auth' && session) {
       const rawNext = request.nextUrl.searchParams.get('next') || '/dashboard';
       const safeNext = rawNext.startsWith('/') && !rawNext.startsWith('//') 

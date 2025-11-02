@@ -20,7 +20,7 @@ export const frameworkService = {
 
     return (data || []).map((framework) => ({
       ...framework,
-      schema: Array.isArray(framework.schema) ? framework.schema : [],
+      schema: framework.schema?.fields || [],
     }));
   },
 
@@ -38,7 +38,7 @@ export const frameworkService = {
 
     return data ? {
       ...data,
-      schema: Array.isArray(data.schema) ? data.schema : [],
+      schema: data.schema?.fields || [],
     } : null;
   },
 };
