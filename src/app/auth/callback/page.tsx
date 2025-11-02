@@ -12,7 +12,7 @@ export default function AuthCallback() {
       try {
         const url = new URL(window.location.href);
         const code = url.searchParams.get('code');
-        const next = url.searchParams.get('next') || '/';
+        const next = url.searchParams.get('next') || '/dashboard';
 
         if (code) {
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);

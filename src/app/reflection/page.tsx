@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
-import DashboardLoading from "../loading";
+import DashboardLoading from "../dashboard/loading";
 import FrameworkSelector from "@/components/reflection/FrameworkSelector";
 import ReflectionForm from '@/components/reflection/ReflectionForm';
 
@@ -36,7 +36,7 @@ export default function ReflectionPage() {
         <div className="max-w-4xl mx-auto px-4 py-3 sm:py-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <Link
-              href="/"
+              href="/dashboard"
               className="flex items-center gap-2 text-gray-600 hover:text-gray-900 flex-shrink-0"
             >
               <ArrowLeft className="w-5 h-5" />

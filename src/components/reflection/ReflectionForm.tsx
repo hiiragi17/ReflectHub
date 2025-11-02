@@ -1,15 +1,17 @@
-'use client';
+"use client";
 
-import React, { useEffect } from 'react';
-import { useFrameworkStore } from '@/stores/frameworkStore';
-import { useReflectionForm } from '@/hooks/useReflectionForm';
-import { Button } from '@/components/ui/button';
-import { AlertCircle, Loader2, Check } from 'lucide-react';
-import DynamicField from '@/components/reflection/DynamicField';
+import React, { useEffect } from "react";
+import { useFrameworkStore } from "@/stores/frameworkStore";
+import { useReflectionForm } from "@/hooks/useReflectionForm";
+import { Button } from "@/components/ui/button";
+import { AlertCircle, Loader2, Check } from "lucide-react";
+import DynamicField from "@/components/reflection/DynamicField";
 
 export default function ReflectionForm() {
-  const selectedFramework = useFrameworkStore((state) => state.getSelectedFramework());
-  const selectedFrameworkId = useFrameworkStore((state) => state.selectedFrameworkId);
+  const selectedFramework = useFrameworkStore(
+    (state) => state.selectedFramework
+  );
+
   const {
     formData,
     isSubmitting,
@@ -39,22 +41,28 @@ export default function ReflectionForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage('');
+    setErrorMessage("");
 
     const missingFields = schema
-      .filter((field) => field.required && (!formData[field.id] || formData[field.id].trim() === ''))
+      .filter((field) => {
+        const value = formData[field.id];
+        return (
+          field.required &&
+          (value == null || (typeof value === "string" && value.trim() === ""))
+        );
+      })
       .map((field) => field.label);
 
     if (missingFields.length > 0) {
-      setErrorMessage(`以下の項目は必須です: ${missingFields.join(', ')}`);
-      setSubmitStatus('error');
+      setErrorMessage(`以下の項目は必須です: ${missingFields.join(", ")}`);
+      setSubmitStatus("error");
       return;
     }
 
     setIsSubmitting(true);
     try {
       // TODO: Supabaseに保存するロジックをここに実装
-      console.log('保存データ:', {
+      console.log("保存データ:", {
         framework_id: selectedFramework.id,
         content: formData,
         created_at: new Date().toISOString(),
@@ -63,16 +71,18 @@ export default function ReflectionForm() {
       // 一時的な遅延（実装完了後に削除）
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      setSubmitStatus('success');
+      setSubmitStatus("success");
       resetForm();
 
       // 3秒後にメッセージをクリア
       setTimeout(() => {
-        setSubmitStatus('idle');
+        setSubmitStatus("idle");
       }, 3000);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '保存に失敗しました');
-      setSubmitStatus('error');
+      setErrorMessage(
+        error instanceof Error ? error.message : "保存に失敗しました"
+      );
+      setSubmitStatus("error");
     } finally {
       setIsSubmitting(false);
     }
@@ -81,7 +91,7 @@ export default function ReflectionForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* エラーメッセージ */}
-      {submitStatus === 'error' && errorMessage && (
+      {submitStatus === "error" && errorMessage && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-red-700">{errorMessage}</p>
@@ -89,7 +99,7 @@ export default function ReflectionForm() {
       )}
 
       {/* 成功メッセージ */}
-      {submitStatus === 'success' && (
+      {submitStatus === "success" && (
         <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
           <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-green-700">振り返りを保存しました!</p>
@@ -102,7 +112,7 @@ export default function ReflectionForm() {
           <DynamicField
             key={field.id}
             field={field}
-            value={formData[field.id] || ''}
+            value={formData[field.id] || ""}
             onChange={(value) => updateField(field.id, value)}
           />
         ))}
@@ -121,7 +131,7 @@ export default function ReflectionForm() {
               保存中...
             </>
           ) : (
-            '振り返りを保存'
+            "振り返りを保存"
           )}
         </Button>
         <Button
@@ -129,7 +139,7 @@ export default function ReflectionForm() {
           variant="outline"
           onClick={() => {
             resetForm();
-            setSubmitStatus('idle');
+            setSubmitStatus("idle");
           }}
           disabled={isSubmitting}
         >
