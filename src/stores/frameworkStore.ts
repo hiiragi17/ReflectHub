@@ -1,17 +1,17 @@
-import { create } from 'zustand';
-import { Framework } from '@/types/framework';
+import { create } from "zustand";
+import { Framework } from "@/types/framework";
 
 interface FrameworkStore {
   frameworks: Framework[];
   selectedFrameworkId: string | null;
   isLoading: boolean;
   error: string | null;
-  
+
   setFrameworks: (frameworks: Framework[]) => void;
   setSelectedFramework: (id: string) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
-  
+
   getSelectedFramework: () => Framework | undefined;
 }
 
