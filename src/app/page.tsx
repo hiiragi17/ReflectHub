@@ -3,9 +3,8 @@
 import { useAuth } from '@/hooks/useAuth';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { createBrowserClient } from "@supabase/ssr";
 import { Plus, Calendar, BarChart3, Settings } from "lucide-react";
+import Header from '@/components/layout/Header';
 
 export default function HomePage() {
   const { user, isLoading } = useAuth();
@@ -38,27 +37,10 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-white">
       {/* ヘッダー */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-            ReflectHub
-          </h1>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/auth"
-              className="px-4 py-2 text-gray-700 hover:text-gray-900 font-medium"
-            >
-              ログイン
-            </Link>
-              <Link
-                href="/auth?mode=signup"
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
-              >
-                サインアップ
-              </Link>
-            </div>
-          </div>
-        </header>
+        <Header 
+          isAuthenticated={false}
+          title="ReflectHub"
+        />
         {/* ヒーロー セクション */}
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
           <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-6">
