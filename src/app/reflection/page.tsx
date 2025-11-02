@@ -3,16 +3,14 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Loader2 } from "lucide-react";
-import Link from "next/link";
 import DashboardLoading from "../dashboard/loading";
 import FrameworkSelector from "@/components/reflection/FrameworkSelector";
-import ReflectionForm from '@/components/reflection/ReflectionForm';
+import ReflectionForm from "@/components/reflection/ReflectionForm";
+import Header from "@/components/layout/Header";
 
 export default function ReflectionPage() {
-  const { user, isLoading } = useAuth();
+  const { user, signOut, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -29,26 +27,27 @@ export default function ReflectionPage() {
     return <DashboardLoading />;
   }
 
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      router.push("/auth");
+    } catch (error) {
+      console.error("Sign out failed:", error);
+      // Optionally show an error message to the user
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#fafafa]">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-3 sm:py-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 flex-shrink-0"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              <span className="text-sm sm:text-base">ダッシュボード</span>
-            </Link>
-            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 text-center flex-grow">
-              新しい振り返りを作成
-            </h1>
-            <div className="hidden sm:block w-24" />
-          </div>
-        </div>
-      </header>
+      <Header
+        isAuthenticated={!!user}
+        userName={user.name}
+        onSignOut={handleSignOut}
+        title="新しい振り返りを作成"
+        showBackButton={true}
+        backHref="/dashboard"
+      />
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 py-6 sm:py-8">

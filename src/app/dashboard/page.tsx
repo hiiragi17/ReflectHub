@@ -1,12 +1,12 @@
 'use client';
 import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect } from 'react';
-import { User, LogOut, PlusCircle, Calendar, BarChart3, Settings } from 'lucide-react';
+import { PlusCircle, Calendar, BarChart3, Settings } from 'lucide-react';
 import DashboardLoading from './loading';
+import Header from '@/components/layout/Header';
 
 export default function DashboardPage() {
   const { user, signOut, isLoading } = useAuth();
@@ -33,30 +33,12 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#fafafa]">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900">ReflectHub</h1>
-              <p className="text-sm text-gray-600">
-                ようこそ、{user.name}さん
-              </p>
-            </div>
-            <div className="flex items-center gap-4">
-              <Button
-                // onClick={handleSignOut}
-                variant="outline"
-                size="sm"
-                className="text-gray-600 hover:text-gray-800"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                ログアウト
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header 
+        isAuthenticated={!!user}
+        userName={user.name}
+        onSignOut={handleSignOut}
+        title="ReflectHub"
+      />
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 py-8">
