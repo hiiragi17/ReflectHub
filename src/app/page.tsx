@@ -1,161 +1,232 @@
 'use client';
-import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { useEffect } from 'react';
-import { User, LogOut, PlusCircle, Calendar, BarChart3, Settings } from 'lucide-react';
-import DashboardLoading from './loading';
 
-export default function DashboardPage() {
-  const { user, signOut, isLoading } = useAuth();
+import { useAuth } from '@/hooks/useAuth';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { createBrowserClient } from '@supabase/ssr';
+import { Plus, Calendar, BarChart3, Settings } from 'lucide-react';
+
+export default function HomePage() {
+  const { user, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/auth');
+    if (!isLoading && user) {
+      router.push('/dashboard');
     }
   }, [user, isLoading, router]);
 
-  const handleSignOut = async () => {
-    await signOut();
-    router.push('/auth');
+  const handleLogout = async () => {
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+
+    await supabase.auth.signOut();
+    window.location.href = '/';
   };
 
   if (isLoading) {
-    return <DashboardLoading />;
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">読み込み中...</p>
+        </div>
+      </div>
+    );
   }
 
-  if (!user) {
-    return <DashboardLoading />;
+  // 認証済みの場合は何も表示しない
+  // （useEffect でリダイレクト中）
+  if (user) {
+    return null;
   }
 
+  // 未認証ユーザーに対してランディングページを表示
   return (
-    <div className="min-h-screen bg-[#fafafa]">
-      {/* Header */}
+    <div className="min-h-screen bg-white">
+      {/* ヘッダー */}
       <header className="bg-white border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900">ReflectHub</h1>
-              <p className="text-sm text-gray-600">
-                ようこそ、{user.name}さん
-              </p>
-            </div>
-            <div className="flex items-center gap-4">
-              <Button
-                // onClick={handleSignOut}
-                variant="outline"
-                size="sm"
-                className="text-gray-600 hover:text-gray-800"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                ログアウト
-              </Button>
-            </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+            ReflectHub
+          </h1>
+          <div className="flex items-center gap-4">
+            <a
+              href="/auth"
+              className="px-4 py-2 text-gray-700 hover:text-gray-900 font-medium"
+            >
+              ログイン
+            </a>
+            <a
+              href="/auth?mode=signup"
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
+            >
+              サインアップ
+            </a>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        {/* Welcome Message */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* ヒーロー セクション */}
+        <section className="py-12 sm:py-20 text-center">
+          <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-6">
             振り返りを始めましょう
           </h2>
-          <p className="text-gray-600">
+          <p className="text-lg sm:text-xl text-gray-600 mb-4 max-w-2xl mx-auto">
             3分で今週の振り返りを記録し、継続的な成長を実現しましょう。
           </p>
-        </div>
+          <p className="text-sm text-gray-500 mb-8 max-w-2xl mx-auto">
+            YWT（やったこと・わかったこと・次にやること）またはKPT（Keep・Problem・Try）から選べます
+          </p>
+          <a
+            href="/auth?mode=signup"
+            className="inline-block px-8 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold transition"
+          >
+            今すぐ始める
+          </a>
+        </section>
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* 新しい振り返り */}
-          <Link href="/reflection">
-            <Card className="cursor-pointer hover:shadow-md transition-shadow h-full">
-              <CardContent className="p-6 text-center">
-                <PlusCircle className="w-8 h-8 text-blue-500 mx-auto mb-3" />
-                <h3 className="font-semibold mb-2">新しい振り返り</h3>
-                <p className="text-sm text-gray-600">今週の振り返りを作成</p>
-              </CardContent>
-            </Card>
-          </Link>
+        {/* 機能紹介 セクション */}
+        <section className="py-12 sm:py-20">
+          <h3 className="text-2xl sm:text-3xl font-bold text-center text-gray-900 mb-12">
+            主な機能
+          </h3>
 
-          {/* 履歴を見る */}
-          <Card className="h-full">
-            <CardContent className="p-6 text-center">
-              <Calendar className="w-8 h-8 text-green-500 mx-auto mb-3" />
-              <h3 className="font-semibold mb-2">履歴を見る</h3>
-              <p className="text-sm text-gray-600">過去の振り返りを確認</p>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* 機能1 */}
+            <div className="border border-gray-200 rounded-lg p-6 hover:shadow-lg transition">
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                <Plus className="w-6 h-6 text-blue-600" />
+              </div>
+              <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                新しい振り返り
+              </h4>
+              <p className="text-sm text-gray-600">
+                今週の振り返りを作成
+              </p>
+            </div>
 
-          {/* 統計を見る */}
-          <Card className="h-full">
-            <CardContent className="p-6 text-center">
-              <BarChart3 className="w-8 h-8 text-purple-500 mx-auto mb-3" />
-              <h3 className="font-semibold mb-2">統計を見る</h3>
-              <p className="text-sm text-gray-600">成長の記録を確認</p>
-            </CardContent>
-          </Card>
+            {/* 機能2 */}
+            <div className="border border-gray-200 rounded-lg p-6 hover:shadow-lg transition">
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                <Calendar className="w-6 h-6 text-green-600" />
+              </div>
+              <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                履歴を見る
+              </h4>
+              <p className="text-sm text-gray-600">
+                過去の振り返りを確認
+              </p>
+            </div>
 
-          {/* 設定 */}
-          <Card className="h-full">
-            <CardContent className="p-6 text-center">
-              <Settings className="w-8 h-8 text-gray-500 mx-auto mb-3" />
-              <h3 className="font-semibold mb-2">設定</h3>
-              <p className="text-sm text-gray-600">リマインダーなど</p>
-            </CardContent>
-          </Card>
-        </div>
+            {/* 機能3 */}
+            <div className="border border-gray-200 rounded-lg p-6 hover:shadow-lg transition">
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                <BarChart3 className="w-6 h-6 text-purple-600" />
+              </div>
+              <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                統計を見る
+              </h4>
+              <p className="text-sm text-gray-600">
+                成長の記録を確認
+              </p>
+            </div>
 
-        {/* Getting Started */}
-        <Card>
-          <CardHeader>
-            <CardTitle>はじめに</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">
-                  1
+            {/* 機能4 */}
+            <div className="border border-gray-200 rounded-lg p-6 hover:shadow-lg transition">
+              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
+                <Settings className="w-6 h-6 text-gray-600" />
+              </div>
+              <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                設定
+              </h4>
+              <p className="text-sm text-gray-600">
+                リマインダーなど
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* はじめに セクション */}
+        <section className="py-12 sm:py-20 mb-12">
+          <div className="border border-gray-200 rounded-lg p-8 bg-gray-50">
+            <h3 className="text-2xl font-bold text-gray-900 mb-8">
+              はじめに
+            </h3>
+
+            <div className="space-y-6">
+              {/* ステップ1 */}
+              <div className="flex gap-4">
+                <div className="flex-shrink-0">
+                  <div className="flex items-center justify-center h-8 w-8 rounded-full bg-blue-600 text-white font-semibold">
+                    1
+                  </div>
                 </div>
                 <div>
-                  <h4 className="font-medium">振り返りフレームワークを選択</h4>
-                  <p className="text-sm text-gray-600">
-                    YWT（やったこと・わかったこと・次にやること）またはKPT（Keep・Problem・Try）から選択できます
+                  <h4 className="text-lg font-semibold text-gray-900 mb-1">
+                    振り返りフレームワークを選択
+                  </h4>
+                  <p className="text-gray-600">
+                    YWT（やったこと・わかったこと・次にやること）またはKPT（Keep・Problem・Try）から選べます
                   </p>
                 </div>
               </div>
-              
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">
-                  2
+
+              {/* ステップ2 */}
+              <div className="flex gap-4">
+                <div className="flex-shrink-0">
+                  <div className="flex items-center justify-center h-8 w-8 rounded-full bg-blue-600 text-white font-semibold">
+                    2
+                  </div>
                 </div>
                 <div>
-                  <h4 className="font-medium">3分で振り返りを記録</h4>
-                  <p className="text-sm text-gray-600">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-1">
+                    3分で振り返りを記録
+                  </h4>
+                  <p className="text-gray-600">
                     各項目に思ったことを気軽に記入してください。完璧である必要はありません
                   </p>
                 </div>
               </div>
-              
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">
-                  3
+
+              {/* ステップ3 */}
+              <div className="flex gap-4">
+                <div className="flex-shrink-0">
+                  <div className="flex items-center justify-center h-8 w-8 rounded-full bg-blue-600 text-white font-semibold">
+                    3
+                  </div>
                 </div>
                 <div>
-                  <h4 className="font-medium">継続して成長を実感</h4>
-                  <p className="text-sm text-gray-600">
-                    週1回の振り返りを続けることで、確実な成長を実感できます
+                  <h4 className="text-lg font-semibold text-gray-900 mb-1">
+                    継続して成長を実感
+                  </h4>
+                  <p className="text-gray-600">
+                    週回の振り返りを続けることで、確実な成長を実感できます
                   </p>
                 </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
+
+        {/* 最後の CTA */}
+        <section className="py-12 sm:py-20 text-center border-t border-gray-200">
+          <h3 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-6">
+            今日から始める
+          </h3>
+          <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
+            完璧である必要はありません。思ったことを気軽に記入してください。毎日の小さな振り返りが、大きな成長につながります。
+          </p>
+          <a
+            href="/auth?mode=signup"
+            className="inline-block px-8 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold transition"
+          >
+            無料で始める
+          </a>
+        </section>
       </main>
     </div>
   );
