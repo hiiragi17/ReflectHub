@@ -20,6 +20,7 @@
 <!-- UI変更がある場合は画像を添付 -->
 
 ## チェックリスト
+- [ ] pnpm lint:fixを行った
 - [ ] CodeRabbitで問題がない
 - [ ] `pnpm run build`で問題が出ない
 - [ ] Vercel botで問題が出ない
