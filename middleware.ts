@@ -100,10 +100,10 @@ export async function middleware(request: NextRequest) {
     }
 
     if (request.nextUrl.pathname === '/auth' && session) {
-      const rawNext = request.nextUrl.searchParams.get('next') || '/';
+      const rawNext = request.nextUrl.searchParams.get('next') || '/dashboard';
       const safeNext = rawNext.startsWith('/') && !rawNext.startsWith('//') 
         ? rawNext 
-        : '/';
+        : '/dashboard';
       
       return NextResponse.redirect(new URL(safeNext, request.url), {
         headers: response.headers,
