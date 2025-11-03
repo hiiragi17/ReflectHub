@@ -16,6 +16,7 @@ export interface FrameworkField {
   id: string;
   label: string;
   placeholder: string;
+  description?: string;
   order: number;
   required: boolean;
   max_length?: number;
