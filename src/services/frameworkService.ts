@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Framework, FrameworkField } from '@/types/framework';
+import { Framework } from '@/types/framework';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
