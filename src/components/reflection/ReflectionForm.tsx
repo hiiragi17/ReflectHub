@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useFrameworkStore } from '@/stores/frameworkStore';
+import { useValidation } from '@/hooks/useValidation';
 import DynamicField from './DynamicField';
 import { Button } from '@/components/ui/button';
 
@@ -16,8 +17,10 @@ interface ReflectionFormProps {
 }
 
 export default function ReflectionForm({ onSave }: ReflectionFormProps) {
-  const { selectedFrameworkId, selectedFramework } =
+  const { selectedFrameworkId, selectedFramework, setSelectedFramework, frameworks } =
     useFrameworkStore();
+
+  const { validateFormData, sanitizeFormData, errors, clearErrors } = useValidation();
 
   // メモリキャッシュ（フレームワーク切り替え時の一時保存）
   const cacheRef = useRef<Record<string, Record<string, string>>>({});
@@ -37,6 +40,7 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
     if (!previousId) {
       const cached = cacheRef.current[selectedFrameworkId];
       setFormData(cached || {});
+      clearErrors();
       previousFrameworkIdRef.current = selectedFrameworkId;
       return;
     }
@@ -51,9 +55,10 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
       // 新しいフレームワークのデータを復元
       const cached = cacheRef.current[selectedFrameworkId];
       setFormData(cached || {});
+      clearErrors();
       previousFrameworkIdRef.current = selectedFrameworkId;
     }
-  }, [selectedFrameworkId]);
+  }, [selectedFrameworkId, clearErrors]);
 
   // 入力変更
   const handleFieldChange = useCallback((fieldId: string, value: string) => {
@@ -63,17 +68,25 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
     }));
   }, []);
 
-  // DB に保存
   const handleSave = async () => {
-    if (!selectedFrameworkId) return;
+    if (!selectedFrameworkId || !selectedFramework) return;
 
     try {
+      const isValid = validateFormData(formData, selectedFramework.schema || []);
+
+      if (!isValid) {
+        setSaveMessage('❌ 入力に誤りがあります。確認してください。');
+        return;
+      }
+
       setIsSaving(true);
       setSaveMessage(null);
 
+      const sanitized = sanitizeFormData(formData);
+
       const reflectionData: ReflectionData = {
         framework_id: selectedFrameworkId,
-        content: formData,
+        content: sanitized,
         created_at: new Date().toISOString(),
       };
 
@@ -82,8 +95,9 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
       }
 
       // キャッシュも更新
-      cacheRef.current[selectedFrameworkId] = formData;
+      cacheRef.current[selectedFrameworkId] = sanitized;
 
+      clearErrors();
       setSaveMessage('✅ 保存しました');
       setTimeout(() => setSaveMessage(null), 3000);
     } catch (error) {
@@ -97,6 +111,7 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
   // リセット
   const handleReset = () => {
     setFormData({});
+    clearErrors();
     setSaveMessage(null);
   };
 
@@ -109,29 +124,52 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
       {/* 入力フォーム */}
       <div className="space-y-6">
         {selectedFramework.schema?.map((field, index) => (
-          <DynamicField
-            key={field.id}
-            field={field}
-            value={formData[field.id] || ''}
-            onChange={(value) => handleFieldChange(field.id, value)}
-            fieldIndex={index}
-          />
+          <div key={field.id}>
+            <DynamicField
+              field={field}
+              value={formData[field.id] || ''}
+              onChange={(value) => handleFieldChange(field.id, value)}
+              fieldIndex={index}
+            />
+
+            {/* バリデーションエラー表示 */}
+            {errors[field.id] && (
+              <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                <span>⚠️</span>
+                {errors[field.id]}
+              </p>
+            )}
+          </div>
         ))}
       </div>
 
       {/* アクションボタン */}
       <div className="flex gap-3 mt-6">
-        <Button onClick={handleSave} disabled={isSaving} className="flex-1 bg-blue-600 hover:bg-blue-700">
+        <Button
+          onClick={handleSave}
+          disabled={isSaving || Object.keys(formData).length === 0}
+          className="flex-1 bg-blue-600 hover:bg-blue-700"
+        >
           {isSaving ? '保存中...' : '💾 保存'}
         </Button>
-        <Button onClick={handleReset} variant="outline">
+        <Button
+          onClick={handleReset}
+          variant="outline"
+          disabled={Object.keys(formData).length === 0}
+        >
           🔄 リセット
         </Button>
       </div>
 
       {/* 保存メッセージ */}
       {saveMessage && (
-        <div className="mt-4 p-3 bg-blue-50 text-blue-800 border border-blue-200 rounded text-sm">
+        <div
+          className={`mt-4 p-3 rounded text-sm ${
+            saveMessage.startsWith('✅')
+              ? 'bg-green-50 text-green-800 border border-green-200'
+              : 'bg-red-50 text-red-800 border border-red-200'
+          }`}
+        >
           {saveMessage}
         </div>
       )}
