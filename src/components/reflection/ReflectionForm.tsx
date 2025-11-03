@@ -1,156 +1,185 @@
-"use client";
+'use client';
 
-import React, { useEffect } from "react";
-import { useFrameworkStore } from "@/stores/frameworkStore";
-import { useReflectionForm } from "@/hooks/useReflectionForm";
-import { Button } from "@/components/ui/button";
-import { AlertCircle, Loader2, Check } from "lucide-react";
-import DynamicField from "@/components/reflection/DynamicField";
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useFrameworkStore } from '@/stores/frameworkStore';
+import { UnsavedChangesDialog } from './UnsavedChangesDialog';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
-export default function ReflectionForm() {
-  const selectedFramework = useFrameworkStore(
-    (state) => state.selectedFramework
-  );
+interface ReflectionFormProps {
+  onSave?: (data: any) => Promise<void>;
+}
 
-  const {
-    formData,
-    isSubmitting,
-    submitStatus,
-    errorMessage,
-    updateField,
-    resetForm,
-    setSubmitStatus,
-    setErrorMessage,
-    setIsSubmitting,
-  } = useReflectionForm();
+export default function ReflectionForm({ onSave }: ReflectionFormProps) {
+  const { selectedFrameworkId, selectedFramework, setSelectedFramework } = useFrameworkStore();
+  const cacheRef = useRef<Record<string, Record<string, string>>>({});
+  const [formData, setFormData] = useState<Record<string, string>>({});
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [showDialog, setShowDialog] = useState(false);
+  const [pendingFrameworkId, setPendingFrameworkId] = useState<string | null>(null);
+  const previousFrameworkIdRef = useRef<string | null>(null);
 
-  // フレームワーク変更時に フォームをリセット
   useEffect(() => {
-    resetForm();
-  }, [selectedFramework?.id, resetForm]);
+    if (!selectedFrameworkId) return;
 
-  if (!selectedFramework) {
-    return (
-      <div className="p-6 text-center text-gray-500">
-        <p>フレームワークを選択してください</p>
-      </div>
-    );
-  }
+    const previousId = previousFrameworkIdRef.current;
 
-  const schema = selectedFramework.schema || [];
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage("");
-
-    const missingFields = schema
-      .filter((field) => {
-        const value = formData[field.id];
-        return (
-          field.required &&
-          (value == null || (typeof value === "string" && value.trim() === ""))
-        );
-      })
-      .map((field) => field.label);
-
-    if (missingFields.length > 0) {
-      setErrorMessage(`以下の項目は必須です: ${missingFields.join(", ")}`);
-      setSubmitStatus("error");
+    if (!previousId) {
+      const cached = cacheRef.current[selectedFrameworkId];
+      setFormData(cached || {});
+      setHasUnsavedChanges(false);
+      previousFrameworkIdRef.current = selectedFrameworkId;
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      // TODO: Supabaseに保存するロジックをここに実装
-      console.log("保存データ:", {
-        framework_id: selectedFramework.id,
-        content: formData,
-        created_at: new Date().toISOString(),
-      });
+    if (previousId !== selectedFrameworkId) {
+      if (hasUnsavedChanges && Object.keys(formData).length > 0) {
+        setSelectedFramework(previousId);
+        setPendingFrameworkId(selectedFrameworkId);
+        setShowDialog(true);
+        return;
+      }
 
-      // 一時的な遅延（実装完了後に削除）
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (Object.keys(formData).length > 0) {
+        cacheRef.current[previousId] = formData;
+      }
 
-      setSubmitStatus("success");
-      resetForm();
+      const cached = cacheRef.current[selectedFrameworkId];
+      setFormData(cached || {});
+      setHasUnsavedChanges(false);
+      previousFrameworkIdRef.current = selectedFrameworkId;
+    }
+  }, [selectedFrameworkId]);
 
-      // 3秒後にメッセージをクリア
-      setTimeout(() => {
-        setSubmitStatus("idle");
-      }, 3000);
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "保存に失敗しました"
-      );
-      setSubmitStatus("error");
-    } finally {
-      setIsSubmitting(false);
+  const handleFieldChange = useCallback((fieldId: string, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      [fieldId]: value,
+    }));
+    setHasUnsavedChanges(true);
+  }, []);
+
+  const handleConfirmSwitch = () => {
+    if (pendingFrameworkId && previousFrameworkIdRef.current) {
+      delete cacheRef.current[previousFrameworkIdRef.current];
+      
+      previousFrameworkIdRef.current = pendingFrameworkId;
+      setSelectedFramework(pendingFrameworkId);
+      
+      const cached = cacheRef.current[pendingFrameworkId];
+      setFormData(cached || {});
+      setHasUnsavedChanges(false);
+      setShowDialog(false);
+      setPendingFrameworkId(null);
     }
   };
 
+  const handleCancelSwitch = () => {
+    setShowDialog(false);
+    setPendingFrameworkId(null);
+  };
+
+  const handleSave = async () => {
+    if (!selectedFrameworkId) return;
+
+    try {
+      setIsSaving(true);
+      setSaveMessage(null);
+
+      if (onSave) {
+        await onSave({
+          framework_id: selectedFrameworkId,
+          content: formData,
+          created_at: new Date().toISOString(),
+        });
+      }
+
+      cacheRef.current[selectedFrameworkId] = formData;
+      setHasUnsavedChanges(false);
+      setSaveMessage('✅ 保存しました');
+
+      setTimeout(() => setSaveMessage(null), 3000);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '保存に失敗しました';
+      setSaveMessage(`❌ ${message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleReset = () => {
+    setFormData({});
+    setHasUnsavedChanges(false);
+    setSaveMessage(null);
+  };
+
+  if (!selectedFramework) {
+    return <div className="text-center p-4">フレームワークを選択してください</div>;
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* エラーメッセージ */}
-      {submitStatus === "error" && errorMessage && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-red-700">{errorMessage}</p>
-        </div>
-      )}
-
-      {/* 成功メッセージ */}
-      {submitStatus === "success" && (
-        <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
-          <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-green-700">振り返りを保存しました!</p>
-        </div>
-      )}
-
-      {/* 動的フィールド */}
+    <div className="w-full max-w-2xl mx-auto">
+      {/* 入力フォーム */}
       <div className="space-y-4">
-        {schema.map((field) => (
-          <DynamicField
-            key={field.id}
-            field={field}
-            value={formData[field.id] || ""}
-            onChange={(value) => updateField(field.id, value)}
-          />
+        {selectedFramework.schema?.map((field) => (
+          <div key={field.id}>
+            <Label htmlFor={field.id} className="text-base font-medium">
+              {field.label}
+            </Label>
+            {field.description && (
+              <p className="text-sm text-muted-foreground mt-1">{field.description}</p>
+            )}
+            <Textarea
+              id={field.id}
+              value={formData[field.id] || ''}
+              onChange={(e) => handleFieldChange(field.id, e.target.value)}
+              placeholder={field.placeholder}
+              rows={4}
+              className="resize-none mt-2"
+            />
+          </div>
         ))}
       </div>
 
-      {/* 保存ボタン */}
-      <div className="flex gap-3 pt-4">
-        <Button
-          type="submit"
-          disabled={isSubmitting}
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              保存中...
-            </>
-          ) : (
-            "振り返りを保存"
-          )}
+      {/* 未保存警告バッジ */}
+      {hasUnsavedChanges && (
+        <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-700">
+          ⚠️ 保存していない変更があります
+        </div>
+      )}
+
+      {/* アクションボタン */}
+      <div className="flex gap-3 mt-6">
+        <Button onClick={handleSave} disabled={isSaving} className="flex-1">
+          {isSaving ? '保存中...' : '💾 保存'}
         </Button>
         <Button
-          type="button"
+          onClick={handleReset}
           variant="outline"
-          onClick={() => {
-            resetForm();
-            setSubmitStatus("idle");
-          }}
-          disabled={isSubmitting}
+          disabled={Object.keys(formData).length === 0}
         >
-          クリア
+          🔄 リセット
         </Button>
       </div>
 
-      {/* ヒント */}
-      <p className="text-xs text-gray-500">
-        完璧である必要はありません。思ったことを気軽に記入してください。
-      </p>
-    </form>
+      {/* 保存メッセージ */}
+      {saveMessage && (
+        <div className="mt-4 p-3 bg-blue-50 text-blue-800 border border-blue-200 rounded text-sm">
+          {saveMessage}
+        </div>
+      )}
+
+      {/* 未保存データ警告ダイアログ */}
+      <UnsavedChangesDialog
+        open={showDialog}
+        onConfirm={handleConfirmSwitch}
+        onCancel={handleCancelSwitch}
+        fromFrameworkName={selectedFramework?.name}
+        toFrameworkName="別のフレームワーク"
+      />
+    </div>
   );
 }
