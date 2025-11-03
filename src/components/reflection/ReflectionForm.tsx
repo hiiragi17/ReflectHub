@@ -2,86 +2,68 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useFrameworkStore } from '@/stores/frameworkStore';
-import { UnsavedChangesDialog } from './UnsavedChangesDialog';
+import DynamicField from './DynamicField';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
+
+interface ReflectionData {
+  framework_id: string;
+  content: Record<string, string>;
+  created_at: string;
+}
 
 interface ReflectionFormProps {
-  onSave?: (data: any) => Promise<void>;
+  onSave?: (data: ReflectionData) => Promise<void>;
 }
 
 export default function ReflectionForm({ onSave }: ReflectionFormProps) {
-  const { selectedFrameworkId, selectedFramework, setSelectedFramework } = useFrameworkStore();
+  const { selectedFrameworkId, selectedFramework } =
+    useFrameworkStore();
+
+  // メモリキャッシュ（フレームワーク切り替え時の一時保存）
   const cacheRef = useRef<Record<string, Record<string, string>>>({});
+
   const [formData, setFormData] = useState<Record<string, string>>({});
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [showDialog, setShowDialog] = useState(false);
-  const [pendingFrameworkId, setPendingFrameworkId] = useState<string | null>(null);
   const previousFrameworkIdRef = useRef<string | null>(null);
 
+  // フレームワーク切り替え時の処理
   useEffect(() => {
     if (!selectedFrameworkId) return;
 
     const previousId = previousFrameworkIdRef.current;
 
+    // 最初のフレームワーク選択時
     if (!previousId) {
       const cached = cacheRef.current[selectedFrameworkId];
       setFormData(cached || {});
-      setHasUnsavedChanges(false);
       previousFrameworkIdRef.current = selectedFrameworkId;
       return;
     }
 
+    // フレームワークが変更された場合
     if (previousId !== selectedFrameworkId) {
-      if (hasUnsavedChanges && Object.keys(formData).length > 0) {
-        setSelectedFramework(previousId);
-        setPendingFrameworkId(selectedFrameworkId);
-        setShowDialog(true);
-        return;
-      }
-
+      // 前のフレームワークのデータを一時保存
       if (Object.keys(formData).length > 0) {
         cacheRef.current[previousId] = formData;
       }
 
+      // 新しいフレームワークのデータを復元
       const cached = cacheRef.current[selectedFrameworkId];
       setFormData(cached || {});
-      setHasUnsavedChanges(false);
       previousFrameworkIdRef.current = selectedFrameworkId;
     }
   }, [selectedFrameworkId]);
 
+  // 入力変更
   const handleFieldChange = useCallback((fieldId: string, value: string) => {
     setFormData((prev) => ({
       ...prev,
       [fieldId]: value,
     }));
-    setHasUnsavedChanges(true);
   }, []);
 
-  const handleConfirmSwitch = () => {
-    if (pendingFrameworkId && previousFrameworkIdRef.current) {
-      delete cacheRef.current[previousFrameworkIdRef.current];
-      
-      previousFrameworkIdRef.current = pendingFrameworkId;
-      setSelectedFramework(pendingFrameworkId);
-      
-      const cached = cacheRef.current[pendingFrameworkId];
-      setFormData(cached || {});
-      setHasUnsavedChanges(false);
-      setShowDialog(false);
-      setPendingFrameworkId(null);
-    }
-  };
-
-  const handleCancelSwitch = () => {
-    setShowDialog(false);
-    setPendingFrameworkId(null);
-  };
-
+  // DB に保存
   const handleSave = async () => {
     if (!selectedFrameworkId) return;
 
@@ -89,18 +71,20 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
       setIsSaving(true);
       setSaveMessage(null);
 
+      const reflectionData: ReflectionData = {
+        framework_id: selectedFrameworkId,
+        content: formData,
+        created_at: new Date().toISOString(),
+      };
+
       if (onSave) {
-        await onSave({
-          framework_id: selectedFrameworkId,
-          content: formData,
-          created_at: new Date().toISOString(),
-        });
+        await onSave(reflectionData);
       }
 
+      // キャッシュも更新
       cacheRef.current[selectedFrameworkId] = formData;
-      setHasUnsavedChanges(false);
-      setSaveMessage('✅ 保存しました');
 
+      setSaveMessage('✅ 保存しました');
       setTimeout(() => setSaveMessage(null), 3000);
     } catch (error) {
       const message = error instanceof Error ? error.message : '保存に失敗しました';
@@ -110,9 +94,9 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
     }
   };
 
+  // リセット
   const handleReset = () => {
     setFormData({});
-    setHasUnsavedChanges(false);
     setSaveMessage(null);
   };
 
@@ -123,44 +107,24 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
   return (
     <div className="w-full max-w-2xl mx-auto">
       {/* 入力フォーム */}
-      <div className="space-y-4">
-        {selectedFramework.schema?.map((field) => (
-          <div key={field.id}>
-            <Label htmlFor={field.id} className="text-base font-medium">
-              {field.label}
-            </Label>
-            {field.description && (
-              <p className="text-sm text-muted-foreground mt-1">{field.description}</p>
-            )}
-            <Textarea
-              id={field.id}
-              value={formData[field.id] || ''}
-              onChange={(e) => handleFieldChange(field.id, e.target.value)}
-              placeholder={field.placeholder}
-              rows={4}
-              className="resize-none mt-2"
-            />
-          </div>
+      <div className="space-y-6">
+        {selectedFramework.schema?.map((field, index) => (
+          <DynamicField
+            key={field.id}
+            field={field}
+            value={formData[field.id] || ''}
+            onChange={(value) => handleFieldChange(field.id, value)}
+            fieldIndex={index}
+          />
         ))}
       </div>
 
-      {/* 未保存警告バッジ */}
-      {hasUnsavedChanges && (
-        <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-700">
-          ⚠️ 保存していない変更があります
-        </div>
-      )}
-
       {/* アクションボタン */}
       <div className="flex gap-3 mt-6">
-        <Button onClick={handleSave} disabled={isSaving} className="flex-1">
+        <Button onClick={handleSave} disabled={isSaving} className="flex-1 bg-blue-600 hover:bg-blue-700">
           {isSaving ? '保存中...' : '💾 保存'}
         </Button>
-        <Button
-          onClick={handleReset}
-          variant="outline"
-          disabled={Object.keys(formData).length === 0}
-        >
+        <Button onClick={handleReset} variant="outline">
           🔄 リセット
         </Button>
       </div>
@@ -172,14 +136,26 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
         </div>
       )}
 
-      {/* 未保存データ警告ダイアログ */}
-      <UnsavedChangesDialog
-        open={showDialog}
-        onConfirm={handleConfirmSwitch}
-        onCancel={handleCancelSwitch}
-        fromFrameworkName={selectedFramework?.name}
-        toFrameworkName="別のフレームワーク"
-      />
+      {/* 情報メッセージ */}
+      {Object.keys(formData).length > 0 && (
+        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded">
+          <p className="font-medium text-blue-900 mb-3">💡 入力内容について</p>
+          <div className="space-y-2 text-sm text-blue-800">
+            <div className="flex gap-2">
+              <span>✅</span>
+              <p>別のフレームワークを試しても、戻ってくると入力内容が残ります</p>
+            </div>
+            <div className="flex gap-2">
+              <span>⚠️</span>
+              <p>ページを更新するとリセットされます</p>
+            </div>
+            <div className="flex gap-2">
+              <span>💾</span>
+              <p className="font-medium">確実に保存するには「💾 保存」ボタンを押してください</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

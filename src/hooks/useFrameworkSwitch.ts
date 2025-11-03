@@ -1,69 +1,79 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
+
+interface CachedFormData {
+  [fieldId: string]: string;
+}
+
+declare global {
+  interface Window {
+    __frameworkSwitchResolver?: {
+      resolve: (value: boolean) => void;
+    };
+  }
+}
 
 export const useFrameworkSwitch = () => {
-  const contentCache = useRef<Record<string, any>>({});
+  // 入力内容のメモリキャッシュ（frameworkId -> content）
+  const contentCache = useRef<Record<string, CachedFormData>>({});
+
+  // 未保存フラグ
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // 切り替え待機中のフレームワーク ID
   const [pendingFrameworkId, setPendingFrameworkId] = useState<string | null>(null);
 
-  const cacheContent = useCallback((frameworkId: string, content: any) => {
+  const cacheContent = (frameworkId: string, content: CachedFormData): void => {
     contentCache.current[frameworkId] = content;
-  }, []);
+  };
 
-  const getContentFromCache = useCallback((frameworkId: string) => {
+  const getContentFromCache = (frameworkId: string): CachedFormData | null => {
     return contentCache.current[frameworkId] || null;
-  }, []);
+  };
 
-  const confirmSwitch = useCallback(async () => {
+  const confirmSwitch = async (): Promise<boolean> => {
     if (pendingFrameworkId) {
       setPendingFrameworkId(null);
       setHasUnsavedChanges(false);
 
-      // Promise を解決
-      if ((window as any).__frameworkSwitchResolver) {
-        (window as any).__frameworkSwitchResolver.resolve(true);
-        delete (window as any).__frameworkSwitchResolver;
+      if (window.__frameworkSwitchResolver) {
+        window.__frameworkSwitchResolver.resolve(true);
+        delete window.__frameworkSwitchResolver;
       }
 
       return true;
     }
     return false;
-  }, [pendingFrameworkId]);
+  };
 
-  const cancelSwitch = useCallback(() => {
+  const cancelSwitch = (): void => {
     setPendingFrameworkId(null);
 
-    if ((window as any).__frameworkSwitchResolver) {
-      (window as any).__frameworkSwitchResolver.resolve(false);
-      delete (window as any).__frameworkSwitchResolver;
+    if (window.__frameworkSwitchResolver) {
+      window.__frameworkSwitchResolver.resolve(false);
+      delete window.__frameworkSwitchResolver;
     }
-  }, []);
+  };
 
-  const switchWithWarning = useCallback(
-    async (toFrameworkId: string): Promise<boolean> => {
-      if (!hasUnsavedChanges) {
-        // 未保存データがなければそのまま切り替え
-        setHasUnsavedChanges(false);
-        return true;
-      }
+  const switchWithWarning = async (toFrameworkId: string): Promise<boolean> => {
+    if (!hasUnsavedChanges) {
+      return true;
+    }
 
-      // 未保存データがある場合は確認
-      setPendingFrameworkId(toFrameworkId);
+    setPendingFrameworkId(toFrameworkId);
 
-      return new Promise((resolve) => {
-        (window as any).__frameworkSwitchResolver = { resolve };
-      });
-    },
-    [hasUnsavedChanges]
-  );
+    return new Promise<boolean>((resolve) => {
+      window.__frameworkSwitchResolver = { resolve };
+    });
+  };
 
   return {
-    // State
+    // 状態
     hasUnsavedChanges,
     pendingFrameworkId,
 
-    // Actions
+    // アクション
     cacheContent,
     getContentFromCache,
     switchWithWarning,
