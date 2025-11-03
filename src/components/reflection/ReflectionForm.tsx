@@ -12,6 +12,11 @@ interface ReflectionData {
   created_at: string;
 }
 
+interface SaveMessage {
+  text: string;
+  type: 'success' | 'error';
+}
+
 interface ReflectionFormProps {
   onSave?: (data: ReflectionData) => Promise<void>;
 }
@@ -27,7 +32,7 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
 
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState<SaveMessage | null>(null);
   const previousFrameworkIdRef = useRef<string | null>(null);
 
   // フレームワーク切り替え時の処理
@@ -68,6 +73,7 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
     }));
   }, []);
 
+  // 保存（バリデーション付き）
   const handleSave = async () => {
     if (!selectedFrameworkId || !selectedFramework) return;
 
@@ -75,7 +81,11 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
       const isValid = validateFormData(formData, selectedFramework.schema || []);
 
       if (!isValid) {
-        setSaveMessage('❌ 入力に誤りがあります。確認してください。');
+        const formErrorMessage = Object.values(errors).join('\n');
+        setSaveMessage({
+          text: formErrorMessage || '入力を確認してください',
+          type: 'error',
+        });
         return;
       }
 
@@ -98,11 +108,17 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
       cacheRef.current[selectedFrameworkId] = sanitized;
 
       clearErrors();
-      setSaveMessage('✅ 保存しました');
+      setSaveMessage({
+        text: '保存しました',
+        type: 'success',
+      });
       setTimeout(() => setSaveMessage(null), 3000);
     } catch (error) {
       const message = error instanceof Error ? error.message : '保存に失敗しました';
-      setSaveMessage(`❌ ${message}`);
+      setSaveMessage({
+        text: message,
+        type: 'error',
+      });
     } finally {
       setIsSaving(false);
     }
@@ -118,6 +134,8 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
   if (!selectedFramework) {
     return <div className="text-center p-4">フレームワークを選択してください</div>;
   }
+
+  const formLevelError = errors['__form__'];
 
   return (
     <div className="w-full max-w-2xl mx-auto">
@@ -143,11 +161,21 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
         ))}
       </div>
 
+      {/* フォーム全体のエラー表示 */}
+      {formLevelError && (
+        <div className="mt-6 p-4 bg-amber-50 border-2 border-amber-300 rounded text-sm">
+          <p className="text-amber-900 font-medium flex items-center gap-2">
+            <span>⚠️</span>
+            {formLevelError}
+          </p>
+        </div>
+      )}
+
       {/* アクションボタン */}
       <div className="flex gap-3 mt-6">
         <Button
           onClick={handleSave}
-          disabled={isSaving || Object.keys(formData).length === 0}
+          disabled={isSaving}
           className="flex-1 bg-blue-600 hover:bg-blue-700"
         >
           {isSaving ? '保存中...' : '💾 保存'}
@@ -161,16 +189,17 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
         </Button>
       </div>
 
-      {/* 保存メッセージ */}
+      {/* 保存メッセージ（タイプで分離）*/}
       {saveMessage && (
         <div
-          className={`mt-4 p-3 rounded text-sm ${
-            saveMessage.startsWith('✅')
+          className={`mt-4 p-3 rounded text-sm flex items-center gap-2 ${
+            saveMessage.type === 'success'
               ? 'bg-green-50 text-green-800 border border-green-200'
               : 'bg-red-50 text-red-800 border border-red-200'
           }`}
         >
-          {saveMessage}
+          <span>{saveMessage.type === 'success' ? '✅' : '❌'}</span>
+          <span>{saveMessage.text}</span>
         </div>
       )}
 
@@ -190,6 +219,10 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
             <div className="flex gap-2">
               <span>💾</span>
               <p className="font-medium">確実に保存するには「💾 保存」ボタンを押してください</p>
+            </div>
+            <div className="flex gap-2">
+              <span>📝</span>
+              <p>※ どれか1つ以上のフィールドに入力が必要です</p>
             </div>
           </div>
         </div>

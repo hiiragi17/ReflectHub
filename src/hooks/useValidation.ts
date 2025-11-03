@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { validateForm, validateField, sanitizeHtml, ValidationError } from '@/utils/validation';
+import { VALIDATION_CONSTANTS } from '@/constants/validation';
 
 export interface ValidationState {
   errors: Record<string, string>; // fieldId -> errorMessage
@@ -30,7 +31,7 @@ export const useValidation = () => {
         id: field.id,
         label: field.label ?? '',
         required: field.required ?? false,
-        max_length: field.max_length ?? 1000,
+        max_length: field.max_length ?? VALIDATION_CONSTANTS.DEFAULT_MAX_LENGTH,
       }));
       const result = validateForm(formData, normalizedSchema);
 

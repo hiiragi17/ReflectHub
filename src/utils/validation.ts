@@ -1,58 +1,40 @@
-/**
- * バリデーション関数群
- */
+import { VALIDATION_CONSTANTS } from '@/constants/validation';
+import DOMPurify from 'dompurify';
+import GraphemeSplitter from 'grapheme-splitter';
 
-/**
- * HTMLタグを除去（サニタイズ）
- */
+const splitter = new GraphemeSplitter();
+
 export const sanitizeHtml = (text: string): string => {
-  return text
-    .replace(/<[^>]*>/g, '') // HTMLタグを除去
-    .trim();
+  return DOMPurify.sanitize(text, { ALLOWED_TAGS: [] }).trim();
 };
 
-/**
- * 必須フィールドをチェック
- */
 export const isRequired = (value: string | undefined): boolean => {
   return !!value && value.trim().length > 0;
 };
 
-/**
- * 文字数をチェック
- */
 export const checkLength = (
   value: string,
   maxLength: number
 ): { isValid: boolean; message?: string } => {
-  if (value.length > maxLength) {
+  const graphemeLength = splitter.countGraphemes(value);
+
+  if (graphemeLength > maxLength) {
     return {
       isValid: false,
-      message: `${maxLength}文字以内で入力してください（現在: ${value.length}文字）`,
+      message: VALIDATION_CONSTANTS.MESSAGES.MAX_LENGTH(maxLength),
     };
   }
   return { isValid: true };
 };
 
-/**
- * 禁止文字をチェック
- */
 export const containsForbiddenCharacters = (value: string): boolean => {
-  // 例：制御文字などを検出
-  const forbiddenPattern = /[\x00-\x1F\x7F]/g;
-  return forbiddenPattern.test(value);
+  return VALIDATION_CONSTANTS.PATTERNS.CONTROL_CHARS.test(value);
 };
 
-/**
- * XSS対策：スクリプトタグをチェック
- */
-export const containsScriptTag = (value: string): boolean => {
-  return /<script|<iframe|javascript:/i.test(value);
+export const containsHtmlContent = (value: string): boolean => {
+  return VALIDATION_CONSTANTS.PATTERNS.CONTAINS_HTML.test(value);
 };
 
-/**
- * フィールド全体をバリデーション
- */
 export interface ValidationError {
   field: string;
   message: string;
@@ -63,36 +45,38 @@ export interface ValidationResult {
   errors: ValidationError[];
 }
 
-/**
- * 単一フィールドの検証
- */
 export const validateField = (
   fieldId: string,
   value: string,
-  isRequired: boolean,
+  required: boolean,
   maxLength: number
 ): ValidationError | null => {
-  // 必須チェック
-  if (isRequired && !value.trim()) {
+  // 必須チェック（ヘルパー関数を使用）
+  if (required && !isRequired(value)) {
     return {
       field: fieldId,
-      message: 'この項目は必須です',
+      message: VALIDATION_CONSTANTS.MESSAGES.REQUIRED,
     };
   }
 
-  // 文字数チェック
-  if (value.length > maxLength) {
+  // 値が空の場合、以降のチェックをスキップ
+  if (!isRequired(value)) {
+    return null;
+  }
+
+  // 文字数チェック（ヘルパー関数を使用）
+  const lengthCheck = checkLength(value, maxLength);
+  if (!lengthCheck.isValid) {
     return {
-      field: fieldId,
-      message: `${maxLength}文字以内で入力してください`,
+      field: fieldId,      message: lengthCheck.message || VALIDATION_CONSTANTS.MESSAGES.MAX_LENGTH(maxLength),
     };
   }
 
-  // XSS チェック
-  if (containsScriptTag(value)) {
+  // HTML コンテンツ検出（バリデーション用）
+  if (containsHtmlContent(value)) {
     return {
       field: fieldId,
-      message: 'スクリプトタグは使用できません',
+      message: VALIDATION_CONSTANTS.MESSAGES.CONTAINS_HTML,
     };
   }
 
@@ -100,35 +84,48 @@ export const validateField = (
   if (containsForbiddenCharacters(value)) {
     return {
       field: fieldId,
-      message: '使用できない文字が含まれています',
+      message: VALIDATION_CONSTANTS.MESSAGES.CONTAINS_FORBIDDEN_CHARS,
     };
   }
 
   return null;
 };
 
-/**
- * 複数フィールドの検証
- */
+export const hasAtLeastOneValue = (formData: Record<string, string>): boolean => {
+  return Object.values(formData).some((value) => isRequired(value));
+};
+
 export const validateForm = (
   formData: Record<string, string>,
   schema: Array<{
     id: string;
-    label: string;
-    required: boolean;
-    max_length: number;
+    label?: string;
+    required?: boolean;
+    max_length?: number;
   }>
 ): ValidationResult => {
   const errors: ValidationError[] = [];
 
   schema.forEach((field) => {
     const value = formData[field.id] || '';
-    const error = validateField(field.id, value, field.required, field.max_length);
+    const error = validateField(
+      field.id,
+      value,
+      field.required ?? false,
+      field.max_length ?? VALIDATION_CONSTANTS.DEFAULT_MAX_LENGTH
+    );
 
     if (error) {
       errors.push(error);
     }
   });
+
+  if (!hasAtLeastOneValue(formData)) {
+    errors.push({
+      field: '__form__',
+      message: 'どれか1つ以上のフィールドに入力してください',
+    });
+  }
 
   return {
     isValid: errors.length === 0,
