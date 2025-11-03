@@ -1,7 +1,3 @@
-/**
- * バリデーション関連の定数
- */
-
 export const VALIDATION_CONSTANTS = {
   // 文字数制限
   DEFAULT_MAX_LENGTH: 1000,
