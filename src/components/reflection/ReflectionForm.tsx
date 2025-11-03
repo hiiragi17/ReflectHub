@@ -1,156 +1,161 @@
-"use client";
+'use client';
 
-import React, { useEffect } from "react";
-import { useFrameworkStore } from "@/stores/frameworkStore";
-import { useReflectionForm } from "@/hooks/useReflectionForm";
-import { Button } from "@/components/ui/button";
-import { AlertCircle, Loader2, Check } from "lucide-react";
-import DynamicField from "@/components/reflection/DynamicField";
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useFrameworkStore } from '@/stores/frameworkStore';
+import DynamicField from './DynamicField';
+import { Button } from '@/components/ui/button';
 
-export default function ReflectionForm() {
-  const selectedFramework = useFrameworkStore(
-    (state) => state.selectedFramework
-  );
+interface ReflectionData {
+  framework_id: string;
+  content: Record<string, string>;
+  created_at: string;
+}
 
-  const {
-    formData,
-    isSubmitting,
-    submitStatus,
-    errorMessage,
-    updateField,
-    resetForm,
-    setSubmitStatus,
-    setErrorMessage,
-    setIsSubmitting,
-  } = useReflectionForm();
+interface ReflectionFormProps {
+  onSave?: (data: ReflectionData) => Promise<void>;
+}
 
-  // フレームワーク変更時に フォームをリセット
+export default function ReflectionForm({ onSave }: ReflectionFormProps) {
+  const { selectedFrameworkId, selectedFramework } =
+    useFrameworkStore();
+
+  // メモリキャッシュ（フレームワーク切り替え時の一時保存）
+  const cacheRef = useRef<Record<string, Record<string, string>>>({});
+
+  const [formData, setFormData] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const previousFrameworkIdRef = useRef<string | null>(null);
+
+  // フレームワーク切り替え時の処理
   useEffect(() => {
-    resetForm();
-  }, [selectedFramework?.id, resetForm]);
+    if (!selectedFrameworkId) return;
 
-  if (!selectedFramework) {
-    return (
-      <div className="p-6 text-center text-gray-500">
-        <p>フレームワークを選択してください</p>
-      </div>
-    );
-  }
+    const previousId = previousFrameworkIdRef.current;
 
-  const schema = selectedFramework.schema || [];
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage("");
-
-    const missingFields = schema
-      .filter((field) => {
-        const value = formData[field.id];
-        return (
-          field.required &&
-          (value == null || (typeof value === "string" && value.trim() === ""))
-        );
-      })
-      .map((field) => field.label);
-
-    if (missingFields.length > 0) {
-      setErrorMessage(`以下の項目は必須です: ${missingFields.join(", ")}`);
-      setSubmitStatus("error");
+    // 最初のフレームワーク選択時
+    if (!previousId) {
+      const cached = cacheRef.current[selectedFrameworkId];
+      setFormData(cached || {});
+      previousFrameworkIdRef.current = selectedFrameworkId;
       return;
     }
 
-    setIsSubmitting(true);
+    // フレームワークが変更された場合
+    if (previousId !== selectedFrameworkId) {
+      // 前のフレームワークのデータを一時保存
+      if (Object.keys(formData).length > 0) {
+        cacheRef.current[previousId] = formData;
+      }
+
+      // 新しいフレームワークのデータを復元
+      const cached = cacheRef.current[selectedFrameworkId];
+      setFormData(cached || {});
+      previousFrameworkIdRef.current = selectedFrameworkId;
+    }
+  }, [selectedFrameworkId]);
+
+  // 入力変更
+  const handleFieldChange = useCallback((fieldId: string, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      [fieldId]: value,
+    }));
+  }, []);
+
+  // DB に保存
+  const handleSave = async () => {
+    if (!selectedFrameworkId) return;
+
     try {
-      // TODO: Supabaseに保存するロジックをここに実装
-      console.log("保存データ:", {
-        framework_id: selectedFramework.id,
+      setIsSaving(true);
+      setSaveMessage(null);
+
+      const reflectionData: ReflectionData = {
+        framework_id: selectedFrameworkId,
         content: formData,
         created_at: new Date().toISOString(),
-      });
+      };
 
-      // 一時的な遅延（実装完了後に削除）
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (onSave) {
+        await onSave(reflectionData);
+      }
 
-      setSubmitStatus("success");
-      resetForm();
+      // キャッシュも更新
+      cacheRef.current[selectedFrameworkId] = formData;
 
-      // 3秒後にメッセージをクリア
-      setTimeout(() => {
-        setSubmitStatus("idle");
-      }, 3000);
+      setSaveMessage('✅ 保存しました');
+      setTimeout(() => setSaveMessage(null), 3000);
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "保存に失敗しました"
-      );
-      setSubmitStatus("error");
+      const message = error instanceof Error ? error.message : '保存に失敗しました';
+      setSaveMessage(`❌ ${message}`);
     } finally {
-      setIsSubmitting(false);
+      setIsSaving(false);
     }
   };
 
+  // リセット
+  const handleReset = () => {
+    setFormData({});
+    setSaveMessage(null);
+  };
+
+  if (!selectedFramework) {
+    return <div className="text-center p-4">フレームワークを選択してください</div>;
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* エラーメッセージ */}
-      {submitStatus === "error" && errorMessage && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-red-700">{errorMessage}</p>
-        </div>
-      )}
-
-      {/* 成功メッセージ */}
-      {submitStatus === "success" && (
-        <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
-          <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-green-700">振り返りを保存しました!</p>
-        </div>
-      )}
-
-      {/* 動的フィールド */}
-      <div className="space-y-4">
-        {schema.map((field) => (
+    <div className="w-full max-w-2xl mx-auto">
+      {/* 入力フォーム */}
+      <div className="space-y-6">
+        {selectedFramework.schema?.map((field, index) => (
           <DynamicField
             key={field.id}
             field={field}
-            value={formData[field.id] || ""}
-            onChange={(value) => updateField(field.id, value)}
+            value={formData[field.id] || ''}
+            onChange={(value) => handleFieldChange(field.id, value)}
+            fieldIndex={index}
           />
         ))}
       </div>
 
-      {/* 保存ボタン */}
-      <div className="flex gap-3 pt-4">
-        <Button
-          type="submit"
-          disabled={isSubmitting}
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              保存中...
-            </>
-          ) : (
-            "振り返りを保存"
-          )}
+      {/* アクションボタン */}
+      <div className="flex gap-3 mt-6">
+        <Button onClick={handleSave} disabled={isSaving} className="flex-1 bg-blue-600 hover:bg-blue-700">
+          {isSaving ? '保存中...' : '💾 保存'}
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => {
-            resetForm();
-            setSubmitStatus("idle");
-          }}
-          disabled={isSubmitting}
-        >
-          クリア
+        <Button onClick={handleReset} variant="outline">
+          🔄 リセット
         </Button>
       </div>
 
-      {/* ヒント */}
-      <p className="text-xs text-gray-500">
-        完璧である必要はありません。思ったことを気軽に記入してください。
-      </p>
-    </form>
+      {/* 保存メッセージ */}
+      {saveMessage && (
+        <div className="mt-4 p-3 bg-blue-50 text-blue-800 border border-blue-200 rounded text-sm">
+          {saveMessage}
+        </div>
+      )}
+
+      {/* 情報メッセージ */}
+      {Object.keys(formData).length > 0 && (
+        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded">
+          <p className="font-medium text-blue-900 mb-3">💡 入力内容について</p>
+          <div className="space-y-2 text-sm text-blue-800">
+            <div className="flex gap-2">
+              <span>✅</span>
+              <p>別のフレームワークを試しても、戻ってくると入力内容が残ります</p>
+            </div>
+            <div className="flex gap-2">
+              <span>⚠️</span>
+              <p>ページを更新するとリセットされます</p>
+            </div>
+            <div className="flex gap-2">
+              <span>💾</span>
+              <p className="font-medium">確実に保存するには「💾 保存」ボタンを押してください</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
