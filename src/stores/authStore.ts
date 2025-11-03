@@ -20,21 +20,21 @@ export const useAuthStore = create<AuthStore>()(
       isAuthenticated: false,
       error: null,
 
-      // Google認証 
+      // Google認証
       signInWithGoogle: async () => {
         set({ isLoading: true, error: null });
 
         try {
           // 既存のセッションを確認
-          const { data: { session: currentSession } } = await supabase.auth.getSession();
+
           const { error } = await supabase.auth.signInWithOAuth({
             provider: "google",
             options: {
               redirectTo: `${window.location.origin}/auth/callback`,
               // Authorization Code Flow を明示的に指定
               queryParams: {
-                response_type: 'code',
-                flow_type: 'pkce', // PKCE (Proof Key for Code Exchange) を使用
+                response_type: "code",
+                flow_type: "pkce", // PKCE (Proof Key for Code Exchange) を使用
               },
               // 追加のオプション
               skipBrowserRedirect: false, // ブラウザリダイレクトを確実に実行
@@ -42,7 +42,7 @@ export const useAuthStore = create<AuthStore>()(
           });
 
           if (error) {
-            console.error('Google OAuth error:', error);
+            console.error("Google OAuth error:", error);
             set({
               error: "Googleログインに失敗しました。もう一度お試しください。",
               isLoading: false,
@@ -131,25 +131,28 @@ export const useAuthStore = create<AuthStore>()(
 
         try {
           // サーバーサイドのセッション状態を確認
-          const serverSessionResponse = await fetch('/api/auth/verify', {
-            method: 'GET',
-            credentials: 'include'
+          const serverSessionResponse = await fetch("/api/auth/verify", {
+            method: "GET",
+            credentials: "include",
           });
-          
+
           if (serverSessionResponse.ok) {
             const serverSession = await serverSessionResponse.json();
-            
+
             if (serverSession.authenticated) {
               // サーバーサイドにセッションがある場合、プロフィール情報を取得
               try {
-                const profileResponse = await fetch(`/api/auth/profile/${serverSession.user.id}`, {
-                  method: 'GET',
-                  credentials: 'include'
-                });
-                
+                const profileResponse = await fetch(
+                  `/api/auth/profile/${serverSession.user.id}`,
+                  {
+                    method: "GET",
+                    credentials: "include",
+                  }
+                );
+
                 if (profileResponse.ok) {
                   const profileData = await profileResponse.json();
-                  
+
                   if (profileData.profile) {
                     const user: User = {
                       id: profileData.profile.id,
@@ -173,13 +176,13 @@ export const useAuthStore = create<AuthStore>()(
               } catch (profileError) {
                 // プロフィール取得エラーは続行
               }
-              
+
               // プロフィール取得に失敗した場合、最小限のユーザー情報で設定
               const user: User = {
                 id: serverSession.user.id,
                 email: serverSession.user.email,
-                name: serverSession.user.email?.split('@')[0] || 'ユーザー',
-                provider: 'google',
+                name: serverSession.user.email?.split("@")[0] || "ユーザー",
+                provider: "google",
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
               };
@@ -196,11 +199,10 @@ export const useAuthStore = create<AuthStore>()(
           // サーバーサイドにセッションがない場合、クライアントサイドも確認
           const {
             data: { session },
-            error,
           } = await supabase.auth.getSession();
 
           if (session?.user) {
-            const { data: profile, error: profileError } = await supabase
+            const { data: profile } = await supabase
               .from("profiles")
               .select("*")
               .eq("id", session.user.id)
@@ -225,7 +227,9 @@ export const useAuthStore = create<AuthStore>()(
               });
             } else {
               const { createDefaultProfile } = get();
-              const newProfile = await createDefaultProfile(session.user as SupabaseUser);
+              const newProfile = await createDefaultProfile(
+                session.user as SupabaseUser
+              );
 
               if (newProfile) {
                 const user: User = {

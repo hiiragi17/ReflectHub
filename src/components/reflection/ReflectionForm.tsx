@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useFrameworkStore } from '@/stores/frameworkStore';
-import { useValidation } from '@/hooks/useValidation';
-import DynamicField from './DynamicField';
-import { Button } from '@/components/ui/button';
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { useFrameworkStore } from "@/stores/frameworkStore";
+import { useValidation } from "@/hooks/useValidation";
+import DynamicField from "./DynamicField";
+import { Button } from "@/components/ui/button";
 
 interface ReflectionData {
   framework_id: string;
@@ -14,7 +14,7 @@ interface ReflectionData {
 
 interface SaveMessage {
   text: string;
-  type: 'success' | 'error';
+  type: "success" | "error";
 }
 
 interface ReflectionFormProps {
@@ -22,10 +22,13 @@ interface ReflectionFormProps {
 }
 
 export default function ReflectionForm({ onSave }: ReflectionFormProps) {
-  const { selectedFrameworkId, selectedFramework, setSelectedFramework, frameworks } =
-    useFrameworkStore();
+  const {
+    selectedFrameworkId,
+    selectedFramework,
+  } = useFrameworkStore();
 
-  const { validateFormData, sanitizeFormData, errors, clearErrors } = useValidation();
+  const { validateFormData, sanitizeFormData, errors, clearErrors } =
+    useValidation();
 
   // メモリキャッシュ（フレームワーク切り替え時の一時保存）
   const cacheRef = useRef<Record<string, Record<string, string>>>({});
@@ -34,6 +37,7 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<SaveMessage | null>(null);
   const previousFrameworkIdRef = useRef<string | null>(null);
+  const timeoutRef = useRef<number | null>(null); // 追加
 
   // フレームワーク切り替え時の処理
   useEffect(() => {
@@ -73,19 +77,29 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
     }));
   }, []);
 
+  // アンマウント時にタイマーをクリア
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, []);
+
   // 保存（バリデーション付き）
   const handleSave = async () => {
     if (!selectedFrameworkId || !selectedFramework) return;
 
     try {
-      const isValid = validateFormData(formData, selectedFramework.schema || []);
+      const isValid = validateFormData(
+        formData,
+        selectedFramework.schema || []
+      );
 
       if (!isValid) {
-        const formErrorMessage = Object.values(errors).join('\n');
-        setSaveMessage({
-          text: formErrorMessage || '入力を確認してください',
-          type: 'error',
-        });
+        // Validation errors already shown inline and in form banner
+        setSaveMessage(null);
         return;
       }
 
@@ -109,15 +123,24 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
 
       clearErrors();
       setSaveMessage({
-        text: '保存しました',
-        type: 'success',
+        text: "保存しました",
+        type: "success",
       });
-      setTimeout(() => setSaveMessage(null), 3000);
+
+      // 既存のタイマーがあればクリア
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      timeoutRef.current = window.setTimeout(() => {
+        setSaveMessage(null);
+        timeoutRef.current = null;
+      }, 3000);
     } catch (error) {
-      const message = error instanceof Error ? error.message : '保存に失敗しました';
+      const message =
+        error instanceof Error ? error.message : "保存に失敗しました";
       setSaveMessage({
         text: message,
-        type: 'error',
+        type: "error",
       });
     } finally {
       setIsSaving(false);
@@ -132,10 +155,12 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
   };
 
   if (!selectedFramework) {
-    return <div className="text-center p-4">フレームワークを選択してください</div>;
+    return (
+      <div className="text-center p-4">フレームワークを選択してください</div>
+    );
   }
 
-  const formLevelError = errors['__form__'];
+  const formLevelError = errors["__form__"];
 
   return (
     <div className="w-full max-w-2xl mx-auto">
@@ -145,7 +170,7 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
           <div key={field.id}>
             <DynamicField
               field={field}
-              value={formData[field.id] || ''}
+              value={formData[field.id] || ""}
               onChange={(value) => handleFieldChange(field.id, value)}
               fieldIndex={index}
             />
@@ -178,7 +203,7 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
           disabled={isSaving}
           className="flex-1 bg-blue-600 hover:bg-blue-700"
         >
-          {isSaving ? '保存中...' : '💾 保存'}
+          {isSaving ? "保存中..." : "💾 保存"}
         </Button>
         <Button
           onClick={handleReset}
@@ -193,12 +218,12 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
       {saveMessage && (
         <div
           className={`mt-4 p-3 rounded text-sm flex items-center gap-2 ${
-            saveMessage.type === 'success'
-              ? 'bg-green-50 text-green-800 border border-green-200'
-              : 'bg-red-50 text-red-800 border border-red-200'
+            saveMessage.type === "success"
+              ? "bg-green-50 text-green-800 border border-green-200"
+              : "bg-red-50 text-red-800 border border-red-200"
           }`}
         >
-          <span>{saveMessage.type === 'success' ? '✅' : '❌'}</span>
+          <span>{saveMessage.type === "success" ? "✅" : "❌"}</span>
           <span>{saveMessage.text}</span>
         </div>
       )}
@@ -210,7 +235,9 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
           <div className="space-y-2 text-sm text-blue-800">
             <div className="flex gap-2">
               <span>✅</span>
-              <p>別のフレームワークを試しても、戻ってくると入力内容が残ります</p>
+              <p>
+                別のフレームワークを試しても、戻ってくると入力内容が残ります
+              </p>
             </div>
             <div className="flex gap-2">
               <span>⚠️</span>
@@ -218,7 +245,9 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
             </div>
             <div className="flex gap-2">
               <span>💾</span>
-              <p className="font-medium">確実に保存するには「💾 保存」ボタンを押してください</p>
+              <p className="font-medium">
+                確実に保存するには「💾 保存」ボタンを押してください
+              </p>
             </div>
             <div className="flex gap-2">
               <span>📝</span>

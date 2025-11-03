@@ -1,6 +1,6 @@
-import { VALIDATION_CONSTANTS } from '@/constants/validation';
-import DOMPurify from 'dompurify';
-import GraphemeSplitter from 'grapheme-splitter';
+import { VALIDATION_CONSTANTS } from "@/constants/validation";
+import DOMPurify from "dompurify";
+import GraphemeSplitter from "grapheme-splitter";
 
 const splitter = new GraphemeSplitter();
 
@@ -68,7 +68,10 @@ export const validateField = (
   const lengthCheck = checkLength(value, maxLength);
   if (!lengthCheck.isValid) {
     return {
-      field: fieldId,      message: lengthCheck.message || VALIDATION_CONSTANTS.MESSAGES.MAX_LENGTH(maxLength),
+      field: fieldId,
+      message:
+        lengthCheck.message ||
+        VALIDATION_CONSTANTS.MESSAGES.MAX_LENGTH(maxLength),
     };
   }
 
@@ -91,7 +94,9 @@ export const validateField = (
   return null;
 };
 
-export const hasAtLeastOneValue = (formData: Record<string, string>): boolean => {
+export const hasAtLeastOneValue = (
+  formData: Record<string, string>
+): boolean => {
   return Object.values(formData).some((value) => isRequired(value));
 };
 
@@ -107,7 +112,7 @@ export const validateForm = (
   const errors: ValidationError[] = [];
 
   schema.forEach((field) => {
-    const value = formData[field.id] || '';
+    const value = formData[field.id] || "";
     const error = validateField(
       field.id,
       value,
@@ -122,8 +127,8 @@ export const validateForm = (
 
   if (!hasAtLeastOneValue(formData)) {
     errors.push({
-      field: '__form__',
-      message: 'どれか1つ以上のフィールドに入力してください',
+      field: "__form__",
+      message: VALIDATION_CONSTANTS.MESSAGES.AT_LEAST_ONE_FIELD,
     });
   }
 
