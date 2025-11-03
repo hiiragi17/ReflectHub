@@ -37,7 +37,7 @@ export function useRequireAuth() {
     user,
     isLoading,
     isAuthenticated,
-    canUseFeature: (feature: 'sync' | 'line' | 'ai') => {
+    canUseFeature: () => {
       // 認証済みユーザーのみすべての機能を利用可能
       return isAuthenticated;
     },

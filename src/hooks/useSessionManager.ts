@@ -13,7 +13,7 @@ export function useSessionManager() {
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event) => {
       switch (event) {
         case "INITIAL_SESSION":
           await initialize();

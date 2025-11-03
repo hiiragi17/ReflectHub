@@ -75,8 +75,6 @@ export class SessionUtils {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session) {
-        const timeRemaining = await this.getSessionTimeRemaining();
-        const isExpired = timeRemaining < 0;
       } else {
       }
     } catch (error) {

@@ -1,0 +1,19 @@
+{
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact"
+  ],
+  "cSpell.words": [
+    "partialize",
+    "PGRST",
+    "pkce",
+    "reflecthub",
+    "shadcn",
+    "supabase"
+  ]
+}
