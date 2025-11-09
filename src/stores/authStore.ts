@@ -14,30 +14,24 @@ interface AuthStore extends AuthState, AuthActions {}
 export const useAuthStore = create<AuthStore>()(
   persist(
     (set, get) => ({
-      // 初期状態
       user: null,
       isLoading: false,
       isAuthenticated: false,
       error: null,
 
-      // Google認証
       signInWithGoogle: async () => {
         set({ isLoading: true, error: null });
 
         try {
-          // 既存のセッションを確認
-
           const { error } = await supabase.auth.signInWithOAuth({
             provider: "google",
             options: {
               redirectTo: `${window.location.origin}/auth/callback`,
-              // Authorization Code Flow を明示的に指定
               queryParams: {
                 response_type: "code",
-                flow_type: "pkce", // PKCE (Proof Key for Code Exchange) を使用
+                flow_type: "pkce",
               },
-              // 追加のオプション
-              skipBrowserRedirect: false, // ブラウザリダイレクトを確実に実行
+              skipBrowserRedirect: false,
             },
           });
 
@@ -58,12 +52,10 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
-      // ログアウト
       signOut: async () => {
         set({ isLoading: true });
 
         try {
-          // Supabase認証のサインアウト
           const { error } = await supabase.auth.signOut();
           if (error) {
             console.error("Signout error:", error);
@@ -84,7 +76,6 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
-      // デフォルトプロフィール作成
       createDefaultProfile: async (
         sessionUser: SupabaseUser
       ): Promise<ProfileData | null> => {
@@ -125,12 +116,10 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
-      // 初期化（アプリ起動時の認証状態復元）
       initialize: async () => {
         set({ isLoading: true });
 
         try {
-          // サーバーサイドのセッション状態を確認
           const serverSessionResponse = await fetch("/api/auth/verify", {
             method: "GET",
             credentials: "include",
@@ -140,7 +129,6 @@ export const useAuthStore = create<AuthStore>()(
             const serverSession = await serverSessionResponse.json();
 
             if (serverSession.authenticated) {
-              // サーバーサイドにセッションがある場合、プロフィール情報を取得
               try {
                 const profileResponse = await fetch(
                   `/api/auth/profile/${serverSession.user.id}`,
@@ -173,11 +161,9 @@ export const useAuthStore = create<AuthStore>()(
                     return;
                   }
                 }
-              } catch (profileError) {
-                // プロフィール取得エラーは続行
+              } catch (_profileError) {
               }
 
-              // プロフィール取得に失敗した場合、最小限のユーザー情報で設定
               const user: User = {
                 id: serverSession.user.id,
                 email: serverSession.user.email,
@@ -196,7 +182,6 @@ export const useAuthStore = create<AuthStore>()(
             }
           }
 
-          // サーバーサイドにセッションがない場合、クライアントサイドも確認
           const {
             data: { session },
           } = await supabase.auth.getSession();
@@ -257,15 +242,13 @@ export const useAuthStore = create<AuthStore>()(
               isLoading: false,
             });
           }
-        } catch (error) {
+        } catch (_error) {
           set({
             error: "初期化に失敗しました。",
             isLoading: false,
           });
         }
       },
-
-      // エラークリア
       clearError: () => {
         set({ error: null });
       },
@@ -273,7 +256,6 @@ export const useAuthStore = create<AuthStore>()(
     {
       name: "auth-store",
       partialize: () => ({
-        // ゲスト機能削除により永続化対象なし
       }),
     }
   )
