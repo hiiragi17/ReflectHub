@@ -3,49 +3,38 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useFrameworkStore } from "@/stores/frameworkStore";
 import { useValidation } from "@/hooks/useValidation";
+import { useReflectionMutation } from "@/hooks/useReflectionMutation";
 import DynamicField from "./DynamicField";
 import { Button } from "@/components/ui/button";
-
-interface ReflectionData {
-  framework_id: string;
-  content: Record<string, string>;
-  created_at: string;
-}
 
 interface SaveMessage {
   text: string;
   type: "success" | "error";
 }
 
-interface ReflectionFormProps {
-  onSave?: (data: ReflectionData) => Promise<void>;
-}
-
-export default function ReflectionForm({ onSave }: ReflectionFormProps) {
-  const {
-    selectedFrameworkId,
-    selectedFramework,
-  } = useFrameworkStore();
+export default function ReflectionForm() {
+  const { selectedFrameworkId, selectedFramework } = useFrameworkStore();
 
   const { validateFormData, sanitizeFormData, errors, clearErrors } =
     useValidation();
+  const {
+    saveReflection,
+    isLoading,
+    error: mutationError,
+    clearError,
+  } = useReflectionMutation();
 
-  // メモリキャッシュ（フレームワーク切り替え時の一時保存）
   const cacheRef = useRef<Record<string, Record<string, string>>>({});
-
   const [formData, setFormData] = useState<Record<string, string>>({});
-  const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<SaveMessage | null>(null);
   const previousFrameworkIdRef = useRef<string | null>(null);
-  const timeoutRef = useRef<number | null>(null); // 追加
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // フレームワーク切り替え時の処理
   useEffect(() => {
     if (!selectedFrameworkId) return;
 
     const previousId = previousFrameworkIdRef.current;
 
-    // 最初のフレームワーク選択時
     if (!previousId) {
       const cached = cacheRef.current[selectedFrameworkId];
       setFormData(cached || {});
@@ -54,14 +43,11 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
       return;
     }
 
-    // フレームワークが変更された場合
     if (previousId !== selectedFrameworkId) {
-      // 前のフレームワークのデータを一時保存
       if (Object.keys(formData).length > 0) {
         cacheRef.current[previousId] = formData;
       }
 
-      // 新しいフレームワークのデータを復元
       const cached = cacheRef.current[selectedFrameworkId];
       setFormData(cached || {});
       clearErrors();
@@ -69,7 +55,15 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
     }
   }, [selectedFrameworkId, clearErrors]);
 
-  // 入力変更
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   const handleFieldChange = useCallback((fieldId: string, value: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -77,17 +71,6 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
     }));
   }, []);
 
-  // アンマウント時にタイマーをクリア
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-    };
-  }, []);
-
-  // 保存（バリデーション付き）
   const handleSave = async () => {
     if (!selectedFrameworkId || !selectedFramework) return;
 
@@ -98,60 +81,62 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
       );
 
       if (!isValid) {
-        // Validation errors already shown inline and in form banner
-        setSaveMessage(null);
+        const formErrorMessage = Object.entries(errors)
+          .map(([field, msg]) => `${field}: ${msg}`)
+          .join("\n");
+        setSaveMessage({
+          text: formErrorMessage || "入力を確認してください",
+          type: "error",
+        });
         return;
       }
 
-      setIsSaving(true);
       setSaveMessage(null);
 
       const sanitized = sanitizeFormData(formData);
 
-      const reflectionData: ReflectionData = {
-        framework_id: selectedFrameworkId,
-        content: sanitized,
-        created_at: new Date().toISOString(),
+      const onOptimisticUpdate = () => {
+        setSaveMessage({
+          text: "保存中...",
+          type: "success",
+        });
       };
 
-      if (onSave) {
-        await onSave(reflectionData);
+      const result = await saveReflection(
+        {
+          framework_id: selectedFrameworkId,
+          content: sanitized,
+          reflection_date: new Date().toISOString().split("T")[0],
+        },
+        onOptimisticUpdate
+      );
+
+      if (result) {
+        cacheRef.current[selectedFrameworkId] = {};
+        setFormData({});
+        clearErrors();
+        setSaveMessage({
+          text: "保存しました",
+          type: "success",
+        });
+
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+        }
+        saveTimeoutRef.current = setTimeout(() => {
+          setSaveMessage(null);
+          saveTimeoutRef.current = null;
+        }, 3000);
       }
-
-      // キャッシュも更新
-      cacheRef.current[selectedFrameworkId] = sanitized;
-
-      clearErrors();
-      setSaveMessage({
-        text: "保存しました",
-        type: "success",
-      });
-
-      // 既存のタイマーがあればクリア
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      timeoutRef.current = window.setTimeout(() => {
-        setSaveMessage(null);
-        timeoutRef.current = null;
-      }, 3000);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "保存に失敗しました";
-      setSaveMessage({
-        text: message,
-        type: "error",
-      });
-    } finally {
-      setIsSaving(false);
     }
   };
 
-  // リセット
   const handleReset = () => {
     setFormData({});
     clearErrors();
     setSaveMessage(null);
+    clearError();
   };
 
   if (!selectedFramework) {
@@ -200,10 +185,10 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
       <div className="flex gap-3 mt-6">
         <Button
           onClick={handleSave}
-          disabled={isSaving}
+          disabled={isLoading}
           className="flex-1 bg-blue-600 hover:bg-blue-700"
         >
-          {isSaving ? "保存中..." : "💾 保存"}
+          {isLoading ? "保存中..." : "💾 保存"}
         </Button>
         <Button
           onClick={handleReset}
@@ -214,17 +199,26 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
         </Button>
       </div>
 
-      {/* 保存メッセージ（タイプで分離）*/}
-      {saveMessage && (
-        <div
-          className={`mt-4 p-3 rounded text-sm flex items-center gap-2 ${
-            saveMessage.type === "success"
-              ? "bg-green-50 text-green-800 border border-green-200"
-              : "bg-red-50 text-red-800 border border-red-200"
-          }`}
-        >
-          <span>{saveMessage.type === "success" ? "✅" : "❌"}</span>
+      {/* 保存メッセージ（成功のみ） */}
+      {saveMessage && saveMessage.type === "success" && (
+        <div className="mt-4 p-3 rounded text-sm flex items-center gap-2 bg-green-50 text-green-800 border border-green-200">
+          <span>✅</span>
           <span>{saveMessage.text}</span>
+        </div>
+      )}
+
+      {/* Mutation エラー表示 */}
+      {mutationError && (
+        <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded text-sm">
+          <p className="text-red-900 font-medium mb-2">
+            🔴 エラーが発生しました
+          </p>
+          <p className="text-red-700">{mutationError.message}</p>
+          {mutationError.details && (
+            <pre className="text-xs text-red-600 mt-2 bg-red-100 p-2 rounded overflow-auto">
+              {JSON.stringify(mutationError.details, null, 2)}
+            </pre>
+          )}
         </div>
       )}
 
@@ -246,7 +240,13 @@ export default function ReflectionForm({ onSave }: ReflectionFormProps) {
             <div className="flex gap-2">
               <span>💾</span>
               <p className="font-medium">
-                確実に保存するには「💾 保存」ボタンを押してください
+                「💾 保存」ボタンで Supabase に保存されます
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <span>🎯</span>
+              <p className="font-medium text-blue-900">
+                保存成功後は自動的にフォームがクリアされます
               </p>
             </div>
             <div className="flex gap-2">

@@ -1,8 +1,12 @@
-import { VALIDATION_CONSTANTS } from "@/constants/validation";
-import DOMPurify from "dompurify";
-import GraphemeSplitter from "grapheme-splitter";
+import { VALIDATION_CONSTANTS } from '@/constants/validation';
+import DOMPurify from 'dompurify';
+import GraphemeSplitter from 'grapheme-splitter';
 
 const splitter = new GraphemeSplitter();
+
+export const normalizeLineBreaks = (text: string): string => {
+  return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+};
 
 export const sanitizeHtml = (text: string): string => {
   return DOMPurify.sanitize(text, { ALLOWED_TAGS: [] }).trim();
@@ -51,40 +55,35 @@ export const validateField = (
   required: boolean,
   maxLength: number
 ): ValidationError | null => {
-  // 必須チェック（ヘルパー関数を使用）
-  if (required && !isRequired(value)) {
+  const normalizedValue = normalizeLineBreaks(value);
+
+  if (required && !isRequired(normalizedValue)) {
     return {
       field: fieldId,
       message: VALIDATION_CONSTANTS.MESSAGES.REQUIRED,
     };
   }
 
-  // 値が空の場合、以降のチェックをスキップ
-  if (!isRequired(value)) {
+  if (!isRequired(normalizedValue)) {
     return null;
   }
 
-  // 文字数チェック（ヘルパー関数を使用）
-  const lengthCheck = checkLength(value, maxLength);
+  const lengthCheck = checkLength(normalizedValue, maxLength);
   if (!lengthCheck.isValid) {
     return {
       field: fieldId,
-      message:
-        lengthCheck.message ||
-        VALIDATION_CONSTANTS.MESSAGES.MAX_LENGTH(maxLength),
+      message: lengthCheck.message || VALIDATION_CONSTANTS.MESSAGES.MAX_LENGTH(maxLength),
     };
   }
 
-  // HTML コンテンツ検出（バリデーション用）
-  if (containsHtmlContent(value)) {
+  if (containsHtmlContent(normalizedValue)) {
     return {
       field: fieldId,
       message: VALIDATION_CONSTANTS.MESSAGES.CONTAINS_HTML,
     };
   }
 
-  // 禁止文字チェック
-  if (containsForbiddenCharacters(value)) {
+  if (containsForbiddenCharacters(normalizedValue)) {
     return {
       field: fieldId,
       message: VALIDATION_CONSTANTS.MESSAGES.CONTAINS_FORBIDDEN_CHARS,
@@ -94,9 +93,7 @@ export const validateField = (
   return null;
 };
 
-export const hasAtLeastOneValue = (
-  formData: Record<string, string>
-): boolean => {
+export const hasAtLeastOneValue = (formData: Record<string, string>): boolean => {
   return Object.values(formData).some((value) => isRequired(value));
 };
 
@@ -112,7 +109,7 @@ export const validateForm = (
   const errors: ValidationError[] = [];
 
   schema.forEach((field) => {
-    const value = formData[field.id] || "";
+    const value = formData[field.id] || '';
     const error = validateField(
       field.id,
       value,
@@ -127,8 +124,8 @@ export const validateForm = (
 
   if (!hasAtLeastOneValue(formData)) {
     errors.push({
-      field: "__form__",
-      message: VALIDATION_CONSTANTS.MESSAGES.AT_LEAST_ONE_FIELD,
+      field: '__form__',
+      message: 'どれか1つ以上のフィールドに入力してください',
     });
   }
 
@@ -136,4 +133,16 @@ export const validateForm = (
     isValid: errors.length === 0,
     errors,
   };
+};
+
+export const sanitizeFormData = (formData: Record<string, string>): Record<string, string> => {
+  const sanitized: Record<string, string> = {};
+
+  for (const [key, value] of Object.entries(formData)) {
+    const normalized = normalizeLineBreaks(value);
+    const cleaned = sanitizeHtml(normalized);
+    sanitized[key] = cleaned;
+  }
+
+  return sanitized;
 };
