@@ -1,43 +1,37 @@
-'use client';
+"use client";
 
-import { useState, useCallback, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { useState, useCallback, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
+import { v4 as uuidv4 } from "uuid";
 import {
   CreateReflectionRequest,
   ReflectionResponse,
   ReflectionError,
-} from '@/types/reflection';
-import { reflectionService } from '@/services/reflectionService';
+} from "@/types/reflection";
+import { reflectionService } from "@/services/reflectionService";
 
-// Supabase クライアントを直接作成
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
-
-/**
- * 保存状態の型
- */
 interface SaveState {
   isLoading: boolean;
   isSuccess: boolean;
   error: ReflectionError | null;
 }
 
-/**
- * 楽観的更新フック（シンプル版）
- *
- * ⚠️ 前提: このフックを使用するコンポーネントは ProtectedRoute でラップされている
- * つまり、ユーザーは必ずログイン済み
- *
- * 機能:
- * - マウント時に userId を取得（ログイン済み確定）
- * - 楽観的更新（即座に UI 更新）
- * - エラーハンドリング
- * - リトライ機能
- */
 export const useReflectionMutation = () => {
-  const [userId, setUserId] = useState<string>('');
+  const [supabase] = useState(() => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || url.trim() === "") {
+      throw new Error("Supabase URL is missing: NEXT_PUBLIC_SUPABASE_URL");
+    }
+    if (!key || key.trim() === "") {
+      throw new Error(
+        "Supabase anon key is missing: NEXT_PUBLIC_SUPABASE_ANON_KEY"
+      );
+    }
+    return createClient(url, key);
+  });
+
+  const [userId, setUserId] = useState<string>("");
 
   const [state, setState] = useState<SaveState>({
     isLoading: false,
@@ -45,54 +39,50 @@ export const useReflectionMutation = () => {
     error: null,
   });
 
-  // マウント時に userId を取得
-  // ProtectedRoute でラップされているため、ここで getUser() は必ず成功する
   useEffect(() => {
     const getUser = async () => {
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
 
         if (error) {
-          console.error('⚠️ Auth error:', error.message);
+          console.error("Auth error:", error.message);
           return;
         }
 
         if (user?.id) {
           setUserId(user.id);
-          console.log('✅ User ID:', user.id);
+          console.log("User ID:", user.id);
         }
       } catch (error) {
-        console.error('❌ Failed to get user:', error);
+        console.error("Failed to get user:", error);
       }
     };
 
     getUser();
-  }, []);
+  }, [supabase]);
 
-  /**
-   * 振り返りを保存
-   *
-   * @param request 保存リクエスト
-   * @param onOptimisticUpdate UI 即座更新用コールバック
-   * @returns 保存されたデータ
-   */
   const saveReflection = useCallback(
     async (
       request: CreateReflectionRequest,
-      onOptimisticUpdate?: (data: ReflectionResponse) => void
+      onOptimisticUpdate?: (data: ReflectionResponse) => void,
+      onOptimisticRollback?: (tempId: string) => void
     ): Promise<ReflectionResponse | null> => {
-      // userId が未設定（取得中）なら待機
       if (!userId) {
         setState({
           isLoading: false,
           isSuccess: false,
           error: {
-            code: 'USER_ID_NOT_SET',
-            message: 'ユーザーID を取得中です。しばらくお待ちください。',
+            code: "USER_ID_NOT_SET",
+            message: "ユーザーID を取得中です。しばらくお待ちください。",
           },
         });
         return null;
       }
+
+      const tempId = uuidv4();
 
       try {
         setState({
@@ -101,20 +91,18 @@ export const useReflectionMutation = () => {
           error: null,
         });
 
-        // 楽観的更新用のダミーデータ
         const optimisticData: ReflectionResponse = {
-          id: `temp-${Date.now()}`,
+          id: tempId,
           user_id: userId,
           framework_id: request.framework_id,
           content: request.content,
-          reflection_date: request.reflection_date || new Date().toISOString().split('T')[0],
+          reflection_date:
+            request.reflection_date || new Date().toISOString().split("T")[0],
           created_at: new Date().toISOString(),
         };
 
-        // 1️⃣ 即座に UI を更新（楽観的更新）
         onOptimisticUpdate?.(optimisticData);
 
-        // 2️⃣ サーバーに保存
         const result = await reflectionService.create(userId, request);
 
         setState({
@@ -125,23 +113,21 @@ export const useReflectionMutation = () => {
 
         return result;
       } catch (error) {
+        if (onOptimisticRollback) {
+          onOptimisticRollback(tempId);
+        }
         const reflectionError = error as ReflectionError;
-
         setState({
           isLoading: false,
           isSuccess: false,
           error: reflectionError,
         });
-
         throw reflectionError;
       }
     },
     [userId]
   );
 
-  /**
-   * エラーをクリア
-   */
   const clearError = useCallback(() => {
     setState((prev) => ({
       ...prev,
@@ -149,9 +135,6 @@ export const useReflectionMutation = () => {
     }));
   }, []);
 
-  /**
-   * 成功ステータスをクリア
-   */
   const clearSuccess = useCallback(() => {
     setState((prev) => ({
       ...prev,
@@ -159,13 +142,6 @@ export const useReflectionMutation = () => {
     }));
   }, []);
 
-  /**
-   * リトライ（指数バックオフ）
-   *
-   * @param request リトライ対象のリクエスト
-   * @param maxRetries 最大リトライ回数
-   * @param onOptimisticUpdate 楽観的更新コールバック
-   */
   const retryWithBackoff = useCallback(
     async (
       request: CreateReflectionRequest,
@@ -187,19 +163,21 @@ export const useReflectionMutation = () => {
         }
       }
 
-      throw lastError;
+      if (lastError) {
+        throw lastError;
+      } else {
+        throw new Error("Operation failed without recorded error");
+      }
     },
     [saveReflection]
   );
 
   return {
-    // 状態
     isLoading: state.isLoading,
     isSuccess: state.isSuccess,
     error: state.error,
     userId,
 
-    // アクション
     saveReflection,
     retryWithBackoff,
     clearError,
