@@ -99,6 +99,11 @@ export default function HistoryPage() {
 
   // Format date for display
   const formatDate = (date: Date): string => {
+    // Check if date is valid
+    if (!date || isNaN(date.getTime())) {
+      return '日付不明';
+    }
+
     const year = date.getFullYear();
     const month = date.getMonth() + 1;
     const day = date.getDate();
