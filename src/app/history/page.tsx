@@ -249,22 +249,22 @@ export default function HistoryPage() {
 
                     {/* Reflection Content */}
                     <div className="space-y-4">
-                      {Object.entries(reflection.content).map(([fieldId, value]) => {
-                        // Ensure schema is an array before calling find
-                        const schema = Array.isArray(framework?.schema) ? framework.schema : [];
-                        const field = schema.find((f) => f.id === fieldId);
+                      {Array.isArray(framework?.schema) && framework.schema
+                        .sort((a, b) => (a.order || 0) - (b.order || 0))
+                        .map((field) => {
+                          const value = reflection.content[field.id] || '';
 
-                        return (
-                          <div key={fieldId} className="space-y-2">
-                            <h4 className="text-sm font-semibold text-gray-700">
-                              {field?.label || fieldId}
-                            </h4>
-                            <p className="text-gray-900 whitespace-pre-wrap bg-gray-50 p-3 rounded-md">
-                              {value || '（未記入）'}
-                            </p>
-                          </div>
-                        );
-                      })}
+                          return (
+                            <div key={field.id} className="space-y-2">
+                              <h4 className="text-sm font-semibold text-gray-700">
+                                {field.label}
+                              </h4>
+                              <p className="text-gray-900 whitespace-pre-wrap bg-gray-50 p-3 rounded-md">
+                                {value || '（未記入）'}
+                              </p>
+                            </div>
+                          );
+                        })}
                     </div>
 
                     {/* Metadata */}
