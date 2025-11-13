@@ -58,7 +58,15 @@ export default function HistoryPage() {
           throw new Error('フレームワークの取得に失敗しました');
         }
 
-        setFrameworks(frameworksData || []);
+        // Parse schema field if it's a string
+        const parsedFrameworks = (frameworksData || []).map((framework) => ({
+          ...framework,
+          schema: typeof framework.schema === 'string'
+            ? JSON.parse(framework.schema)
+            : framework.schema,
+        }));
+
+        setFrameworks(parsedFrameworks);
       } catch (err) {
         console.error('Error fetching data:', err);
         setError(err instanceof Error ? err.message : 'データの取得に失敗しました');
@@ -237,7 +245,9 @@ export default function HistoryPage() {
                     {/* Reflection Content */}
                     <div className="space-y-4">
                       {Object.entries(reflection.content).map(([fieldId, value]) => {
-                        const field = framework?.schema.find((f) => f.id === fieldId);
+                        // Ensure schema is an array before calling find
+                        const schema = Array.isArray(framework?.schema) ? framework.schema : [];
+                        const field = schema.find((f) => f.id === fieldId);
 
                         return (
                           <div key={fieldId} className="space-y-2">
