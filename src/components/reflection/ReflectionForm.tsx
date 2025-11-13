@@ -6,6 +6,7 @@ import { useValidation } from "@/hooks/useValidation";
 import { useReflectionMutation } from "@/hooks/useReflectionMutation";
 import DynamicField from "./DynamicField";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface SaveMessage {
   text: string;
@@ -26,6 +27,7 @@ export default function ReflectionForm() {
 
   const cacheRef = useRef<Record<string, Record<string, string>>>({});
   const [formData, setFormData] = useState<Record<string, string>>({});
+  const [reflectionDate, setReflectionDate] = useState<Date>(new Date());
   const [saveMessage, setSaveMessage] = useState<SaveMessage | null>(null);
   const previousFrameworkIdRef = useRef<string | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -106,7 +108,7 @@ export default function ReflectionForm() {
         {
           framework_id: selectedFrameworkId,
           content: sanitized,
-          reflection_date: new Date().toISOString().split("T")[0],
+          reflection_date: reflectionDate.toISOString().split("T")[0],
         },
         onOptimisticUpdate
       );
@@ -149,6 +151,18 @@ export default function ReflectionForm() {
 
   return (
     <div className="w-full max-w-2xl mx-auto">
+      {/* 日付選択 */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          振り返り日付
+        </label>
+        <DatePicker
+          date={reflectionDate}
+          onDateChange={(date) => date && setReflectionDate(date)}
+          placeholder="日付を選択してください"
+        />
+      </div>
+
       {/* 入力フォーム */}
       <div className="space-y-6">
         {selectedFramework.schema?.map((field, index) => (
