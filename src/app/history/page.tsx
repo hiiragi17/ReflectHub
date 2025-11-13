@@ -249,27 +249,58 @@ export default function HistoryPage() {
 
                     {/* Reflection Content */}
                     <div className="space-y-4">
-                      {Array.isArray(framework?.schema) && framework.schema
-                        .sort((a, b) => (a.order || 0) - (b.order || 0))
-                        .map((field) => {
-                          const value = reflection.content[field.id] || '';
+                      {(() => {
+                        // Ensure schema is an array
+                        const schema = Array.isArray(framework?.schema) ? framework.schema : [];
 
-                          return (
-                            <div key={field.id} className="space-y-2">
+                        // Sort by order field
+                        const sortedSchema = schema.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+                        // If schema exists, use it; otherwise show content directly
+                        if (sortedSchema.length > 0) {
+                          return sortedSchema.map((field) => {
+                            const value = reflection.content[field.id] || '';
+
+                            return (
+                              <div key={field.id} className="space-y-2">
+                                <h4 className="text-sm font-semibold text-gray-700">
+                                  {field.label}
+                                </h4>
+                                <p className="text-gray-900 whitespace-pre-wrap bg-gray-50 p-3 rounded-md">
+                                  {value || '（未記入）'}
+                                </p>
+                              </div>
+                            );
+                          });
+                        } else {
+                          // Fallback: display all content fields
+                          return Object.entries(reflection.content).map(([fieldId, value]) => (
+                            <div key={fieldId} className="space-y-2">
                               <h4 className="text-sm font-semibold text-gray-700">
-                                {field.label}
+                                {fieldId}
                               </h4>
                               <p className="text-gray-900 whitespace-pre-wrap bg-gray-50 p-3 rounded-md">
                                 {value || '（未記入）'}
                               </p>
                             </div>
-                          );
-                        })}
+                          ));
+                        }
+                      })()}
                     </div>
 
                     {/* Metadata */}
                     <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-500">
-                      作成日時: {new Date(reflection.created_at).toLocaleString('ja-JP')}
+                      作成日時: {(() => {
+                        try {
+                          const date = new Date(reflection.created_at);
+                          if (isNaN(date.getTime())) {
+                            return reflection.created_at || '不明';
+                          }
+                          return date.toLocaleString('ja-JP');
+                        } catch {
+                          return reflection.created_at || '不明';
+                        }
+                      })()}
                     </div>
                   </div>
                 );
