@@ -10,6 +10,8 @@ import { reflectionService } from '@/services/reflectionService';
 import type { Reflection } from '@/types/reflection';
 import type { Framework } from '@/types/framework';
 import { X } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
+import { ja } from 'date-fns/locale';
 
 interface ReflectionDetail {
   date: Date;
@@ -290,20 +292,19 @@ export default function HistoryPage() {
                     <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-500">
                       作成日時: {(() => {
                         try {
-                          const date = new Date(reflection.created_at);
-                          if (isNaN(date.getTime())) {
-                            return '不明';
+                          // Try parsing as ISO string first
+                          const date = parseISO(reflection.created_at);
+                          if (!isNaN(date.getTime())) {
+                            return format(date, 'yyyy-MM-dd HH:mm:ss', { locale: ja });
                           }
-                          // Format: YYYY-MM-DD HH:mm:ss
-                          const year = date.getFullYear();
-                          const month = String(date.getMonth() + 1).padStart(2, '0');
-                          const day = String(date.getDate()).padStart(2, '0');
-                          const hours = String(date.getHours()).padStart(2, '0');
-                          const minutes = String(date.getMinutes()).padStart(2, '0');
-                          const seconds = String(date.getSeconds()).padStart(2, '0');
-                          return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+                          // Fallback to direct Date parsing
+                          const fallbackDate = new Date(reflection.created_at);
+                          if (!isNaN(fallbackDate.getTime())) {
+                            return format(fallbackDate, 'yyyy-MM-dd HH:mm:ss', { locale: ja });
+                          }
+                          return reflection.created_at;
                         } catch {
-                          return '不明';
+                          return reflection.created_at || '不明';
                         }
                       })()}
                     </div>
