@@ -290,17 +290,17 @@ export default function HistoryPage() {
 
                     {/* Metadata */}
                     <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-500">
-                      作成日時: {(() => {
+                      作成日: {(() => {
                         try {
                           // Try parsing as ISO string first
                           const date = parseISO(reflection.created_at);
                           if (!isNaN(date.getTime())) {
-                            return format(date, 'yyyy-MM-dd HH:mm:ss', { locale: ja });
+                            return format(date, 'yyyy-MM-dd', { locale: ja });
                           }
                           // Fallback to direct Date parsing
                           const fallbackDate = new Date(reflection.created_at);
                           if (!isNaN(fallbackDate.getTime())) {
-                            return format(fallbackDate, 'yyyy-MM-dd HH:mm:ss', { locale: ja });
+                            return format(fallbackDate, 'yyyy-MM-dd', { locale: ja });
                           }
                           return reflection.created_at;
                         } catch {
