@@ -253,8 +253,8 @@ export default function HistoryPage() {
                         // Ensure schema is an array
                         const schema = Array.isArray(framework?.schema) ? framework.schema : [];
 
-                        // Sort by order field
-                        const sortedSchema = schema.sort((a, b) => (a.order || 0) - (b.order || 0));
+                        // Sort by order field (descending to get Y, W, T order)
+                        const sortedSchema = schema.sort((a, b) => (b.order || 0) - (a.order || 0));
 
                         // If schema exists, use it; otherwise show content directly
                         if (sortedSchema.length > 0) {
@@ -294,11 +294,18 @@ export default function HistoryPage() {
                         try {
                           const date = new Date(reflection.created_at);
                           if (isNaN(date.getTime())) {
-                            return reflection.created_at || '不明';
+                            return '不明';
                           }
-                          return date.toLocaleString('ja-JP');
+                          // Format: YYYY-MM-DD HH:mm:ss
+                          const year = date.getFullYear();
+                          const month = String(date.getMonth() + 1).padStart(2, '0');
+                          const day = String(date.getDate()).padStart(2, '0');
+                          const hours = String(date.getHours()).padStart(2, '0');
+                          const minutes = String(date.getMinutes()).padStart(2, '0');
+                          const seconds = String(date.getSeconds()).padStart(2, '0');
+                          return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
                         } catch {
-                          return reflection.created_at || '不明';
+                          return '不明';
                         }
                       })()}
                     </div>
