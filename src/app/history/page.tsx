@@ -253,17 +253,15 @@ export default function HistoryPage() {
                         // Ensure schema is an array
                         const schema = Array.isArray(framework?.schema) ? framework.schema : [];
 
-                        // Sort by order field (descending to get Y, W, T order)
-                        const sortedSchema = schema.sort((a, b) => (b.order || 0) - (a.order || 0));
-
-                        // If schema exists, use it; otherwise show content directly
-                        if (sortedSchema.length > 0) {
-                          return sortedSchema.map((field) => {
+                        // If schema exists, display in array order (preserve original order)
+                        if (schema.length > 0) {
+                          return schema.map((field) => {
                             const value = reflection.content[field.id] || '';
 
                             return (
                               <div key={field.id} className="space-y-2">
                                 <h4 className="text-sm font-semibold text-gray-700">
+                                  {field.icon && <span className="mr-1">{field.icon}</span>}
                                   {field.label}
                                 </h4>
                                 <p className="text-gray-900 whitespace-pre-wrap bg-gray-50 p-3 rounded-md">
