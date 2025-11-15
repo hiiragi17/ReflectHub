@@ -73,6 +73,9 @@ export const ReflectionDetail: React.FC<ReflectionDetailProps> = ({
   const reflectionDate = safeParse(reflection.reflection_date);
   // Note: created_at and updated_at are already converted to user timezone in reflectionService
   // so we just need to format them as strings
+  const dateStr = format(reflectionDate, 'yyyy年MM月dd日（EEEE）', {
+    locale: ja,
+  });
   const createdStr = reflection.created_at.replace('T', ' ');
   const updatedStr = reflection.updated_at ? reflection.updated_at.replace('T', ' ') : null;
 
