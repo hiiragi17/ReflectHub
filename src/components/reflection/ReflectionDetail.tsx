@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Calendar, Tag, Edit2, Trash2 } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import type { Reflection } from '@/types/reflection';
 import type { Framework } from '@/types/framework';
@@ -71,17 +71,10 @@ export const ReflectionDetail: React.FC<ReflectionDetailProps> = ({
 
   // Parse timestamps with fallback handling
   const reflectionDate = safeParse(reflection.reflection_date);
-  const createdAt = safeParse(reflection.created_at);
-  const updatedAt = reflection.updated_at ? safeParse(reflection.updated_at) : null;
-
-  // Format display strings
-  const dateStr = format(reflectionDate, 'yyyy年MM月dd日（EEEE）', {
-    locale: ja,
-  });
-  const createdStr = format(createdAt, 'yyyy-MM-dd HH:mm:ss', { locale: ja });
-  const updatedStr = updatedAt
-    ? format(updatedAt, 'yyyy-MM-dd HH:mm:ss', { locale: ja })
-    : null;
+  // Note: created_at and updated_at are already converted to user timezone in reflectionService
+  // so we just need to format them as strings
+  const createdStr = reflection.created_at.replace('T', ' ');
+  const updatedStr = reflection.updated_at ? reflection.updated_at.replace('T', ' ') : null;
 
   return (
     <div className="bg-white rounded-lg shadow-sm">
