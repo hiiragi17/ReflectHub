@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Calendar, Clock, Tag, Edit2, ArrowLeft } from 'lucide-react';
+import { Calendar, Tag, Edit2, ArrowLeft } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import type { Reflection } from '@/types/reflection';
@@ -78,7 +78,6 @@ export const ReflectionDetail: React.FC<ReflectionDetailProps> = ({
   const dateStr = format(reflectionDate, 'yyyy年MM月dd日（EEEE）', {
     locale: ja,
   });
-  const timeStr = format(createdAt, 'HH:mm', { locale: ja });
   const createdStr = format(createdAt, 'yyyy-MM-dd HH:mm:ss', { locale: ja });
   const updatedStr = updatedAt
     ? format(updatedAt, 'yyyy-MM-dd HH:mm:ss', { locale: ja })
@@ -122,16 +121,10 @@ export const ReflectionDetail: React.FC<ReflectionDetailProps> = ({
             </div>
           )}
 
-          {/* Date and time */}
+          {/* Date */}
           <div className="flex items-center gap-2 text-gray-600">
             <Calendar className="w-4 h-4" />
             <span className="text-sm">{dateStr}</span>
-          </div>
-
-          {/* Time */}
-          <div className="flex items-center gap-2 text-gray-600">
-            <Clock className="w-4 h-4" />
-            <span className="text-sm">{timeStr}</span>
           </div>
 
           {/* Tags if present */}
