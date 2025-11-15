@@ -297,15 +297,27 @@ export default function HistoryPage() {
                           if (!isNaN(date.getTime())) {
                             return format(date, 'yyyy-MM-dd', { locale: ja });
                           }
+                        } catch (e) {
+                          // Ignore parsing error and try fallback
+                        }
+
+                        try {
                           // Fallback to direct Date parsing
                           const fallbackDate = new Date(reflection.created_at);
                           if (!isNaN(fallbackDate.getTime())) {
                             return format(fallbackDate, 'yyyy-MM-dd', { locale: ja });
                           }
-                          return reflection.created_at;
-                        } catch {
-                          return reflection.created_at || '不明';
+                        } catch (e) {
+                          // Ignore parsing error and try string extraction
                         }
+
+                        // Last resort: extract date from string (YYYY-MM-DD format)
+                        const dateMatch = reflection.created_at?.match(/(\d{4}-\d{2}-\d{2})/);
+                        if (dateMatch) {
+                          return dateMatch[1];
+                        }
+
+                        return '不明';
                       })()}
                     </div>
                   </div>
