@@ -141,14 +141,6 @@ export default function HistoryPage() {
       />
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">振り返り履歴</h1>
-          <p className="text-gray-600">
-            カレンダーから日付を選択して、過去の振り返りを確認できます
-          </p>
-        </div>
-
         {/* Error Message */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">

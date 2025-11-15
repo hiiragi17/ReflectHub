@@ -79,10 +79,6 @@ export default function ReflectionDetailPage() {
     setShowEditModal(true);
   };
 
-  const handleBack = () => {
-    router.back();
-  };
-
   const handleSignOut = async () => {
     await signOut();
     router.push('/auth');
@@ -185,7 +181,6 @@ export default function ReflectionDetailPage() {
               reflection={reflection}
               framework={framework}
               onEdit={handleEdit}
-              onBack={handleBack}
               onDelete={handleShowDeleteConfirm}
               isLoading={isUpdating}
             />

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Calendar, Tag, Edit2, ArrowLeft, Trash2 } from 'lucide-react';
+import { Calendar, Tag, Edit2, Trash2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import type { Reflection } from '@/types/reflection';
@@ -12,7 +12,6 @@ interface ReflectionDetailProps {
   reflection: Reflection;
   framework: Framework | undefined;
   onEdit: () => void;
-  onBack: () => void;
   onDelete: () => void;
   isLoading?: boolean;
 }
@@ -31,7 +30,6 @@ export const ReflectionDetail: React.FC<ReflectionDetailProps> = ({
   reflection,
   framework,
   onEdit,
-  onBack,
   onDelete,
   isLoading = false,
 }) => {
@@ -89,34 +87,24 @@ export const ReflectionDetail: React.FC<ReflectionDetailProps> = ({
     <div className="bg-white rounded-lg shadow-sm">
       {/* Header with navigation */}
       <div className="border-b border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-end mb-4 gap-2">
           <button
-            onClick={onBack}
-            className="flex items-center gap-2 text-blue-600 hover:text-blue-700 transition-colors"
+            onClick={onDelete}
+            className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isLoading}
+            title="この振り返りを削除"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span className="text-sm font-medium">削除</span>
+          </button>
+          <button
+            onClick={onEdit}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isLoading}
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm font-medium">戻る</span>
+            <Edit2 className="w-4 h-4" />
+            <span className="text-sm font-medium">編集</span>
           </button>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onDelete}
-              className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isLoading}
-              title="この振り返りを削除"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span className="text-sm font-medium">削除</span>
-            </button>
-            <button
-              onClick={onEdit}
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isLoading}
-            >
-              <Edit2 className="w-4 h-4" />
-              <span className="text-sm font-medium">編集</span>
-            </button>
-          </div>
         </div>
 
         {/* Metadata section */}
