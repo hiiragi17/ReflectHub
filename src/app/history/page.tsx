@@ -135,7 +135,7 @@ export default function HistoryPage() {
         isAuthenticated={!!user}
         userName={user.name}
         onSignOut={handleSignOut}
-        title="ReflectHub"
+        title="振り返り履歴"
         showBackButton={true}
         backHref="/dashboard"
       />
