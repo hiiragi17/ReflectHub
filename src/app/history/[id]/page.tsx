@@ -119,11 +119,26 @@ export default function ReflectionDetailPage() {
         content: updatedContent,
       });
 
+      // Get current time in Japan timezone format
+      const now = new Date();
+      const japanTime = now.toLocaleString('en-CA', {
+        timeZone: 'Asia/Tokyo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      });
+      const [datePart, timePart] = japanTime.split(' ');
+      const updatedAtFormatted = `${datePart}T${timePart}`;
+
       // Update local state
       setReflection({
         ...reflection,
         content: updated.content,
-        updated_at: new Date().toISOString(),
+        updated_at: updatedAtFormatted,
       });
 
       setShowEditModal(false);
