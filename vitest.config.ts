@@ -22,6 +22,11 @@ export default defineConfig({
         'dist/',
       ],
     },
+    css: {
+      modules: {
+        classNameStrategy: 'non-scoped',
+      },
+    },
   },
   resolve: {
     alias: {
