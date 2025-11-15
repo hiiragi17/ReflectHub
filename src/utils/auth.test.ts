@@ -27,7 +27,9 @@ describe('auth utilities', () => {
 
     // Mock createBrowserClient
     const { createBrowserClient } = await import('@supabase/ssr');
-    vi.mocked(createBrowserClient).mockReturnValue(mockSupabaseClient as any);
+    vi.mocked(createBrowserClient).mockReturnValue(
+      mockSupabaseClient as ReturnType<typeof createBrowserClient>
+    );
 
     // Mock console methods
     vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -156,9 +158,9 @@ describe('auth utilities', () => {
 
     beforeEach(() => {
       originalLocation = window.location;
-      // @ts-ignore - mock window.location
+      // @ts-expect-error - mock window.location
       delete window.location;
-      window.location = { href: '' } as any;
+      window.location = { href: '' } as Location;
     });
 
     afterEach(() => {

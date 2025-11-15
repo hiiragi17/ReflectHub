@@ -6,7 +6,7 @@ import type { Framework } from '@/types/framework';
 
 // Mock react-day-picker component to simplify testing
 vi.mock('react-day-picker', () => ({
-  DayPicker: ({ onDayClick, locale, modifiers, ...props }: any) => (
+  DayPicker: ({ onDayClick }: { onDayClick?: (date: Date) => void }) => (
     <div className="rdp" data-testid="day-picker">
       <div>Mocked DayPicker</div>
       {/* Simulate a clickable day for testing */}
