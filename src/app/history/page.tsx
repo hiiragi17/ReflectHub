@@ -136,6 +136,8 @@ export default function HistoryPage() {
         userName={user.name}
         onSignOut={handleSignOut}
         title="ReflectHub"
+        showBackButton={true}
+        backHref="/dashboard"
       />
 
       <main className="max-w-7xl mx-auto px-4 py-8">
