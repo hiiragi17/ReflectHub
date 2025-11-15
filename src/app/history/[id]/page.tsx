@@ -24,7 +24,7 @@ import type { Framework } from '@/types/framework';
 export default function ReflectionDetailPage() {
   const router = useRouter();
   const params = useParams();
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, signOut, isLoading: authLoading } = useAuth();
 
   const reflectionId = params.id as string;
 
@@ -80,6 +80,11 @@ export default function ReflectionDetailPage() {
     router.back();
   };
 
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/auth');
+  };
+
   const handleSaveEdit = async (updatedContent: Record<string, string>) => {
     if (!reflection) return;
 
@@ -114,7 +119,12 @@ export default function ReflectionDetailPage() {
   if (authLoading || isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header />
+        <Header
+          isAuthenticated={!!user}
+          userName={user?.name}
+          onSignOut={handleSignOut}
+          title="振り返り詳細"
+        />
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
         </div>
@@ -124,7 +134,12 @@ export default function ReflectionDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      <Header
+        isAuthenticated={!!user}
+        userName={user?.name}
+        onSignOut={handleSignOut}
+        title="振り返り詳細"
+      />
 
       <div className="max-w-3xl mx-auto py-8 px-4">
         {error && (
