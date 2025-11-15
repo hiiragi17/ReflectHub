@@ -66,13 +66,15 @@ export default function DashboardPage() {
           </Link>
 
           {/* 履歴を見る */}
-          <Card className="h-full">
-            <CardContent className="p-6 text-center">
-              <Calendar className="w-8 h-8 text-green-500 mx-auto mb-3" />
-              <h3 className="font-semibold mb-2">履歴を見る</h3>
-              <p className="text-sm text-gray-600">過去の振り返りを確認</p>
-            </CardContent>
-          </Card>
+          <Link href="/history">
+            <Card className="cursor-pointer hover:shadow-md transition-shadow h-full">
+              <CardContent className="p-6 text-center">
+                <Calendar className="w-8 h-8 text-green-500 mx-auto mb-3" />
+                <h3 className="font-semibold mb-2">履歴を見る</h3>
+                <p className="text-sm text-gray-600">過去の振り返りを確認</p>
+              </CardContent>
+            </Card>
+          </Link>
 
           {/* 統計を見る */}
           <Card className="h-full">
