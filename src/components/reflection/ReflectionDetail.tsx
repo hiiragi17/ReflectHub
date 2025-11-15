@@ -33,12 +33,46 @@ export const ReflectionDetail: React.FC<ReflectionDetailProps> = ({
   onBack,
   isLoading = false,
 }) => {
-  // Parse timestamps
-  const reflectionDate = parseISO(reflection.reflection_date);
-  const createdAt = parseISO(reflection.created_at);
-  const updatedAt = reflection.updated_at
-    ? parseISO(reflection.updated_at)
-    : null;
+  // Helper function to safely parse dates
+  const safeParse = (dateStr: string | undefined): Date => {
+    if (!dateStr) {
+      return new Date();
+    }
+
+    try {
+      const date = parseISO(dateStr);
+      if (!isNaN(date.getTime())) {
+        return date;
+      }
+    } catch {
+      // Ignore parsing error and try fallback
+    }
+
+    try {
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) {
+        return date;
+      }
+    } catch {
+      // Ignore parsing error
+    }
+
+    // Last resort: try to extract date from string (YYYY-MM-DD)
+    const match = dateStr?.match(/(\d{4}-\d{2}-\d{2})/);
+    if (match) {
+      const date = new Date(match[1]);
+      if (!isNaN(date.getTime())) {
+        return date;
+      }
+    }
+
+    return new Date();
+  };
+
+  // Parse timestamps with fallback handling
+  const reflectionDate = safeParse(reflection.reflection_date);
+  const createdAt = safeParse(reflection.created_at);
+  const updatedAt = reflection.updated_at ? safeParse(reflection.updated_at) : null;
 
   // Format display strings
   const dateStr = format(reflectionDate, 'yyyy年MM月dd日（EEEE）', {
