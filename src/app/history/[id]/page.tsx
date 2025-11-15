@@ -7,6 +7,7 @@ import { reflectionService } from '@/services/reflectionService';
 import { frameworkService } from '@/services/frameworkService';
 import { ReflectionDetail } from '@/components/reflection/ReflectionDetail';
 import { ReflectionEditModal } from '@/components/reflection/ReflectionEditModal';
+import { DeleteConfirmDialog } from '@/components/reflection/DeleteConfirmDialog';
 import Header from '@/components/layout/Header';
 import { Loader2 } from 'lucide-react';
 import type { Reflection } from '@/types/reflection';
@@ -34,6 +35,8 @@ export default function ReflectionDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Authentication check
   useEffect(() => {
@@ -83,6 +86,32 @@ export default function ReflectionDetailPage() {
   const handleSignOut = async () => {
     await signOut();
     router.push('/auth');
+  };
+
+  const handleShowDeleteConfirm = () => {
+    setDeleteError(null);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleCloseDeleteConfirm = () => {
+    setShowDeleteConfirm(false);
+    setDeleteError(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!reflection) return;
+
+    try {
+      setDeleteError(null);
+      await reflectionService.delete(reflection.id);
+      // Redirect to history page after successful deletion
+      router.push('/history');
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : '削除に失敗しました';
+      setDeleteError(errorMessage);
+      console.error('Failed to delete reflection:', err);
+    }
   };
 
   const handleSaveEdit = async (updatedContent: Record<string, string>) => {
@@ -155,6 +184,7 @@ export default function ReflectionDetailPage() {
               framework={framework}
               onEdit={handleEdit}
               onBack={handleBack}
+              onDelete={handleShowDeleteConfirm}
               isLoading={isUpdating}
             />
 
@@ -166,6 +196,17 @@ export default function ReflectionDetailPage() {
                 isLoading={isUpdating}
                 onSave={handleSaveEdit}
                 onClose={handleCloseEditModal}
+              />
+            )}
+
+            {/* Delete Confirmation Dialog */}
+            {showDeleteConfirm && (
+              <DeleteConfirmDialog
+                reflectionDate={reflection.reflection_date}
+                error={deleteError}
+                isLoading={false}
+                onConfirm={handleConfirmDelete}
+                onCancel={handleCloseDeleteConfirm}
               />
             )}
           </>

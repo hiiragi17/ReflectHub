@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Calendar, Tag, Edit2, ArrowLeft } from 'lucide-react';
+import { Calendar, Tag, Edit2, ArrowLeft, Trash2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import type { Reflection } from '@/types/reflection';
@@ -13,6 +13,7 @@ interface ReflectionDetailProps {
   framework: Framework | undefined;
   onEdit: () => void;
   onBack: () => void;
+  onDelete: () => void;
   isLoading?: boolean;
 }
 
@@ -31,6 +32,7 @@ export const ReflectionDetail: React.FC<ReflectionDetailProps> = ({
   framework,
   onEdit,
   onBack,
+  onDelete,
   isLoading = false,
 }) => {
   // Helper function to safely parse dates
@@ -96,14 +98,25 @@ export const ReflectionDetail: React.FC<ReflectionDetailProps> = ({
             <ArrowLeft className="w-4 h-4" />
             <span className="text-sm font-medium">戻る</span>
           </button>
-          <button
-            onClick={onEdit}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={isLoading}
-          >
-            <Edit2 className="w-4 h-4" />
-            <span className="text-sm font-medium">編集</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onDelete}
+              className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isLoading}
+              title="この振り返りを削除"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="text-sm font-medium">削除</span>
+            </button>
+            <button
+              onClick={onEdit}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isLoading}
+            >
+              <Edit2 className="w-4 h-4" />
+              <span className="text-sm font-medium">編集</span>
+            </button>
+          </div>
         </div>
 
         {/* Metadata section */}
