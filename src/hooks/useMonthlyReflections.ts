@@ -5,7 +5,7 @@ import type { MonthlyCalendarData, CalendarWithFrameworks } from '@/types/calend
 import type { Framework } from '@/types/framework';
 import type { Reflection } from '@/types/reflection';
 import { getUserReflections } from '@/services/reflectionService';
-import { getFrameworks } from '@/services/frameworkService';
+import { frameworkService } from '@/services/frameworkService';
 import { getMonthCalendarData } from '@/services/calendarService';
 import { createClient } from '@supabase/supabase-js';
 
@@ -106,7 +106,7 @@ export const useMonthlyReflections = (
       // Fetch reflections and frameworks in parallel
       const [reflectionsData, frameworksData] = await Promise.all([
         getUserReflections(userId, limit, timeZone),
-        getFrameworks(),
+        frameworkService.getFrameworks(),
       ]);
 
       setReflections(reflectionsData);
