@@ -7,7 +7,6 @@ import { ja } from 'date-fns/locale';
 import type { Reflection } from '@/types/reflection';
 import type { Framework } from '@/types/framework';
 import { FieldDisplay } from './FieldDisplay';
-import { Button } from '@/components/ui/button';
 
 interface ReflectionDetailProps {
   reflection: Reflection;

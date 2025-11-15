@@ -44,14 +44,18 @@ export const ReflectionEditModal: React.FC<ReflectionEditModalProps> = ({
     useValidation();
 
   const handleFieldChange = useCallback((fieldId: string, value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      [fieldId]: value,
-    }));
+    setFormData((prev) => {
+      const updated = {
+        ...prev,
+        [fieldId]: value,
+      };
 
-    // Check if content has changed from original
-    const hasChanged = JSON.stringify(formData) !== JSON.stringify(reflection.content);
-    setHasChanges(hasChanged || value !== reflection.content[fieldId]);
+      // Check if content has changed from original
+      const hasChanged = JSON.stringify(updated) !== JSON.stringify(reflection.content);
+      setHasChanges(hasChanged || value !== reflection.content[fieldId]);
+
+      return updated;
+    });
   }, [reflection.content]);
 
   const handleSave = async () => {

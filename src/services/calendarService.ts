@@ -188,10 +188,9 @@ const calculateConsecutiveDays = (
   reflectionsByDate: Map<string, Reflection[]>
 ): number => {
   const today = new Date();
-  const todayStr = formatDateToString(today);
 
   let consecutive = 0;
-  let checkDate = new Date(today);
+  const checkDate = new Date(today);
 
   while (true) {
     const dateStr = formatDateToString(checkDate);

@@ -9,7 +9,7 @@ import DashboardLoading from '@/app/dashboard/loading';
 import { reflectionService } from '@/services/reflectionService';
 import type { Reflection } from '@/types/reflection';
 import type { Framework } from '@/types/framework';
-import { X } from 'lucide-react';
+import { X, ChevronRight } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
@@ -289,36 +289,48 @@ export default function HistoryPage() {
                     </div>
 
                     {/* Metadata */}
-                    <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-500">
-                      作成日: {(() => {
-                        try {
-                          // Try parsing as ISO string first
-                          const date = parseISO(reflection.created_at);
-                          if (!isNaN(date.getTime())) {
-                            return format(date, 'yyyy-MM-dd', { locale: ja });
+                    <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
+                      <div className="text-xs text-gray-500">
+                        作成日: {(() => {
+                          try {
+                            // Try parsing as ISO string first
+                            const date = parseISO(reflection.created_at);
+                            if (!isNaN(date.getTime())) {
+                              return format(date, 'yyyy-MM-dd', { locale: ja });
+                            }
+                          } catch (e) {
+                            // Ignore parsing error and try fallback
                           }
-                        } catch (e) {
-                          // Ignore parsing error and try fallback
-                        }
 
-                        try {
-                          // Fallback to direct Date parsing
-                          const fallbackDate = new Date(reflection.created_at);
-                          if (!isNaN(fallbackDate.getTime())) {
-                            return format(fallbackDate, 'yyyy-MM-dd', { locale: ja });
+                          try {
+                            // Fallback to direct Date parsing
+                            const fallbackDate = new Date(reflection.created_at);
+                            if (!isNaN(fallbackDate.getTime())) {
+                              return format(fallbackDate, 'yyyy-MM-dd', { locale: ja });
+                            }
+                          } catch (e) {
+                            // Ignore parsing error and try string extraction
                           }
-                        } catch (e) {
-                          // Ignore parsing error and try string extraction
-                        }
 
-                        // Last resort: extract date from string (YYYY-MM-DD format)
-                        const dateMatch = reflection.created_at?.match(/(\d{4}-\d{2}-\d{2})/);
-                        if (dateMatch) {
-                          return dateMatch[1];
-                        }
+                          // Last resort: extract date from string (YYYY-MM-DD format)
+                          const dateMatch = reflection.created_at?.match(/(\d{4}-\d{2}-\d{2})/);
+                          if (dateMatch) {
+                            return dateMatch[1];
+                          }
 
-                        return '不明';
-                      })()}
+                          return '不明';
+                        })()}
+                      </div>
+
+                      {/* Detail View Button */}
+                      <button
+                        onClick={() => router.push(`/history/${reflection.id}`)}
+                        className="flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:underline transition-colors text-sm font-medium"
+                        title="詳細ページで編集可能です"
+                      >
+                        詳細表示
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 );
