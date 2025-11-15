@@ -168,6 +168,8 @@ export default function ReflectionDetailPage() {
         userName={user?.name}
         onSignOut={handleSignOut}
         title="振り返り詳細"
+        showBackButton={true}
+        backHref="/history"
       />
 
       <div className="max-w-3xl mx-auto py-8 px-4">

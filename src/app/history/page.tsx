@@ -94,8 +94,8 @@ export default function HistoryPage() {
     });
   };
 
-  // Close modal
-  const closeModal = () => {
+  // Close detail panel
+  const closeDetail = () => {
     setSelectedDetail(null);
   };
 
@@ -138,7 +138,7 @@ export default function HistoryPage() {
         title="ReflectHub"
       />
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Page Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">振り返り履歴</h1>
@@ -183,7 +183,7 @@ export default function HistoryPage() {
           </div>
         </div>
 
-        {/* Calendar */}
+        {/* Calendar and Detail View - Side by side */}
         {reflections.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm p-12 text-center">
             <p className="text-gray-600 mb-4">まだ振り返りがありません</p>
@@ -195,150 +195,147 @@ export default function HistoryPage() {
             </button>
           </div>
         ) : (
-          <Calendar
-            reflections={reflections}
-            frameworks={frameworks}
-            onDateClick={handleDateClick}
-          />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Calendar - Left side */}
+            <div className="lg:col-span-1">
+              <Calendar
+                reflections={reflections}
+                frameworks={frameworks}
+                onDateClick={handleDateClick}
+              />
+            </div>
+
+            {/* Reflection Detail Panel - Right side */}
+            {selectedDetail && (
+              <div className="lg:col-span-2 bg-white rounded-lg shadow-sm overflow-hidden flex flex-col">
+                {/* Panel Header */}
+                <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between flex-shrink-0">
+                  <h2 className="text-xl font-bold text-gray-900">
+                    {formatDate(selectedDetail.date)}
+                  </h2>
+                  <button
+                    onClick={closeDetail}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors lg:hidden"
+                    aria-label="閉じる"
+                  >
+                    <X className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
+
+                {/* Panel Content */}
+                <div className="overflow-y-auto flex-1 p-6 space-y-6">
+                  {selectedDetail.reflections.map((reflection) => {
+                    const framework = getFramework(reflection.framework_id);
+
+                    return (
+                      <div
+                        key={reflection.id}
+                        className="border border-gray-200 rounded-lg p-6"
+                        style={{
+                          borderLeftWidth: '4px',
+                          borderLeftColor: framework?.color || '#6B7280',
+                        }}
+                      >
+                        {/* Framework Header */}
+                        <div className="flex items-center gap-2 mb-4">
+                          <span className="text-2xl">{framework?.icon || '📝'}</span>
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {framework?.display_name || '振り返り'}
+                          </h3>
+                        </div>
+
+                        {/* Reflection Content */}
+                        <div className="space-y-4">
+                          {(() => {
+                            // Ensure schema is an array
+                            const schema = Array.isArray(framework?.schema) ? framework.schema : [];
+
+                            // If schema exists, display in array order (preserve original order)
+                            if (schema.length > 0) {
+                              return schema.map((field) => {
+                                const value = reflection.content[field.id] || '';
+
+                                return (
+                                  <div key={field.id} className="space-y-2">
+                                    <h4 className="text-sm font-semibold text-gray-700">
+                                      {field.icon && <span className="mr-1">{field.icon}</span>}
+                                      {field.label}
+                                    </h4>
+                                    <p className="text-gray-900 whitespace-pre-wrap bg-gray-50 p-3 rounded-md">
+                                      {value || '（未記入）'}
+                                    </p>
+                                  </div>
+                                );
+                              });
+                            } else {
+                              // Fallback: display all content fields
+                              return Object.entries(reflection.content).map(([fieldId, value]) => (
+                                <div key={fieldId} className="space-y-2">
+                                  <h4 className="text-sm font-semibold text-gray-700">
+                                    {fieldId}
+                                  </h4>
+                                  <p className="text-gray-900 whitespace-pre-wrap bg-gray-50 p-3 rounded-md">
+                                    {value || '（未記入）'}
+                                  </p>
+                                </div>
+                              ));
+                            }
+                          })()}
+                        </div>
+
+                        {/* Metadata */}
+                        <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
+                          <div className="text-xs text-gray-500">
+                            作成日: {(() => {
+                              try {
+                                // Try parsing as ISO string first
+                                const date = parseISO(reflection.created_at);
+                                if (!isNaN(date.getTime())) {
+                                  return format(date, 'yyyy-MM-dd', { locale: ja });
+                                }
+                              } catch (e) {
+                                // Ignore parsing error and try fallback
+                              }
+
+                              try {
+                                // Fallback to direct Date parsing
+                                const fallbackDate = new Date(reflection.created_at);
+                                if (!isNaN(fallbackDate.getTime())) {
+                                  return format(fallbackDate, 'yyyy-MM-dd', { locale: ja });
+                                }
+                              } catch (e) {
+                                // Ignore parsing error and try string extraction
+                              }
+
+                              // Last resort: extract date from string (YYYY-MM-DD format)
+                              const dateMatch = reflection.created_at?.match(/(\d{4}-\d{2}-\d{2})/);
+                              if (dateMatch) {
+                                return dateMatch[1];
+                              }
+
+                              return '不明';
+                            })()}
+                          </div>
+
+                          {/* Detail View Button */}
+                          <button
+                            onClick={() => router.push(`/history/${reflection.id}`)}
+                            className="flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:underline transition-colors text-sm font-medium"
+                            title="詳細ページで編集可能です"
+                          >
+                            詳細表示
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </main>
-
-      {/* Reflection Detail Modal */}
-      {selectedDetail && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-          onClick={closeModal}
-        >
-          <div
-            className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[80vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">
-                {formatDate(selectedDetail.date)}
-              </h2>
-              <button
-                onClick={closeModal}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                aria-label="閉じる"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6 space-y-6">
-              {selectedDetail.reflections.map((reflection) => {
-                const framework = getFramework(reflection.framework_id);
-
-                return (
-                  <div
-                    key={reflection.id}
-                    className="border border-gray-200 rounded-lg p-6"
-                    style={{
-                      borderLeftWidth: '4px',
-                      borderLeftColor: framework?.color || '#6B7280',
-                    }}
-                  >
-                    {/* Framework Header */}
-                    <div className="flex items-center gap-2 mb-4">
-                      <span className="text-2xl">{framework?.icon || '📝'}</span>
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {framework?.display_name || '振り返り'}
-                      </h3>
-                    </div>
-
-                    {/* Reflection Content */}
-                    <div className="space-y-4">
-                      {(() => {
-                        // Ensure schema is an array
-                        const schema = Array.isArray(framework?.schema) ? framework.schema : [];
-
-                        // If schema exists, display in array order (preserve original order)
-                        if (schema.length > 0) {
-                          return schema.map((field) => {
-                            const value = reflection.content[field.id] || '';
-
-                            return (
-                              <div key={field.id} className="space-y-2">
-                                <h4 className="text-sm font-semibold text-gray-700">
-                                  {field.icon && <span className="mr-1">{field.icon}</span>}
-                                  {field.label}
-                                </h4>
-                                <p className="text-gray-900 whitespace-pre-wrap bg-gray-50 p-3 rounded-md">
-                                  {value || '（未記入）'}
-                                </p>
-                              </div>
-                            );
-                          });
-                        } else {
-                          // Fallback: display all content fields
-                          return Object.entries(reflection.content).map(([fieldId, value]) => (
-                            <div key={fieldId} className="space-y-2">
-                              <h4 className="text-sm font-semibold text-gray-700">
-                                {fieldId}
-                              </h4>
-                              <p className="text-gray-900 whitespace-pre-wrap bg-gray-50 p-3 rounded-md">
-                                {value || '（未記入）'}
-                              </p>
-                            </div>
-                          ));
-                        }
-                      })()}
-                    </div>
-
-                    {/* Metadata */}
-                    <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
-                      <div className="text-xs text-gray-500">
-                        作成日: {(() => {
-                          try {
-                            // Try parsing as ISO string first
-                            const date = parseISO(reflection.created_at);
-                            if (!isNaN(date.getTime())) {
-                              return format(date, 'yyyy-MM-dd', { locale: ja });
-                            }
-                          } catch (e) {
-                            // Ignore parsing error and try fallback
-                          }
-
-                          try {
-                            // Fallback to direct Date parsing
-                            const fallbackDate = new Date(reflection.created_at);
-                            if (!isNaN(fallbackDate.getTime())) {
-                              return format(fallbackDate, 'yyyy-MM-dd', { locale: ja });
-                            }
-                          } catch (e) {
-                            // Ignore parsing error and try string extraction
-                          }
-
-                          // Last resort: extract date from string (YYYY-MM-DD format)
-                          const dateMatch = reflection.created_at?.match(/(\d{4}-\d{2}-\d{2})/);
-                          if (dateMatch) {
-                            return dateMatch[1];
-                          }
-
-                          return '不明';
-                        })()}
-                      </div>
-
-                      {/* Detail View Button */}
-                      <button
-                        onClick={() => router.push(`/history/${reflection.id}`)}
-                        className="flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:underline transition-colors text-sm font-medium"
-                        title="詳細ページで編集可能です"
-                      >
-                        詳細表示
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
