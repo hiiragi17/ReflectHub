@@ -135,18 +135,21 @@ describe('ReflectionDetailPage - Delete Feature', () => {
     render(<ReflectionDetailPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('削除')).toBeInTheDocument();
+      const buttons = screen.getAllByText('削除');
+      expect(buttons.length).toBeGreaterThan(0);
     });
 
-    const deleteButton = screen.getByText('削除');
-    fireEvent.click(deleteButton);
+    // Click the first delete button (ReflectionDetail component)
+    const deleteButtons = screen.getAllByText('削除');
+    fireEvent.click(deleteButtons[0]);
 
     await waitFor(() => {
       expect(screen.getByText('削除確認')).toBeInTheDocument();
     });
 
-    const confirmButton = screen.getByRole('button', { name: /削除$/ });
-    fireEvent.click(confirmButton);
+    // Click the delete button in the confirmation dialog (second occurrence)
+    const confirmButtons = screen.getAllByRole('button', { name: /削除/ });
+    fireEvent.click(confirmButtons[confirmButtons.length - 1]);
 
     await waitFor(() => {
       expect(reflectionService.delete).toHaveBeenCalledWith(mockReflectionId);
@@ -157,18 +160,21 @@ describe('ReflectionDetailPage - Delete Feature', () => {
     render(<ReflectionDetailPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('削除')).toBeInTheDocument();
+      const buttons = screen.getAllByText('削除');
+      expect(buttons.length).toBeGreaterThan(0);
     });
 
-    const deleteButton = screen.getByText('削除');
-    fireEvent.click(deleteButton);
+    // Click the first delete button (ReflectionDetail component)
+    const deleteButtons = screen.getAllByText('削除');
+    fireEvent.click(deleteButtons[0]);
 
     await waitFor(() => {
       expect(screen.getByText('削除確認')).toBeInTheDocument();
     });
 
-    const confirmButton = screen.getByRole('button', { name: /削除$/ });
-    fireEvent.click(confirmButton);
+    // Click the delete button in the confirmation dialog
+    const confirmButtons = screen.getAllByRole('button', { name: /削除/ });
+    fireEvent.click(confirmButtons[confirmButtons.length - 1]);
 
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledWith('/history');
@@ -184,18 +190,21 @@ describe('ReflectionDetailPage - Delete Feature', () => {
     render(<ReflectionDetailPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('削除')).toBeInTheDocument();
+      const buttons = screen.getAllByText('削除');
+      expect(buttons.length).toBeGreaterThan(0);
     });
 
-    const deleteButton = screen.getByText('削除');
-    fireEvent.click(deleteButton);
+    // Click the first delete button (ReflectionDetail component)
+    const deleteButtons = screen.getAllByText('削除');
+    fireEvent.click(deleteButtons[0]);
 
     await waitFor(() => {
       expect(screen.getByText('削除確認')).toBeInTheDocument();
     });
 
-    const confirmButton = screen.getByRole('button', { name: /削除$/ });
-    fireEvent.click(confirmButton);
+    // Click the delete button in the confirmation dialog
+    const confirmButtons = screen.getAllByRole('button', { name: /削除/ });
+    fireEvent.click(confirmButtons[confirmButtons.length - 1]);
 
     await waitFor(() => {
       expect(screen.getByText(errorMessage)).toBeInTheDocument();

@@ -115,8 +115,8 @@ describe('DeleteConfirmDialog', () => {
       />
     );
 
-    const deleteButton = screen.getByText('削除');
-    const cancelButton = screen.getByText('キャンセル');
+    const deleteButton = screen.getByRole('button', { name: /削除$/ });
+    const cancelButton = screen.getByRole('button', { name: /キャンセル/ });
 
     expect(deleteButton).toBeDisabled();
     expect(cancelButton).toBeDisabled();
