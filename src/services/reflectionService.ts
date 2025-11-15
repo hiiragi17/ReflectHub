@@ -242,6 +242,7 @@ export const getReflection = async (
       ...data,
       reflection_date: convertToUserTimezone(data.reflection_date, timeZone),
       created_at: convertTimestampToUserTimezone(data.created_at, timeZone),
+      updated_at: data.updated_at ? convertTimestampToUserTimezone(data.updated_at, timeZone) : null,
     };
 
     return userTimezoneData as Reflection;
@@ -282,6 +283,7 @@ export const getUserReflections = async (
       ...record,
       reflection_date: convertToUserTimezone(record.reflection_date, timeZone),
       created_at: convertTimestampToUserTimezone(record.created_at, timeZone),
+      updated_at: record.updated_at ? convertTimestampToUserTimezone(record.updated_at, timeZone) : null,
     }));
 
     return userTimezoneData as Reflection[];

@@ -1,16 +1,23 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// Setup environment variables using vi.hoisted to ensure they are set before module imports
-vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://test.supabase.co');
-vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'test-anon-key');
+// Setup environment variables and mocks with vi.hoisted to ensure they are set before module imports
+const setup = vi.hoisted(() => {
+  // Setup environment variables
+  process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
 
-// Mock Supabase client BEFORE importing the module
-const mockSupabaseClient = {
-  auth: {
-    getUser: vi.fn(),
-  },
-  from: vi.fn(),
-};
+  // Mock Supabase client
+  const mockSupabaseClient = {
+    auth: {
+      getUser: vi.fn(),
+    },
+    from: vi.fn(),
+  };
+
+  return { mockSupabaseClient };
+});
+
+const { mockSupabaseClient } = setup;
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => mockSupabaseClient),

@@ -7,6 +7,7 @@ import { reflectionService } from '@/services/reflectionService';
 import { frameworkService } from '@/services/frameworkService';
 import { ReflectionDetail } from '@/components/reflection/ReflectionDetail';
 import { ReflectionEditModal } from '@/components/reflection/ReflectionEditModal';
+import { DeleteConfirmDialog } from '@/components/reflection/DeleteConfirmDialog';
 import Header from '@/components/layout/Header';
 import { Loader2 } from 'lucide-react';
 import type { Reflection } from '@/types/reflection';
@@ -34,6 +35,8 @@ export default function ReflectionDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Authentication check
   useEffect(() => {
@@ -76,13 +79,35 @@ export default function ReflectionDetailPage() {
     setShowEditModal(true);
   };
 
-  const handleBack = () => {
-    router.back();
-  };
-
   const handleSignOut = async () => {
     await signOut();
     router.push('/auth');
+  };
+
+  const handleShowDeleteConfirm = () => {
+    setDeleteError(null);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleCloseDeleteConfirm = () => {
+    setShowDeleteConfirm(false);
+    setDeleteError(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!reflection) return;
+
+    try {
+      setDeleteError(null);
+      await reflectionService.delete(reflection.id);
+      // Redirect to history page after successful deletion
+      router.push('/history');
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : '削除に失敗しました';
+      setDeleteError(errorMessage);
+      console.error('Failed to delete reflection:', err);
+    }
   };
 
   const handleSaveEdit = async (updatedContent: Record<string, string>) => {
@@ -94,11 +119,26 @@ export default function ReflectionDetailPage() {
         content: updatedContent,
       });
 
+      // Get current time in Japan timezone format
+      const now = new Date();
+      const japanTime = now.toLocaleString('en-CA', {
+        timeZone: 'Asia/Tokyo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      });
+      const [datePart, timePart] = japanTime.split(' ');
+      const updatedAtFormatted = `${datePart}T${timePart}`;
+
       // Update local state
       setReflection({
         ...reflection,
         content: updated.content,
-        updated_at: new Date().toISOString(),
+        updated_at: updatedAtFormatted,
       });
 
       setShowEditModal(false);
@@ -139,6 +179,8 @@ export default function ReflectionDetailPage() {
         userName={user?.name}
         onSignOut={handleSignOut}
         title="振り返り詳細"
+        showBackButton={true}
+        backHref="/history"
       />
 
       <div className="max-w-3xl mx-auto py-8 px-4">
@@ -154,7 +196,7 @@ export default function ReflectionDetailPage() {
               reflection={reflection}
               framework={framework}
               onEdit={handleEdit}
-              onBack={handleBack}
+              onDelete={handleShowDeleteConfirm}
               isLoading={isUpdating}
             />
 
@@ -166,6 +208,17 @@ export default function ReflectionDetailPage() {
                 isLoading={isUpdating}
                 onSave={handleSaveEdit}
                 onClose={handleCloseEditModal}
+              />
+            )}
+
+            {/* Delete Confirmation Dialog */}
+            {showDeleteConfirm && (
+              <DeleteConfirmDialog
+                reflectionDate={reflection.reflection_date}
+                error={deleteError}
+                isLoading={false}
+                onConfirm={handleConfirmDelete}
+                onCancel={handleCloseDeleteConfirm}
               />
             )}
           </>
