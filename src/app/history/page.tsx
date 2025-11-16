@@ -287,7 +287,7 @@ export default function HistoryPage() {
                                 if (!isNaN(date.getTime())) {
                                   return format(date, 'yyyy-MM-dd', { locale: ja });
                                 }
-                              } catch (e) {
+                              } catch {
                                 // Ignore parsing error and try fallback
                               }
 
@@ -297,7 +297,7 @@ export default function HistoryPage() {
                                 if (!isNaN(fallbackDate.getTime())) {
                                   return format(fallbackDate, 'yyyy-MM-dd', { locale: ja });
                                 }
-                              } catch (e) {
+                              } catch {
                                 // Ignore parsing error and try string extraction
                               }
 

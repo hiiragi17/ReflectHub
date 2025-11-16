@@ -69,23 +69,29 @@ describe('ReflectionDetailPage - Delete Feature', () => {
     vi.clearAllMocks();
 
     // Setup mocks
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (useRouter as any).mockReturnValue({
       push: mockPush,
       back: mockBack,
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (useParams as any).mockReturnValue({
       id: mockReflectionId,
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (useAuth as any).mockReturnValue({
       user: { id: mockUserId, name: 'Test User' },
       signOut: vi.fn(),
       isLoading: false,
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (reflectionService.get as any).mockResolvedValue(mockReflection);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (frameworkService.getFrameworks as any).mockResolvedValue([mockFramework]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (reflectionService.delete as any).mockResolvedValue(undefined);
   });
 
