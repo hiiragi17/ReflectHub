@@ -70,7 +70,7 @@ const ErrorMessage: React.FC<ErrorMessageProps> = ({
           <h3 className={styles.title}>{getErrorTitle(error.type)}</h3>
           <p className={styles.message}>{userMessage}</p>
 
-          {process.env.NODE_ENV === 'development' && error.originalError && (
+          {process.env.NODE_ENV === 'development' && error.originalError ? (
             <details className={styles.debugInfo}>
               <summary>Debug Information</summary>
               <pre className={styles.debugDetails}>
@@ -79,7 +79,7 @@ const ErrorMessage: React.FC<ErrorMessageProps> = ({
                   `\n${error.originalError.stack}`}
               </pre>
             </details>
-          )}
+          ) : null}
         </div>
 
         <div className={styles.actions}>

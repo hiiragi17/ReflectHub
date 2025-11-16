@@ -12,16 +12,16 @@
   display: inline-block;
 }
 
-.shapeRect {
+.shape-rect {
   border-radius: 4px;
 }
 
-.shapeCircle {
+.shape-circle {
   border-radius: 50%;
   aspect-ratio: 1;
 }
 
-.shapeText {
+.shape-text {
   display: flex;
   flex-direction: column;
 }
@@ -44,17 +44,17 @@
 }
 
 /* Pulse animation */
-.animationPulse {
+.animation-pulse {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 /* Wave animation */
-.animationWave {
+.animation-wave {
   animation: wave 2s linear infinite;
 }
 
 /* No animation */
-.animationNone {
+.animation-none {
   opacity: 0.6;
 }
 
@@ -89,8 +89,8 @@
 
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
-  .animationPulse,
-  .animationWave {
+  .animation-pulse,
+  .animation-wave {
     animation: none;
     opacity: 0.6;
   }
