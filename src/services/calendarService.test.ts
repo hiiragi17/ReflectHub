@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   transformToMonthlyCalendar,
   filterReflectionsByDateRange,
@@ -91,7 +91,7 @@ describe('calendarService', () => {
 
       // November 1, 2024 is a Friday
       // Calendar should include days from previous month
-      const hasEarlyDates = calendar.days.some((d) => d.dateObject.getMonth() === 9); // October
+      expect(calendar.days.some((d) => d.dateObject.getMonth() === 9)).toBeTruthy(); // October
 
       // November typically has 30 days, but calendar view includes padding
       expect(calendar.days.length).toBeGreaterThanOrEqual(35);
@@ -128,12 +128,9 @@ describe('calendarService', () => {
         createMockReflection('r-3', 'fw-1', dayBeforeStr),
       ];
 
-      const currentMonth = today.getMonth() + 1;
-      const currentYear = today.getFullYear();
-
       const calendar = transformToMonthlyCalendar(
-        currentYear,
-        currentMonth,
+        today.getFullYear(),
+        today.getMonth() + 1,
         reflections,
         mockFrameworks
       );
@@ -250,8 +247,6 @@ describe('calendarService', () => {
   describe('getCurrentMonthStats', () => {
     it('should calculate stats for current month', () => {
       const today = new Date();
-      const currentMonth = today.getMonth() + 1;
-      const currentYear = today.getFullYear();
 
       const todayStr = today.toISOString().split('T')[0];
 

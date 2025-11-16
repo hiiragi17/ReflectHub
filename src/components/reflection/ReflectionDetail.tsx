@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Calendar, Tag, Edit2, ArrowLeft } from 'lucide-react';
+import { Calendar, Tag, Edit2, Trash2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import type { Reflection } from '@/types/reflection';
@@ -12,7 +12,7 @@ interface ReflectionDetailProps {
   reflection: Reflection;
   framework: Framework | undefined;
   onEdit: () => void;
-  onBack: () => void;
+  onDelete: () => void;
   isLoading?: boolean;
 }
 
@@ -30,7 +30,7 @@ export const ReflectionDetail: React.FC<ReflectionDetailProps> = ({
   reflection,
   framework,
   onEdit,
-  onBack,
+  onDelete,
   isLoading = false,
 }) => {
   // Helper function to safely parse dates
@@ -71,30 +71,27 @@ export const ReflectionDetail: React.FC<ReflectionDetailProps> = ({
 
   // Parse timestamps with fallback handling
   const reflectionDate = safeParse(reflection.reflection_date);
-  const createdAt = safeParse(reflection.created_at);
-  const updatedAt = reflection.updated_at ? safeParse(reflection.updated_at) : null;
-
-  // Format display strings
+  // Note: created_at and updated_at are already converted to user timezone in reflectionService
+  // so we just need to format them as strings
   const dateStr = format(reflectionDate, 'yyyy年MM月dd日（EEEE）', {
     locale: ja,
   });
-  const createdStr = format(createdAt, 'yyyy-MM-dd HH:mm:ss', { locale: ja });
-  const updatedStr = updatedAt
-    ? format(updatedAt, 'yyyy-MM-dd HH:mm:ss', { locale: ja })
-    : null;
+  const createdStr = reflection.created_at.replace('T', ' ');
+  const updatedStr = reflection.updated_at ? reflection.updated_at.replace('T', ' ') : null;
 
   return (
     <div className="bg-white rounded-lg shadow-sm">
       {/* Header with navigation */}
       <div className="border-b border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-end mb-4 gap-2">
           <button
-            onClick={onBack}
-            className="flex items-center gap-2 text-blue-600 hover:text-blue-700 transition-colors"
+            onClick={onDelete}
+            className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isLoading}
+            title="この振り返りを削除"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm font-medium">戻る</span>
+            <Trash2 className="w-4 h-4" />
+            <span className="text-sm font-medium">削除</span>
           </button>
           <button
             onClick={onEdit}

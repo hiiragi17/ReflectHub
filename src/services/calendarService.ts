@@ -140,7 +140,7 @@ const getWeekNumberOfMonth = (date: Date): number => {
  */
 const calculateWeeklyStats = (
   days: CalendarDayData[],
-  frameworks: Framework[]
+  _frameworks: Framework[]
 ): WeeklyStats[] => {
   const weeks: Map<number, CalendarDayData[]> = new Map();
 

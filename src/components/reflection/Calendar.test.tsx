@@ -165,7 +165,6 @@ describe('Calendar', () => {
   describe('date formatting', () => {
     it('should format date keys as YYYY-MM-DD', () => {
       // This is tested through the component's internal logic
-      const testDate = new Date('2025-11-13');
       const expectedKey = '2025-11-13';
 
       const reflection = mockReflections.find(

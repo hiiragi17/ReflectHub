@@ -161,7 +161,8 @@ export const useAuthStore = create<AuthStore>()(
                     return;
                   }
                 }
-              } catch (_profileError) {
+              } catch {
+                // Profile check error is non-critical
               }
 
               const user: User = {
@@ -242,7 +243,7 @@ export const useAuthStore = create<AuthStore>()(
               isLoading: false,
             });
           }
-        } catch (_error) {
+        } catch {
           set({
             error: "初期化に失敗しました。",
             isLoading: false,

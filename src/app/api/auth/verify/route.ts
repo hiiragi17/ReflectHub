@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -16,14 +16,14 @@ export async function GET(request: NextRequest) {
           set(name: string, value: string, options: CookieOptions) {
             try {
               cookieStore.set({ name, value, ...options });
-            } catch (error) {
+            } catch {
               // Silent failure
             }
           },
           remove(name: string, options: CookieOptions) {
             try {
               cookieStore.delete({ name, ...options });
-            } catch (error) {
+            } catch {
               // Silent failure
             }
           },
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
       message: 'No active session'
     });
 
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { authenticated: false, error: 'Internal server error' },
       { status: 500 }

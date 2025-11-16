@@ -63,16 +63,6 @@ export const Calendar: React.FC<CalendarProps> = ({
     });
   }, [reflectionsByDate]);
 
-  // Get framework color for a date
-  const getDateFrameworkColors = (date: Date): string[] => {
-    const dateReflections = getReflectionsForDate(date);
-    const colors = dateReflections.map((reflection) => {
-      const framework = frameworks.find((f) => f.id === reflection.framework_id);
-      return framework?.color || '#6B7280';
-    });
-    return [...new Set(colors)]; // Remove duplicates
-  };
-
   // Handle day click
   const handleDayClick = (date: Date | undefined) => {
     if (!date) return;

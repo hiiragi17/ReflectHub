@@ -21,14 +21,14 @@ export async function GET(
           set(name: string, value: string, options: CookieOptions) {
             try {
               cookieStore.set({ name, value, ...options });
-            } catch (_error) {  // error → _error (未使用変数の警告対策)
+            } catch {
               // Silent failure
             }
           },
           remove(name: string, options: CookieOptions) {
             try {
               cookieStore.delete({ name, ...options });
-            } catch (_error) {  // error → _error
+            } catch {
               // Silent failure
             }
           },
@@ -94,7 +94,7 @@ export async function GET(
 
     return NextResponse.json({ profile });
 
-  } catch (_error) {  // error → _error
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
