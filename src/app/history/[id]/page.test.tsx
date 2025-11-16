@@ -189,6 +189,7 @@ describe('ReflectionDetailPage - Delete Feature', () => {
 
   it('should display error message when delete fails due to permission', async () => {
     const errorMessage = 'この振り返りデータの削除権限がありません。';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (reflectionService.delete as any).mockRejectedValueOnce(
       new Error(errorMessage)
     );

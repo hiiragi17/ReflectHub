@@ -247,8 +247,6 @@ describe('calendarService', () => {
   describe('getCurrentMonthStats', () => {
     it('should calculate stats for current month', () => {
       const today = new Date();
-      const currentMonth = today.getMonth() + 1;
-      const currentYear = today.getFullYear();
 
       const todayStr = today.toISOString().split('T')[0];
 
