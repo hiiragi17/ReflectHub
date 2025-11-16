@@ -1,0 +1,170 @@
+.errorMessage {
+  padding: 16px;
+  border-radius: 8px;
+  margin: 16px 0;
+  border-left: 4px solid;
+  background-color: #f8f9fa;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.errorMessage.severity-error {
+  border-left-color: #dc3545;
+  background-color: #f8d7da;
+}
+
+.errorMessage.severity-warning {
+  border-left-color: #ffc107;
+  background-color: #fff3cd;
+}
+
+.errorMessage.severity-info {
+  border-left-color: #17a2b8;
+  background-color: #d1ecf1;
+}
+
+.content {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+@media (max-width: 640px) {
+  .content {
+    grid-template-columns: auto 1fr;
+  }
+
+  .actions {
+    grid-column: 2;
+    display: flex;
+    gap: 8px;
+  }
+}
+
+.iconSection {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+}
+
+.icon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.messageSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #212529;
+}
+
+.message {
+  margin: 0;
+  font-size: 14px;
+  color: #495057;
+  line-height: 1.5;
+}
+
+.debugInfo {
+  margin-top: 8px;
+  padding: 8px;
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.debugInfo summary {
+  font-size: 12px;
+  color: #6c757d;
+  font-weight: 500;
+  user-select: none;
+}
+
+.debugDetails {
+  margin: 8px 0 0 0;
+  font-size: 11px;
+  overflow-x: auto;
+  background-color: #f8f9fa;
+  padding: 8px;
+  border-radius: 4px;
+  color: #495057;
+  line-height: 1.4;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.button {
+  padding: 6px 12px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.button:hover {
+  background-color: #0056b3;
+}
+
+.button:active {
+  background-color: #004085;
+}
+
+.button:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.buttonClose {
+  padding: 4px 8px;
+  background-color: transparent;
+  color: #6c757d;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  transition: color 0.2s;
+  min-width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.buttonClose:hover {
+  color: #212529;
+}
+
+@media (max-width: 640px) {
+  .errorMessage {
+    padding: 12px;
+    margin: 12px 0;
+  }
+
+  .title {
+    font-size: 14px;
+  }
+
+  .message {
+    font-size: 13px;
+  }
+
+  .button {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+}
