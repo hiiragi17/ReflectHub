@@ -53,7 +53,7 @@ export default function ReflectionForm() {
       clearErrors();
       previousFrameworkIdRef.current = selectedFrameworkId;
     }
-  }, [selectedFrameworkId, clearErrors]);
+  }, [selectedFrameworkId, clearErrors, formData]);
 
   useEffect(() => {
     return () => {
@@ -128,7 +128,8 @@ export default function ReflectionForm() {
           saveTimeoutRef.current = null;
         }, 3000);
       }
-    } catch (error) {
+    } catch {
+      // Error handling for save reflection
     }
   };
 

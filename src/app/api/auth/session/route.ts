@@ -26,14 +26,14 @@ export async function POST(request: NextRequest) {
           set(name: string, value: string, options: CookieOptions) {
             try {
               cookieStore.set({ name, value, ...options });
-            } catch (error) {
+            } catch {
               // Silent failure
             }
           },
           remove(name: string, options: CookieOptions) {
             try {
               cookieStore.delete({ name, ...options });
-            } catch (error) {
+            } catch {
               // Silent failure
             }
           },
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     if (data.session) {
       // プロフィール確認・作成
       try {
-        const { data: profile, error: profileError } = await supabase
+        const { error: profileError } = await supabase
           .from('profiles')
           .select('id')
           .eq('id', data.session.user.id)
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
             // プロフィール作成エラーは非致命的
           }
         }
-      } catch (profileError) {
+      } catch {
         // プロフィール関連エラーは非致命的
       }
 
