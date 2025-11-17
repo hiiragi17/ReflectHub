@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Framework } from '@/types/framework';
+import { Framework, FrameworkField } from '@/types/framework';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,10 +18,20 @@ export const frameworkService = {
       throw new Error(`フレームワーク取得エラー: ${error.message}`);
     }
 
-    return (data || []).map((framework) => ({
-      ...framework,
-      schema: framework.schema?.fields || [],
-    }));
+    return (data || []).map((framework) => {
+      const fields = (framework.schema?.fields || []) as FrameworkField[];
+      // フィールドをorder属性でソートして正しい順序を保証
+      const sortedFields = fields.sort((a: FrameworkField, b: FrameworkField) => {
+        const orderA = a.order ?? 0;
+        const orderB = b.order ?? 0;
+        return orderA - orderB;
+      });
+
+      return {
+        ...framework,
+        schema: sortedFields,
+      };
+    });
   },
 
   async getFrameworkById(id: string): Promise<Framework | null> {
@@ -36,9 +46,19 @@ export const frameworkService = {
       throw new Error(`フレームワーク取得エラー: ${error.message}`);
     }
 
-    return data ? {
+    if (!data) return null;
+
+    const fields = (data.schema?.fields || []) as FrameworkField[];
+    // フィールドをorder属性でソートして正しい順序を保証
+    const sortedFields = fields.sort((a: FrameworkField, b: FrameworkField) => {
+      const orderA = a.order ?? 0;
+      const orderB = b.order ?? 0;
+      return orderA - orderB;
+    });
+
+    return {
       ...data,
-      schema: data.schema?.fields || [],
-    } : null;
+      schema: sortedFields,
+    };
   },
 };
