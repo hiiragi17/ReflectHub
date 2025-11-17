@@ -1,0 +1,120 @@
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #e0e0e0 25%,
+    #f0f0f0 50%,
+    #e0e0e0 75%
+  );
+  background-size: 200% 100%;
+}
+
+.skeleton[role='progressbar'] {
+  display: inline-block;
+}
+
+.shape-rect {
+  border-radius: 4px;
+}
+
+.shape-circle {
+  border-radius: 50%;
+  aspect-ratio: 1;
+}
+
+.shape-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.textLine {
+  height: 20px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    #e0e0e0 25%,
+    #f0f0f0 50%,
+    #e0e0e0 75%
+  );
+  background-size: 200% 100%;
+}
+
+.textLine:last-child {
+  margin-bottom: 0;
+}
+
+/* Pulse animation */
+.animation-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Wave animation */
+.animation-wave {
+  animation: wave 2s linear infinite;
+}
+
+/* No animation */
+.animation-none {
+  opacity: 0.6;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes wave {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: more) {
+  .skeleton {
+    background: #d0d0d0;
+    opacity: 0.7;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .animation-pulse,
+  .animation-wave {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      #333333 25%,
+      #444444 50%,
+      #333333 75%
+    );
+    background-size: 200% 100%;
+  }
+
+  .textLine {
+    background: linear-gradient(
+      90deg,
+      #333333 25%,
+      #444444 50%,
+      #333333 75%
+    );
+    background-size: 200% 100%;
+  }
+}
