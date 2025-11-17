@@ -144,14 +144,6 @@ export default function ProfileEditPage() {
               </div>
             </div>
 
-            {/* Provider info (read-only) */}
-            <div className="space-y-2">
-              <Label htmlFor="provider">ログインプロバイダ（変更不可）</Label>
-              <div className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-700">
-                {user.provider === 'google' ? 'Google' : 'LINE'}
-              </div>
-            </div>
-
             {/* Action buttons */}
             <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-gray-200">
               <Button
