@@ -46,11 +46,11 @@ export const useFrameworks = () => {
     };
 
     fetchFrameworks();
-  }, [frameworks.length, selectedFrameworkId, setFrameworks, setSelectedFramework, setLoading, setError]);
+  }, []);
 
   const selectFramework = useCallback((frameworkId: string) => {
     setSelectedFramework(frameworkId);
-  }, [setSelectedFramework]);
+  }, []);
 
   return {
     frameworks,
