@@ -2,9 +2,25 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { GET, PUT } from './route';
 
+// Type definitions for mocks
+interface MockSupabaseAuth {
+  getSession: ReturnType<typeof vi.fn>;
+}
+
+interface MockSupabase {
+  auth: MockSupabaseAuth;
+  from?: ReturnType<typeof vi.fn>;
+}
+
+interface MockCookies {
+  get: ReturnType<typeof vi.fn>;
+  set: ReturnType<typeof vi.fn>;
+  delete?: ReturnType<typeof vi.fn>;
+}
+
 // Mock Supabase
 vi.mock('@supabase/ssr', () => ({
-  createServerClient: vi.fn(() => ({
+  createServerClient: vi.fn((): MockSupabase => ({
     auth: {
       getSession: vi.fn(),
     },
@@ -46,18 +62,19 @@ describe('Profile API Route', () => {
   describe('GET /api/auth/profile/[userId]', () => {
     it('should return 401 when session is not found', async () => {
       const { createServerClient } = await import('@supabase/ssr');
-      const mockSupabase = {
+      const mockSupabaseInstance: MockSupabase = {
         auth: {
           getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
         },
       };
-      (createServerClient as any).mockReturnValue(mockSupabase);
+      (createServerClient as ReturnType<typeof vi.fn>).mockReturnValue(mockSupabaseInstance);
 
       const { cookies } = await import('next/headers');
-      (cookies as any).mockResolvedValue({
+      const mockCookiesInstance: MockCookies = {
         get: vi.fn(),
         set: vi.fn(),
-      });
+      };
+      (cookies as ReturnType<typeof vi.fn>).mockResolvedValue(mockCookiesInstance);
 
       const request = new NextRequest('http://localhost:3000/api/auth/profile/user-123');
       const response = await GET(request, { params: Promise.resolve({ userId: mockUserId }) });
@@ -69,7 +86,7 @@ describe('Profile API Route', () => {
 
     it('should return 403 when user tries to access another user profile', async () => {
       const { createServerClient } = await import('@supabase/ssr');
-      const mockSupabase = {
+      const mockSupabaseInstance: MockSupabase = {
         auth: {
           getSession: vi.fn().mockResolvedValue({
             data: { session: { user: { id: 'different-user' } } },
@@ -77,13 +94,14 @@ describe('Profile API Route', () => {
           }),
         },
       };
-      (createServerClient as any).mockReturnValue(mockSupabase);
+      (createServerClient as ReturnType<typeof vi.fn>).mockReturnValue(mockSupabaseInstance);
 
       const { cookies } = await import('next/headers');
-      (cookies as any).mockResolvedValue({
+      const mockCookiesInstance: MockCookies = {
         get: vi.fn(),
         set: vi.fn(),
-      });
+      };
+      (cookies as ReturnType<typeof vi.fn>).mockResolvedValue(mockCookiesInstance);
 
       const request = new NextRequest('http://localhost:3000/api/auth/profile/user-123');
       const response = await GET(request, { params: Promise.resolve({ userId: mockUserId }) });
@@ -95,7 +113,7 @@ describe('Profile API Route', () => {
 
     it('should return user profile when session is valid', async () => {
       const { createServerClient } = await import('@supabase/ssr');
-      const mockSupabase = {
+      const mockSupabaseInstance: MockSupabase = {
         auth: {
           getSession: vi.fn().mockResolvedValue({
             data: { session: mockSession },
@@ -113,13 +131,14 @@ describe('Profile API Route', () => {
           }),
         }),
       };
-      (createServerClient as any).mockReturnValue(mockSupabase);
+      (createServerClient as ReturnType<typeof vi.fn>).mockReturnValue(mockSupabaseInstance);
 
       const { cookies } = await import('next/headers');
-      (cookies as any).mockResolvedValue({
+      const mockCookiesInstance: MockCookies = {
         get: vi.fn(),
         set: vi.fn(),
-      });
+      };
+      (cookies as ReturnType<typeof vi.fn>).mockResolvedValue(mockCookiesInstance);
 
       const request = new NextRequest('http://localhost:3000/api/auth/profile/user-123');
       const response = await GET(request, { params: Promise.resolve({ userId: mockUserId }) });
@@ -133,18 +152,19 @@ describe('Profile API Route', () => {
   describe('PUT /api/auth/profile/[userId]', () => {
     it('should return 401 when session is not found', async () => {
       const { createServerClient } = await import('@supabase/ssr');
-      const mockSupabase = {
+      const mockSupabaseInstance: MockSupabase = {
         auth: {
           getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
         },
       };
-      (createServerClient as any).mockReturnValue(mockSupabase);
+      (createServerClient as ReturnType<typeof vi.fn>).mockReturnValue(mockSupabaseInstance);
 
       const { cookies } = await import('next/headers');
-      (cookies as any).mockResolvedValue({
+      const mockCookiesInstance: MockCookies = {
         get: vi.fn(),
         set: vi.fn(),
-      });
+      };
+      (cookies as ReturnType<typeof vi.fn>).mockResolvedValue(mockCookiesInstance);
 
       const request = new NextRequest('http://localhost:3000/api/auth/profile/user-123', {
         method: 'PUT',
@@ -157,7 +177,7 @@ describe('Profile API Route', () => {
 
     it('should return 403 when user tries to update another user profile', async () => {
       const { createServerClient } = await import('@supabase/ssr');
-      const mockSupabase = {
+      const mockSupabaseInstance: MockSupabase = {
         auth: {
           getSession: vi.fn().mockResolvedValue({
             data: { session: { user: { id: 'different-user' } } },
@@ -165,13 +185,14 @@ describe('Profile API Route', () => {
           }),
         },
       };
-      (createServerClient as any).mockReturnValue(mockSupabase);
+      (createServerClient as ReturnType<typeof vi.fn>).mockReturnValue(mockSupabaseInstance);
 
       const { cookies } = await import('next/headers');
-      (cookies as any).mockResolvedValue({
+      const mockCookiesInstance: MockCookies = {
         get: vi.fn(),
         set: vi.fn(),
-      });
+      };
+      (cookies as ReturnType<typeof vi.fn>).mockResolvedValue(mockCookiesInstance);
 
       const request = new NextRequest('http://localhost:3000/api/auth/profile/user-123', {
         method: 'PUT',
@@ -184,7 +205,7 @@ describe('Profile API Route', () => {
 
     it('should return 400 when name is missing', async () => {
       const { createServerClient } = await import('@supabase/ssr');
-      const mockSupabase = {
+      const mockSupabaseInstance: MockSupabase = {
         auth: {
           getSession: vi.fn().mockResolvedValue({
             data: { session: mockSession },
@@ -192,13 +213,14 @@ describe('Profile API Route', () => {
           }),
         },
       };
-      (createServerClient as any).mockReturnValue(mockSupabase);
+      (createServerClient as ReturnType<typeof vi.fn>).mockReturnValue(mockSupabaseInstance);
 
       const { cookies } = await import('next/headers');
-      (cookies as any).mockResolvedValue({
+      const mockCookiesInstance: MockCookies = {
         get: vi.fn(),
         set: vi.fn(),
-      });
+      };
+      (cookies as ReturnType<typeof vi.fn>).mockResolvedValue(mockCookiesInstance);
 
       const request = new NextRequest('http://localhost:3000/api/auth/profile/user-123', {
         method: 'PUT',
@@ -213,7 +235,7 @@ describe('Profile API Route', () => {
 
     it('should return 400 when name is empty', async () => {
       const { createServerClient } = await import('@supabase/ssr');
-      const mockSupabase = {
+      const mockSupabaseInstance: MockSupabase = {
         auth: {
           getSession: vi.fn().mockResolvedValue({
             data: { session: mockSession },
@@ -221,13 +243,14 @@ describe('Profile API Route', () => {
           }),
         },
       };
-      (createServerClient as any).mockReturnValue(mockSupabase);
+      (createServerClient as ReturnType<typeof vi.fn>).mockReturnValue(mockSupabaseInstance);
 
       const { cookies } = await import('next/headers');
-      (cookies as any).mockResolvedValue({
+      const mockCookiesInstance: MockCookies = {
         get: vi.fn(),
         set: vi.fn(),
-      });
+      };
+      (cookies as ReturnType<typeof vi.fn>).mockResolvedValue(mockCookiesInstance);
 
       const request = new NextRequest('http://localhost:3000/api/auth/profile/user-123', {
         method: 'PUT',
@@ -240,7 +263,7 @@ describe('Profile API Route', () => {
 
     it('should return 400 when name exceeds max length', async () => {
       const { createServerClient } = await import('@supabase/ssr');
-      const mockSupabase = {
+      const mockSupabaseInstance: MockSupabase = {
         auth: {
           getSession: vi.fn().mockResolvedValue({
             data: { session: mockSession },
@@ -248,13 +271,14 @@ describe('Profile API Route', () => {
           }),
         },
       };
-      (createServerClient as any).mockReturnValue(mockSupabase);
+      (createServerClient as ReturnType<typeof vi.fn>).mockReturnValue(mockSupabaseInstance);
 
       const { cookies } = await import('next/headers');
-      (cookies as any).mockResolvedValue({
+      const mockCookiesInstance: MockCookies = {
         get: vi.fn(),
         set: vi.fn(),
-      });
+      };
+      (cookies as ReturnType<typeof vi.fn>).mockResolvedValue(mockCookiesInstance);
 
       const longName = 'a'.repeat(101);
       const request = new NextRequest('http://localhost:3000/api/auth/profile/user-123', {
@@ -270,7 +294,7 @@ describe('Profile API Route', () => {
 
     it('should update profile successfully', async () => {
       const { createServerClient } = await import('@supabase/ssr');
-      const mockSupabase = {
+      const mockSupabaseInstance: MockSupabase = {
         auth: {
           getSession: vi.fn().mockResolvedValue({
             data: { session: mockSession },
@@ -290,13 +314,14 @@ describe('Profile API Route', () => {
           }),
         }),
       };
-      (createServerClient as any).mockReturnValue(mockSupabase);
+      (createServerClient as ReturnType<typeof vi.fn>).mockReturnValue(mockSupabaseInstance);
 
       const { cookies } = await import('next/headers');
-      (cookies as any).mockResolvedValue({
+      const mockCookiesInstance: MockCookies = {
         get: vi.fn(),
         set: vi.fn(),
-      });
+      };
+      (cookies as ReturnType<typeof vi.fn>).mockResolvedValue(mockCookiesInstance);
 
       const request = new NextRequest('http://localhost:3000/api/auth/profile/user-123', {
         method: 'PUT',
@@ -311,7 +336,7 @@ describe('Profile API Route', () => {
 
     it('should trim whitespace from name', async () => {
       const { createServerClient } = await import('@supabase/ssr');
-      const mockSupabase = {
+      const mockSupabaseInstance: MockSupabase = {
         auth: {
           getSession: vi.fn().mockResolvedValue({
             data: { session: mockSession },
@@ -331,13 +356,14 @@ describe('Profile API Route', () => {
           }),
         }),
       };
-      (createServerClient as any).mockReturnValue(mockSupabase);
+      (createServerClient as ReturnType<typeof vi.fn>).mockReturnValue(mockSupabaseInstance);
 
       const { cookies } = await import('next/headers');
-      (cookies as any).mockResolvedValue({
+      const mockCookiesInstance: MockCookies = {
         get: vi.fn(),
         set: vi.fn(),
-      });
+      };
+      (cookies as ReturnType<typeof vi.fn>).mockResolvedValue(mockCookiesInstance);
 
       const request = new NextRequest('http://localhost:3000/api/auth/profile/user-123', {
         method: 'PUT',

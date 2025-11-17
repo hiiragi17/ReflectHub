@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 
 // Mock Supabase first
 vi.mock('@/lib/supabase/client', () => ({
@@ -11,8 +12,15 @@ vi.mock('@/lib/supabase/client', () => ({
 // Mock everything before importing components
 vi.mock('@/hooks/useAuth');
 vi.mock('next/navigation');
+
+interface ProfileCardProps {
+  user: { name: string };
+  onSignOut?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  isSigningOut?: boolean;
+}
+
 vi.mock('@/components/profile/ProfileCard', () => ({
-  ProfileCard: ({ user, onSignOut, isSigningOut }: any) => (
+  ProfileCard: ({ user, onSignOut, isSigningOut }: ProfileCardProps): ReactNode => (
     <div data-testid="profile-card">
       <div data-testid="user-name">{user.name}</div>
       {onSignOut && (
@@ -24,8 +32,17 @@ vi.mock('@/components/profile/ProfileCard', () => ({
   ),
 }));
 
+interface HeaderProps {
+  title: string;
+  userName?: string;
+  isAuthenticated?: boolean;
+  onSignOut?: () => void;
+  showBackButton?: boolean;
+  backHref?: string;
+}
+
 vi.mock('@/components/layout/Header', () => ({
-  default: ({ title, userName }: any) => (
+  default: ({ title, userName }: HeaderProps): ReactNode => (
     <header data-testid="header">
       <h1>{title}</h1>
       {userName && <span>{userName}</span>}
@@ -34,15 +51,15 @@ vi.mock('@/components/layout/Header', () => ({
 }));
 
 vi.mock('@/app/dashboard/loading', () => ({
-  default: () => <div data-testid="loading">Loading...</div>,
+  default: (): ReactNode => <div data-testid="loading">Loading...</div>,
 }));
 
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import ProfilePage from './page';
 
-const mockUseAuth = useAuth as any;
-const mockUseRouter = useRouter as any;
+const mockUseAuth = useAuth as ReturnType<typeof vi.fn>;
+const mockUseRouter = useRouter as ReturnType<typeof vi.fn>;
 
 describe('ProfilePage', () => {
   const mockUser = {

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 
 // Mock Supabase first
 vi.mock('@/lib/supabase/client', () => ({
@@ -13,8 +14,17 @@ vi.mock('@/hooks/useAuth');
 vi.mock('@/hooks/useToast');
 vi.mock('next/navigation');
 
+interface HeaderProps {
+  title: string;
+  userName?: string;
+  isAuthenticated?: boolean;
+  onSignOut?: () => void;
+  showBackButton?: boolean;
+  backHref?: string;
+}
+
 vi.mock('@/components/layout/Header', () => ({
-  default: ({ title, userName }: any) => (
+  default: ({ title, userName }: HeaderProps): ReactNode => (
     <header data-testid="header">
       <h1>{title}</h1>
       {userName && <span>{userName}</span>}
@@ -23,7 +33,7 @@ vi.mock('@/components/layout/Header', () => ({
 }));
 
 vi.mock('@/app/dashboard/loading', () => ({
-  default: () => <div data-testid="loading">Loading...</div>,
+  default: (): ReactNode => <div data-testid="loading">Loading...</div>,
 }));
 
 import { useAuth } from '@/hooks/useAuth';
@@ -31,9 +41,9 @@ import { useToast } from '@/hooks/useToast';
 import { useRouter } from 'next/navigation';
 import ProfileEditPage from './page';
 
-const mockUseAuth = useAuth as any;
-const mockUseToast = useToast as any;
-const mockUseRouter = useRouter as any;
+const mockUseAuth = useAuth as ReturnType<typeof vi.fn>;
+const mockUseToast = useToast as ReturnType<typeof vi.fn>;
+const mockUseRouter = useRouter as ReturnType<typeof vi.fn>;
 
 describe('ProfileEditPage', () => {
   const mockUser = {
