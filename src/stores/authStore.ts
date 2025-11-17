@@ -19,14 +19,19 @@ export const useAuthStore = create<AuthStore>()(
       isAuthenticated: false,
       error: null,
 
-      signInWithGoogle: async () => {
+      signInWithGoogle: async (next: string = '/dashboard') => {
         set({ isLoading: true, error: null });
 
         try {
+          // next パラメータを callback URL に含める
+          const redirectTo = next && next !== '/dashboard'
+            ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
+            : `${window.location.origin}/auth/callback`;
+
           const { error } = await supabase.auth.signInWithOAuth({
             provider: "google",
             options: {
-              redirectTo: `${window.location.origin}/auth/callback`,
+              redirectTo: redirectTo,
               queryParams: {
                 response_type: "code",
                 flow_type: "pkce",

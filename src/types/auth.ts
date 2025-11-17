@@ -39,7 +39,7 @@ export interface ProfileData {
 }
 
 export interface AuthActions {
-  signInWithGoogle: () => Promise<void>;
+  signInWithGoogle: (next?: string) => Promise<void>;
   signOut: () => Promise<void>;
   initialize: () => Promise<void>;
   clearError: () => void;

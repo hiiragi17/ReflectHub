@@ -3,18 +3,22 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ChromeIcon } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 
 export default function LoginForm() {
-  const { 
-    isLoading, 
-    error, 
+  const {
+    isLoading,
+    error,
     isAuthenticated,
-    signInWithGoogle, 
-    clearError 
+    signInWithGoogle,
+    clearError
   } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // URL から next パラメータを取得
+  const next = searchParams.get('next') || '/dashboard';
 
   // 認証済みの場合はダッシュボードにリダイレクト
   useEffect(() => {
@@ -22,6 +26,11 @@ export default function LoginForm() {
       router.push('/');
     }
   }, [isAuthenticated, router]);
+
+  // Google ログイン時に next パラメータを渡す
+  const handleGoogleSignIn = () => {
+    signInWithGoogle(next);
+  };
 
   return (
     <Card className="w-full max-w-md mx-auto border-0 shadow-sm bg-white">
@@ -40,7 +49,7 @@ export default function LoginForm() {
         <div className="space-y-4">
           {/* Google ログイン */}
           <Button
-            onClick={signInWithGoogle}
+            onClick={handleGoogleSignIn}
             disabled={isLoading}
             className="w-full h-11 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 font-medium text-sm transition-colors"
             variant="outline"
