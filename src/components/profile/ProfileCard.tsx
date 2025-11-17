@@ -3,7 +3,7 @@
 import { User } from '@/types/auth';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Mail, Calendar, LogOut } from 'lucide-react';
+import { Calendar, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
 
@@ -18,19 +18,11 @@ export function ProfileCard({ user, onSignOut, isSigningOut = false }: ProfileCa
     <Card className="w-full max-w-2xl mx-auto p-8 shadow-sm">
       {/* Header with user name */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">{user.name}</h1>
-        <p className="text-gray-600 flex items-center gap-2">
-          <Mail className="w-4 h-4" />
-          {user.email}
-        </p>
+        <h1 className="text-3xl font-bold text-gray-900">{user.name}</h1>
       </div>
 
       {/* Profile details */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8 pb-8 border-b border-gray-200">
-        <div>
-          <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">メールアドレス</p>
-          <p className="mt-2 text-lg text-gray-900">{user.email}</p>
-        </div>
         <div>
           <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">登録日時</p>
           <p className="mt-2 text-lg text-gray-900 flex items-center gap-2">

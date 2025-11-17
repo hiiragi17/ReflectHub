@@ -136,14 +136,6 @@ export default function ProfileEditPage() {
               <p className="text-xs text-gray-500">{name.length}/100文字</p>
             </div>
 
-            {/* Email field (read-only) */}
-            <div className="space-y-2">
-              <Label htmlFor="email">メールアドレス（変更不可）</Label>
-              <div className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-700">
-                {user.email}
-              </div>
-            </div>
-
             {/* Action buttons */}
             <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-gray-200">
               <Button
