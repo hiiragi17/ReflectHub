@@ -53,7 +53,6 @@ export function useSessionManager() {
     });
 
     return () => subscription.unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   // 手動セッション確認

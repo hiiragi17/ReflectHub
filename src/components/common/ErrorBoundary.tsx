@@ -1,7 +1,7 @@
 'use client';
 
 import React, { ReactNode } from 'react';
-import { createAppError, AppError, getErrorMessage } from '@/utils/errorHandler';
+import { createAppError, AppError } from '@/utils/errorHandler';
 import ErrorMessage from './ErrorMessage';
 
 interface ErrorBoundaryProps {
