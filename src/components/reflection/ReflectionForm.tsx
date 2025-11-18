@@ -95,6 +95,15 @@ export default function ReflectionForm() {
 
       const sanitized = sanitizeFormData(formData);
 
+      // Debug: Log schema order and content order for verification
+      if (process.env.NODE_ENV === 'development') {
+        const schemaOrder = selectedFramework.schema?.map(f => f.id) || [];
+        const contentOrder = Object.keys(sanitized);
+        console.log(`[${selectedFramework.name}] Schema order:`, schemaOrder);
+        console.log(`[${selectedFramework.name}] Content order:`, contentOrder);
+        console.log(`[${selectedFramework.name}] Content:`, sanitized);
+      }
+
       const onOptimisticUpdate = () => {
         setSaveMessage({
           text: "保存中...",
