@@ -5,11 +5,15 @@
 | 項目 | 内容 |
 |-----|-----|
 | **ドキュメント名** | ReflectHub Phase 3 詳細設計書 |
-| **バージョン** | 1.0 |
+| **バージョン** | 2.0（修正版） |
 | **作成日** | 2025-11-18 |
+| **更新日** | 2025-11-18 |
 | **ステータス** | Draft |
 | **対応するIssue** | #39 |
-| **期間** | Phase 3（21日間実装計画） |
+| **期間** | Phase 3（14日間実装計画） |
+
+### 修正履歴
+- **v1.0 → v2.0**: LINE連携関連を削除、Web プッシュ通知を追加（PWA統合）
 
 ---
 
@@ -21,6 +25,7 @@
    - [3.1 PWA機能](#31-pwa機能)
    - [3.2 AI分析機能](#32-ai分析機能)
    - [3.3 統計ダッシュボード](#33-統計ダッシュボード)
+   - [3.4 Web プッシュ通知機能](#34-webプッシュ通知機能)
 4. [技術スタック・構成](#4-技術スタック構成)
 5. [API設計](#5-api設計)
 6. [データモデル拡張](#6-データモデル拡張)
@@ -44,6 +49,7 @@ ReflectHub は現在、基本的な振り返り記録・管理機能が実装さ
 | **PWA化** | オフライン対応・インストール可能 | Web AppとしてのInstallation ready |
 | **AI分析** | 振り返りの自動分析・インサイト生成 | OpenAI API統合、分析レポート表示 |
 | **統計ダッシュボード** | ユーザーの成長を可視化 | グラフ・チャート・トレンド表示 |
+| **プッシュ通知** | 日次リマインダー配信 | Web Push で振り返り促進 |
 | **セキュリティ強化** | 本番環境への耐性確保 | CSRF対策、入力検証強化、監視機構 |
 | **テスト体制確立** | 品質保証・回帰テスト | Unit・Integration・E2E テストの実装 |
 | **本番デプロイ** | Vercel上での安定稼働 | ヘルスチェック、エラー監視、ホットスタンバイ |
@@ -51,7 +57,7 @@ ReflectHub は現在、基本的な振り返り記録・管理機能が実装さ
 ### 1.2 ステークホルダー・対象ユーザー
 
 - **Primary User**: 日本の若手ビジネスパーソン（25-40代）
-- **Use Case**: 日々の振り返り、自己成長の記録・分析
+- **Use Case**: 日々の振り返り、自己成長の記録・分析、リマインダー受信
 - **環境**: スマートフォン・タブレット・PCでのアクセス
 
 ### 1.3 成功指標
@@ -63,6 +69,7 @@ ReflectHub は現在、基本的な振り返り記録・管理機能が実装さ
 | **テストカバレッジ** | > 80% | Vitest + Istanbul |
 | **API応答時間** | < 500ms | APM（Application Performance Monitoring） |
 | **可用性** | 99.5%以上 | 監視ダッシュボード |
+| **PWA インストール率** | > 30% | Vercel Analytics |
 
 ---
 
@@ -88,7 +95,7 @@ ReflectHub は現在、基本的な振り返り記録・管理機能が実装さ
                      │
 ┌────────────────────┴────────────────────────────────┐
 │            Infrastructure Layer                      │
-│  (Supabase DB + OpenAI API + Vercel)               │
+│  (Supabase DB + OpenAI API + Web Push + Vercel)    │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -101,6 +108,7 @@ ReflectHub は現在、基本的な振り返り記録・管理機能が実装さ
 5. **セキュリティ優先**: OWASP Top 10を念頭に設計
 6. **ユーザーフッド優先**: 日本語表記、わかりやすいUIメッセージ
 7. **パフォーマンス**: Core Web Vitals を継続監視
+8. **LINE非依存**: PWA通知で完全に独立した通知実現
 
 ### 2.3 コーディング規約
 
@@ -119,7 +127,7 @@ ReflectHub は現在、基本的な振り返り記録・管理機能が実装さ
 
 #### 3.1.1 概要
 
-Progressive Web App (PWA) 化により、ユーザーはブラウザからアプリとしてインストール可能になり、オフラインでの機本機能の使用が可能になります。
+Progressive Web App (PWA) 化により、ユーザーはブラウザからアプリとしてインストール可能になり、オフラインでの本機能の使用が可能になります。
 
 #### 3.1.2 実装要件
 
@@ -129,7 +137,6 @@ Progressive Web App (PWA) 化により、ユーザーはブラウザからアプ
 | **Service Worker** | キャッシュ戦略、オフライン対応 | P0 |
 | **インストール プロンプト** | Install UI表示・動作 | P1 |
 | **オフライン機能** | 振り返りの一時保存・キャッシュ | P1 |
-| **プッシュ通知** | 日次リマインダー（オプション） | P2 |
 
 #### 3.1.3 Web App Manifest 設計
 
@@ -168,12 +175,6 @@ Progressive Web App (PWA) 化により、ユーザーはブラウザからアプ
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
-    },
-    {
-      "src": "/icons/icon-maskable-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
     }
   ],
   "screenshots": [
@@ -182,26 +183,6 @@ Progressive Web App (PWA) 化により、ユーザーはブラウザからアプ
       "sizes": "540x720",
       "type": "image/png",
       "form_factor": "narrow"
-    },
-    {
-      "src": "/screenshots/screenshot-2.png",
-      "sizes": "1920x1080",
-      "type": "image/png",
-      "form_factor": "wide"
-    }
-  ],
-  "shortcuts": [
-    {
-      "name": "新規振り返り作成",
-      "short_name": "新規作成",
-      "description": "新しい振り返りを記録する",
-      "url": "/reflection?mode=new",
-      "icons": [
-        {
-          "src": "/icons/shortcut-new.png",
-          "sizes": "192x192"
-        }
-      ]
     }
   ],
   "categories": ["productivity", "education"]
@@ -323,40 +304,7 @@ POST /api/ai/analyze
     }
 ```
 
-#### 3.2.4 データフロー
-
-```
-┌──────────────────┐
-│  振り返り作成    │
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────────────┐
-│  AI分析トリガー          │
-│  (ユーザーボタンまたは   │
-│   自動（オプション）)    │
-└────────┬─────────────────┘
-         │
-         ▼
-┌──────────────────────────┐
-│  OpenAI API呼び出し      │
-│  (Streaming対応)        │
-└────────┬─────────────────┘
-         │
-         ▼
-┌──────────────────────────┐
-│  分析結果をDB保存        │
-│  (analyses テーブル)     │
-└────────┬─────────────────┘
-         │
-         ▼
-┌──────────────────────────┐
-│  UI上に結果表示          │
-│  (アニメーション付き)    │
-└──────────────────────────┘
-```
-
-#### 3.2.5 実装ファイル構成
+#### 3.2.4 実装ファイル構成
 
 ```
 src/
@@ -379,7 +327,7 @@ src/
     └── analysis.ts               # 分析関連型定義
 ```
 
-#### 3.2.6 セキュリティ対策
+#### 3.2.5 セキュリティ対策
 
 1. **レート制限**: ユーザーあたり1日3回まで
 2. **認証**: API Routes で認証確認
@@ -452,22 +400,6 @@ src/
 
 **ライブラリ選定**: Recharts (React対応、柔軟、軽量)
 
-```typescript
-// インストール
-npm install recharts
-
-// 使用例
-import {
-  LineChart, Line,
-  BarChart, Bar,
-  PieChart, Pie,
-  AreaChart, Area,
-  XAxis, YAxis,
-  CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer
-} from 'recharts';
-```
-
 **ファイル構成**:
 ```
 src/components/analytics/
@@ -479,59 +411,153 @@ src/components/analytics/
 └── GrowthTrendChart.tsx      # 成長トレンド
 ```
 
-#### 3.3.5 データ集計ロジック
+#### 3.3.5 実装ファイル構成
+
+```
+src/
+├── services/
+│   └── analyticsService.ts   # 統計集計ロジック
+├── api/
+│   └── analytics/
+│       └── [統計エンドポイント]
+├── components/
+│   └── analytics/
+│       └── [各チャートコンポーネント]
+├── hooks/
+│   └── useAnalytics.ts       # 分析データ取得 Hook
+└── types/
+    └── analytics.ts          # 分析型定義
+```
+
+---
+
+### 3.4 Web プッシュ通知機能
+
+#### 3.4.1 概要
+
+Service Worker と Push API を活用し、ユーザーがアプリをインストール後、日次リマインダーをブラウザ通知として受信できます。LINE に依存しない、完全に自己完結した通知システムです。
+
+#### 3.4.2 実装要件
+
+| 要件 | 詳細 | 優先度 |
+|-----|-----|--------|
+| **通知許可 UI** | ユーザーが通知の許可/拒否を選択 | P0 |
+| **Push API 統合** | Service Worker での Push 受信 | P0 |
+| **リマインダー スケジューリング** | 日次リマインダー定時配信 | P0 |
+| **通知ペイロード** | 日本語テキスト、アクション定義 | P0 |
+| **設定管理** | ユーザーが時間・頻度を設定可能 | P1 |
+
+#### 3.4.3 ユーザーフロー
+
+```
+【フロー】
+1. ユーザーが PWA をインストール
+   ↓
+2. "通知を受け取りますか？" プロンプト表示
+   ↓
+3. ユーザーが承認
+   ↓
+4. ブラウザが Permission 付与
+   ↓
+5. 毎日 20:00（設定可能）に通知配信
+   →「ReflectHub: 今日の振り返りはしましたか？」
+   →クリックで /reflection ページへ遷移
+```
+
+#### 3.4.4 通知内容例
+
+```
+【タイトル】
+"ReflectHub - 振り返り時間"
+
+【本文】
+"今日の学びや気付きを記録しませんか？"
+
+【アクション】
+[記録する] → /reflection
+[あとで]   → 通知を閉じる
+```
+
+#### 3.4.5 実装ファイル構成
+
+```
+src/
+├── lib/push/
+│   └── client.ts              # Web Push API クライアント
+├── services/
+│   └── reminderService.ts     # リマインダーロジック
+├── hooks/
+│   └── usePushNotification.ts # 通知管理 Hook
+├── components/common/
+│   └── PushNotificationPrompt.tsx # 許可リクエスト UI
+├── api/
+│   └── reminders/
+│       ├── route.ts           # リマインダー設定 API
+│       └── send/route.ts      # リマインダー送信 API
+├── jobs/
+│   └── dailyReminderJob.ts    # バックエンド スケジューラー
+├── types/
+│   └── push.ts                # 通知型定義
+└── tests/push/
+    └── client.test.ts         # Web Push テスト
+
+public/
+└── sw.js                      # Service Worker (Push API 対応)
+```
+
+#### 3.4.6 設定管理
 
 ```typescript
-interface AnalyticsData {
-  summary: {
-    totalReflections: number;
-    thisMonthCount: number;
-    consecutiveDays: number;
-    averageLength: number;
-  };
+// user_preferences テーブルに追加
+interface UserPreferences {
+  user_id: string;
 
-  distribution: {
-    byFramework: Record<string, number>;
-    byDayOfWeek: Record<string, number>;
-  };
+  // 既存フィールド
+  pwa_install_dismissed: boolean;
+  dashboard_view: "cards" | "charts" | "hybrid";
 
-  trends: {
-    daily: Array<{ date: string; count: number }>;
-    weekly: Array<{ week: string; count: number }>;
-    monthly: Array<{ month: string; count: number }>;
-  };
+  // Web Push 設定（新規）
+  push_notifications_enabled: boolean;
+  reminder_time: string;           // "20:00" 形式
+  reminder_frequency: "daily" | "weekdays"; // 平日のみ or 毎日
+  timezone: string;                 // Asia/Tokyo など
 
-  insights: {
-    mostActiveDay: string;
-    preferredFramework: string;
-    averageWordCount: number;
-    growthRate: number; // %
-  };
+  created_at: string;
+  updated_at: string;
 }
 ```
 
-**実装ファイル**: `src/services/analyticsService.ts`
+#### 3.4.7 バックエンド リマインダー スケジューラー
 
-#### 3.3.6 ページ構成
+```typescript
+// Daily reminder job
+// 実行時間: 毎日 UTC 11:00 (日本時間 20:00)
 
-```
-/dashboard/analytics
-  │
-  ├── Header (日付範囲フィルター)
-  │
-  ├── KPI Cards (Summary Stats)
-  │
-  ├── Charts Section
-  │   ├── Reflection Frequency
-  │   ├── Framework Distribution
-  │   ├── Emotional Trends
-  │   └── Activity Heatmap
-  │
-  ├── Growth Analysis Section
-  │   └── Growth Trend Chart
-  │
-  └── Achievements/Badges Section
-      └── Gamification Elements
+export async function dailyReminderJob() {
+  // 1. 通知が有効なユーザーを取得
+  const users = await getEnabledUsers();
+
+  // 2. ユーザーのタイムゾーンで 20:00 か確認
+  for (const user of users) {
+    if (isReminderTime(user.timezone, user.reminder_time)) {
+      // 3. Push Subscription 取得
+      const subscription = await getPushSubscription(user.id);
+
+      // 4. Push 通知送信
+      await sendPushNotification(subscription, {
+        title: 'ReflectHub - 振り返り時間',
+        body: '今日の学びや気付きを記録しませんか？',
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/badge-72x72.png',
+        tag: 'daily-reminder',
+        data: {
+          url: '/reflection',
+          userId: user.id
+        }
+      });
+    }
+  }
+}
 ```
 
 ---
@@ -564,6 +590,7 @@ interface AnalyticsData {
 | **ORM** | Supabase SDK | Database queries |
 | **AI/ML** | OpenAI API | Text analysis, insights |
 | **Storage** | Supabase Storage | File/Image uploads |
+| **Cron Jobs** | node-cron (or Vercel Crons) | リマインダー送信スケジューラー |
 | **Monitoring** | Vercel Analytics | Performance monitoring |
 
 ### 4.3 インフラストラクチャ
@@ -576,7 +603,7 @@ interface AnalyticsData {
 | **Real-time** | Supabase Realtime (Optional) | WebSocket connectivity |
 | **CDN** | Vercel Edge Network | Static asset delivery |
 | **Monitoring** | Vercel Analytics + Sentry (Future) | Error tracking & APM |
-| **Email** | Supabase Mail (Optional) | Transactional emails |
+| **Push Service** | Web Push API + Service Worker | ブラウザプッシュ配信 |
 
 ### 4.4 開発ツール
 
@@ -604,22 +631,18 @@ POST /api/ai/analyze
   レート制限: 1日3回
   入力: { reflection_id, framework, content }
   出力: { analysis_id, insights, recommendations, tokens_used }
-  エラー: 401, 429, 500
 
 GET /api/ai/analyses/:id
   認証: Required
   出力: { analysis }
-  エラー: 401, 404, 500
 
 GET /api/ai/analyses?reflection_id=:id
   認証: Required
   出力: { analyses: [] }
-  エラー: 401, 500
 
 DELETE /api/ai/analyses/:id
   認証: Required (所有者のみ)
   出力: { success: boolean }
-  エラー: 401, 403, 404, 500
 ```
 
 #### 統計分析関連
@@ -629,39 +652,46 @@ GET /api/analytics/summary
   認証: Required
   パラメータ: date_from?, date_to?
   出力: { summary: AnalyticsData }
-  エラー: 401, 500
 
 GET /api/analytics/trends
   認証: Required
-  パラメータ: period="daily"|"weekly"|"monthly", days=30
+  パラメータ: period="daily"|"weekly"|"monthly"
   出力: { trends: TrendData[] }
-  エラー: 401, 500
 
 GET /api/analytics/distribution
   認証: Required
   パラメータ: group_by="framework"|"day_of_week"
   出力: { distribution: Record<string, number> }
-  エラー: 401, 500
 ```
 
-### 5.2 既存エンドポイント拡張
+#### Web Push 通知関連
 
 ```
-GET /api/reflections/:id
-  追加フィールド:
-    + analysis?: AnalysisResult
-    + sentiment?: "positive"|"neutral"|"negative"
-    + keywords?: string[]
+POST /api/push/subscribe
+  認証: Required
+  入力: { subscription: PushSubscription }
+  出力: { success: boolean }
 
-GET /api/reflections?user_id=:id
-  追加フィルター:
-    + date_from: string (YYYY-MM-DD)
-    + date_to: string (YYYY-MM-DD)
-    + framework: "YWT"|"KPT"
-    + sentiment: "positive"|"neutral"|"negative"
+POST /api/push/unsubscribe
+  認証: Required
+  出力: { success: boolean }
+
+GET /api/reminders/preferences
+  認証: Required
+  出力: { preferences: ReminderPreferences }
+
+POST /api/reminders/preferences
+  認証: Required
+  入力: { reminder_time, reminder_frequency, timezone }
+  出力: { preferences: ReminderPreferences }
+
+POST /api/reminders/send
+  認証: Internal (Cron job)
+  入力: { user_id }
+  出力: { success: boolean }
 ```
 
-### 5.3 エラーハンドリング設計
+### 5.2 エラーハンドリング設計
 
 ```typescript
 interface ApiError {
@@ -675,15 +705,6 @@ interface ApiError {
   };
   trace_id?: string;      // エラー追跡ID
 }
-
-// エラーコード例:
-// - INVALID_REQUEST: 400
-// - UNAUTHORIZED: 401
-// - FORBIDDEN: 403
-// - NOT_FOUND: 404
-// - RATE_LIMIT_EXCEEDED: 429
-// - INTERNAL_SERVER_ERROR: 500
-// - SERVICE_UNAVAILABLE: 503
 ```
 
 ---
@@ -721,7 +742,23 @@ interface Analysis {
 }
 ```
 
-### 6.2 拡張テーブル: reflections
+### 6.2 新規テーブル: push_subscriptions
+
+```typescript
+interface PushSubscription {
+  id: string;                      // UUID
+  user_id: string;                 // FK: profiles.id
+  endpoint: string;                // Push service endpoint
+  p256dh: string;                  // Encryption key
+  auth: string;                    // Auth secret
+  user_agent: string;              // Device info
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+```
+
+### 6.3 拡張テーブル: reflections
 
 ```typescript
 interface Retrospective {
@@ -744,26 +781,7 @@ interface Retrospective {
 }
 ```
 
-### 6.3 拡張テーブル: frameworks
-
-```typescript
-interface Framework {
-  // 既存フィールド
-  id: string;
-  name: string;
-  display_name: string;
-  schema: FieldSchema[];
-
-  // 新規フィールド
-  recommended_ai_analysis: boolean;  // AI分析推奨フラグ
-  analysis_prompt_template?: string; // カスタムプロンプト
-
-  created_at: string;
-  updated_at: string;
-}
-```
-
-### 6.4 新規テーブル: user_preferences (オプション)
+### 6.4 新規テーブル: user_preferences
 
 ```typescript
 interface UserPreferences {
@@ -771,11 +789,12 @@ interface UserPreferences {
 
   // PWA設定
   pwa_install_dismissed: boolean;
-  notifications_enabled: boolean;
 
-  // 分析設定
-  auto_analyze_enabled: boolean;
-  analysis_frequency: "manual" | "daily" | "weekly";
+  // Web Push 設定
+  push_notifications_enabled: boolean;
+  reminder_time: string;             // "20:00" 形式
+  reminder_frequency: "daily" | "weekdays";
+  timezone: string;                  // Asia/Tokyo など
 
   // ダッシュボード設定
   dashboard_view: "cards" | "charts" | "hybrid";
@@ -791,22 +810,21 @@ interface UserPreferences {
 ```sql
 -- analyses テーブル
 CREATE POLICY "Users can view their own analyses"
-  ON analyses
-  FOR SELECT
-  USING (auth.uid() = user_id);
+  ON analyses FOR SELECT USING (auth.uid() = user_id);
 
 CREATE POLICY "Users can create their own analyses"
-  ON analyses
-  FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  ON analyses FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Users can delete their own analyses"
-  ON analyses
-  FOR DELETE
-  USING (auth.uid() = user_id);
+  ON analyses FOR DELETE USING (auth.uid() = user_id);
 
--- reflections テーブル（既存拡張）
--- sentiment, keywords フィールドへのアクセスは上記と同様
+-- push_subscriptions テーブル
+CREATE POLICY "Users can manage their push subscriptions"
+  ON push_subscriptions FOR ALL USING (auth.uid() = user_id);
+
+-- user_preferences テーブル
+CREATE POLICY "Users can manage their preferences"
+  ON user_preferences FOR ALL USING (auth.uid() = user_id);
 ```
 
 ---
@@ -824,34 +842,10 @@ CREATE POLICY "Users can delete their own analyses"
 | **権限検証** | RLS ポリシー + API レイヤー検証 | ✅ 既存 |
 | **レート制限** | API エンドポイント毎 | 🆕 新規 |
 
-### 7.2 CSRF対策実装
-
-```typescript
-// POST /api/reflections
-// Request Header: X-CSRF-Token
-
-// サーバー側バリデーション
-const validateCSRFToken = (req: NextRequest) => {
-  const token = req.headers.get('x-csrf-token');
-  const sessionToken = req.cookies.get('__Secure-session');
-
-  // トークンマッチング + 署名検証
-  return verifyCSRFToken(token, sessionToken);
-};
-
-// クライアント側実装
-// useCSRFToken hook で自動付与
-```
-
-**ファイル**:
-- `src/utils/csrfToken.ts`
-- `src/middleware.ts`（CSRF検証追加）
-- `src/hooks/useCSRFToken.ts`
-
-### 7.3 入力検証・サニタイゼーション
+### 7.2 入力検証・サニタイゼーション
 
 | 検証項目 | 実装方法 | 優先度 |
-|--------|--------|--------|
+|---------|--------|--------|
 | **HTML サニタイズ** | DOMPurify | P0 ✅ |
 | **SQLインジェクション対策** | Parameterized queries (Supabase SDK) | P0 ✅ |
 | **XSS対策** | React自動エスケープ + DOMPurify | P0 ✅ |
@@ -860,7 +854,7 @@ const validateCSRFToken = (req: NextRequest) => {
 | **URLバリデーション** | 許可リスト方式 | P1 🔄 |
 | **JSONスキーマ検証** | zod/yup による検証 | P1 🔄 |
 
-### 7.4 OpenAI API セキュリティ
+### 7.3 OpenAI API セキュリティ
 
 ```typescript
 // API キー管理
@@ -877,25 +871,11 @@ const sanitizePrompt = (input: string): string => {
   const dangerous = /[<script>|<iframe>|javascript:|onerror=]/g;
   const sanitized = input.replace(dangerous, '');
 
-  // 3. システムプロンプト埋め込み防止
-  const systemPromptPatterns = /ignore|override|system|admin|root/gi;
-  if (systemPromptPatterns.test(input)) {
-    throw new Error('無効な入力です');
-  }
-
   return sanitized;
 };
-
-// レート制限
-// - ユーザーあたり: 1日3回
-// - Redis/Supabase で追跡
 ```
 
-**ファイル**:
-- `src/lib/openai/client.ts`
-- `src/api/ai/analyze/route.ts`（レート制限実装）
-
-### 7.5 HTTPS・Transport Security
+### 7.4 HTTPS・Transport Security
 
 ```typescript
 // next.config.js
@@ -915,14 +895,6 @@ const securityHeaders = [
   {
     key: 'X-XSS-Protection',
     value: '1; mode=block'
-  },
-  {
-    key: 'Referrer-Policy',
-    value: 'strict-origin-when-cross-origin'
-  },
-  {
-    key: 'Content-Security-Policy',
-    value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';"
   }
 ];
 ```
@@ -940,123 +912,34 @@ const securityHeaders = [
 | **E2Eテスト** | User flows, Critical paths | Playwright (Future) | 50%+ |
 | **パフォーマンステスト** | Core Web Vitals, Load testing | Lighthouse, k6 | P90 < 2s |
 
-### 8.2 テスト計画
-
-#### Phase 3.1: AI分析機能テスト
+### 8.2 主要テストケース
 
 ```typescript
-// test/services/aiAnalysisService.test.ts
+// AI分析テスト
 describe('AI Analysis Service', () => {
-  // Mock OpenAI API
-  const mockOpenAI = {
-    createChatCompletion: vi.fn()
-  };
-
-  test('should analyze reflection correctly', async () => {
-    const result = await analyzeReflection({
-      framework: 'YWT',
-      content: { ... }
-    });
-
-    expect(result).toHaveProperty('growth_points');
-    expect(result.growth_points).toBeInstanceOf(Array);
-  });
-
-  test('should handle OpenAI API errors', async () => {
-    mockOpenAI.createChatCompletion.mockRejectedValue(
-      new Error('Rate limit exceeded')
-    );
-
-    expect(() => analyzeReflection(...))
-      .rejects.toThrow('Rate limit exceeded');
-  });
-
-  test('should apply rate limiting', async () => {
-    // 1日3回のリミット検証
-  });
+  test('should analyze reflection correctly');
+  test('should handle OpenAI API errors');
+  test('should apply rate limiting');
 });
-```
 
-#### Phase 3.2: 統計機能テスト
-
-```typescript
-// test/services/analyticsService.test.ts
+// 統計テスト
 describe('Analytics Service', () => {
-  test('should calculate summary correctly', () => {
-    const reflections = [
-      { ... }, { ... }, { ... }
-    ];
-
-    const summary = calculateSummary(reflections);
-
-    expect(summary.totalReflections).toBe(3);
-    expect(summary.consecutiveDays).toBeGreaterThanOrEqual(0);
-  });
-
-  test('should generate trend data', () => {
-    const trends = generateTrends(reflections, 'daily');
-
-    expect(trends).toBeInstanceOf(Array);
-    expect(trends[0]).toHaveProperty('date');
-    expect(trends[0]).toHaveProperty('count');
-  });
+  test('should calculate summary correctly');
+  test('should generate trend data');
 });
-```
 
-#### Phase 3.3: PWA テスト
+// Push 通知テスト
+describe('Push Notification', () => {
+  test('should subscribe to push notifications');
+  test('should send reminder notifications');
+  test('should handle subscription errors');
+});
 
-```typescript
-// test/pwa/serviceWorker.test.ts
+// PWA テスト
 describe('Service Worker', () => {
-  test('should cache static assets', async () => {
-    const response = await fetch('/dashboard');
-    // Cache hit verification
-  });
-
-  test('should handle offline requests', async () => {
-    // Simulate offline mode
-    // Verify fallback behavior
-  });
+  test('should cache static assets');
+  test('should handle offline requests');
 });
-```
-
-### 8.3 E2E テストシナリオ（Future - Playwright）
-
-```typescript
-test('User can create reflection, get AI analysis, view analytics', async () => {
-  // 1. ログイン
-  await page.goto('/auth');
-  await page.click('button:has-text("Google でログイン")');
-
-  // 2. 振り返り作成
-  await page.goto('/reflection');
-  await page.fill('textarea[name="did"]', 'テスト実施');
-  await page.click('button:has-text("保存")');
-
-  // 3. AI分析リクエスト
-  await page.click('button:has-text("AI分析を実行")');
-  await page.waitForSelector('[data-testid="analysis-result"]');
-
-  // 4. アナリティクス確認
-  await page.goto('/dashboard/analytics');
-  await page.waitForSelector('canvas'); // チャート読み込み確認
-});
-```
-
-### 8.4 テスト実行フロー
-
-```bash
-# 開発時: ウォッチモード
-npm run test:watch
-
-# Pre-commit: リント + ユニットテスト
-npm run test:pre-commit
-
-# CI/CD: 全テスト + カバレッジ
-npm run test:coverage
-
-# デプロイ前: E2E テスト
-npm run test:e2e
 ```
 
 ---
@@ -1070,88 +953,18 @@ npm run test:e2e
 | **LCP** (Largest Contentful Paint) | < 2.5s | ? |
 | **FID** (First Input Delay) | < 100ms | ? |
 | **CLS** (Cumulative Layout Shift) | < 0.1 | ? |
-| **INP** (Interaction to Next Paint) | < 200ms | ? |
 
 ### 9.2 最適化施策
 
-#### 画像最適化
-
 ```typescript
-// next.config.js
-const nextConfig = {
-  images: {
-    formats: ['image/avif', 'image/webp'],
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    loader: 'default',
-    minimumCacheTTL: 60,
-  }
-};
-```
-
-#### Code Splitting
-
-```typescript
-// 動的インポート: 重いコンポーネント
+// Code Splitting
 const AnalyticsPanel = dynamic(() =>
   import('@/components/analytics/AnalyticsPanel'),
   { loading: () => <LoadingSpinner /> }
 );
 
-// Route-based: ページコンポーネント
-// Next.js が自動で最適化
-```
-
-#### キャッシング戦略
-
-```typescript
-// ISR (Incremental Static Regeneration)
-export const revalidate = 3600; // 1時間ごとに再生成
-
-// SWR (Stale-While-Revalidate)
-const { data } = useSWR('/api/analytics/summary', {
-  revalidateOnFocus: false,
-  revalidateOnReconnect: false,
-  dedupingInterval: 300000, // 5分
-});
-```
-
-#### バンドルサイズ最適化
-
-```bash
-# バンドル分析
-npm run analyze
-
-# 目標: Main bundle < 200KB (gzipped)
-# Recharts は必要に応じて lazy load
-```
-
-### 9.3 ローディング状態
-
-```typescript
-// Skeleton Loading
-<Skeleton className="w-full h-40" count={3} />
-
-// Streaming (Next.js 13+)
-// Server Components で自動最適化
-```
-
-### 9.4 データベースクエリ最適化
-
-```typescript
-// インデックス設計
-CREATE INDEX idx_reflections_user_date
-  ON reflections(user_id, reflection_date DESC);
-
-CREATE INDEX idx_analyses_reflection
-  ON analyses(reflection_id);
-
-// 不要なフィールドの除外
-const { id, user_id, content, created_at } =
-  await supabase
-    .from('reflections')
-    .select('id, user_id, content, created_at')
-    .eq('user_id', userId);
+// キャッシング戦略
+export const revalidate = 3600; // ISR: 1時間ごと
 ```
 
 ---
@@ -1165,82 +978,24 @@ const { id, user_id, content, created_at } =
 | **ホスティング** | Vercel Pro |
 | **データベース** | Supabase Pro |
 | **SSL証明書** | 自動（Let's Encrypt via Vercel） |
-| **CDN** | Vercel Edge Network |
 | **監視** | Vercel Analytics + Sentry (Future) |
-| **ドメイン** | reflect-hub.app (またはカスタム) |
 
-### 10.2 デプロイメント手順
-
-```bash
-# 1. ステージング環境でテスト
-git push origin stage-deploy
-
-# 2. Preview deployment 確認
-# Vercel が自動で作成
-
-# 3. 本番環境へ
-git push origin main
-
-# 4. デプロイ後検証
-curl https://reflect-hub.app/api/health
-```
-
-### 10.3 本番環境チェックリスト
+### 10.2 本番環境チェックリスト
 
 - [ ] All tests passing (100% coverage for critical paths)
 - [ ] Lighthouse score >= 90
-- [ ] No console errors/warnings
-- [ ] HTTPS working correctly
-- [ ] Security headers present
+- [ ] Core Web Vitals 達成
 - [ ] Environment variables set
 - [ ] Database backups configured
 - [ ] Error monitoring enabled
-- [ ] CDN cache configured
+- [ ] Security headers present
 - [ ] Rate limiting active
-- [ ] API throttling working
-
-### 10.4 ロールアウト戦略
-
-#### Phase 3a: Canary Release (Day 20-21)
-
-```
-10% のユーザーに新機能をロールアウト
-→ メトリクス監視 (1時間)
-→ 安定確認後 50% に拡大
-→ 最終的に 100% ロールアウト
-```
-
-#### Phase 3b: Feature Flags
-
-```typescript
-// 機能フラグ: AI分析
-if (featureFlags.aiAnalysisEnabled) {
-  <AnalysisButton />
-}
-
-// Supabase から動的に取得
-const flags = await getFeatureFlags(userId);
-```
-
-### 10.5 ダウンタイム対策
-
-```typescript
-// ヘルスチェック エンドポイント
-GET /api/health
-  → { status: "ok"|"degraded"|"down" }
-
-// サーキットブレーカーパターン
-if (healthStatus === 'degraded') {
-  // フォールバック: 簡易版UI表示
-  <SimplifiedDashboard />
-}
-```
 
 ---
 
 ## 11. 実装スケジュール
 
-### 11.1 Phase 3 タイムライン（21日間）
+### 11.1 Phase 3 タイムライン（14日間）
 
 ```
 Week 1 (Day 1-7)
@@ -1248,80 +1003,47 @@ Week 1 (Day 1-7)
 │  ├─ Web App Manifest
 │  ├─ Service Worker
 │  └─ インストール UI
-├─ Day 3-4: AI分析機能 - Phase 1
+├─ Day 3-4: AI分析機能
 │  ├─ OpenAI API 統合
 │  ├─ 分析エンドポイント
 │  └─ 分析結果 UI
-└─ Day 5-7: 統計ダッシュボード - Phase 1
-   ├─ KPI計算ロジック
-   ├─ Recharts 統合
-   └─ 基本チャート表示
+├─ Day 5-6: 統計ダッシュボード
+│  ├─ KPI計算ロジック
+│  ├─ Recharts 統合
+│  └─ 基本チャート表示
+└─ Day 7: Web プッシュ通知 Phase 1
+   ├─ Push API 統合
+   └─ 通知許可 UI
 
 Week 2 (Day 8-14)
-├─ Day 8-9: AI分析機能 - Phase 2
-│  ├─ レート制限実装
-│  ├─ エラーハンドリング
-│  └─ キャッシング
-├─ Day 10-11: 統計ダッシュボード - Phase 2
+├─ Day 8-9: 統計ダッシュボード拡張
 │  ├─ 高度な分析チャート
-│  ├─ アクティビティヒートマップ
-│  └─ トレンド分析
-├─ Day 12: オフライン機能
-│  ├─ IndexedDB 設計
-│  ├─ 自動同期ロジック
-│  └─ 同期状態 UI
-└─ Day 13-14: テスト Phase 1
-   ├─ AI分析テスト
-   ├─ 統計機能テスト
-   └─ PWA テスト
-
-Week 3 (Day 15-21)
-├─ Day 15-16: セキュリティ強化
+│  └─ アクティビティヒートマップ
+├─ Day 10-11: Web プッシュ通知 Phase 2
+│  ├─ リマインダー スケジューリング
+│  ├─ バックエンド Job 実装
+│  └─ 設定管理
+├─ Day 12-13: テスト・セキュリティ
+│  ├─ テスト実装（AI, Analytics, Push）
 │  ├─ CSRF対策
 │  ├─ 入力検証強化
-│  ├─ OpenAI プロンプトインジェクション対策
-│  └─ セキュリティヘッダー設定
-├─ Day 17-18: テスト Phase 2
-│  ├─ E2E テスト実装（基本）
-│  ├─ パフォーマンステスト
-│  ├─ セキュリティテスト
-│  └─ ユーザー受け入れテスト
-├─ Day 19-20: 本番準備・最適化
-│  ├─ Core Web Vitals 最適化
-│  ├─ バンドルサイズ削減
-│  ├─ ドメイン・SSL設定
-│  ├─ モニタリング・ロギング
-│  └─ デプロイメント自動化
-└─ Day 21: リリース・運用開始
-   ├─ 本番環境ステージング
-   ├─ スモークテスト
-   ├─ Canary Release (10% → 50% → 100%)
-   └─ 運用ハンドオーバー
+│  └─ セキュリティテスト
+└─ Day 14: 本番準備・リリース
+   ├─ Core Web Vitals 最適化
+   ├─ パフォーマンステスト
+   └─ 本番環境デプロイ
 ```
 
 ### 11.2 マイルストーン
 
 | マイルストーン | 期日 | 成果物 |
 |-------------|------|--------|
-| **PWA基盤完成** | Day 4 | インストール可能な状態 |
-| **AI分析機能α** | Day 7 | 分析結果表示 |
-| **統計ダッシュボード α** | Day 7 | KPI + 基本チャート |
-| **全機能 α 完成** | Day 14 | 機能実装完了 |
-| **テスト完了** | Day 18 | テストカバレッジ 80%+ |
-| **本番環境 Ready** | Day 20 | Go/No-Go Decision |
-| **本番リリース** | Day 21 | Live |
-
-### 11.3 日次スプリント例（Day 1）
-
-```
-09:00-09:30  スタンドアップ（進捗確認）
-09:30-12:00  実装
-12:00-13:00  昼休憩
-13:00-15:00  実装 + コードレビュー
-15:00-15:30  テスト実施
-15:30-17:00  バグ修正・ドキュメント
-17:00-17:30  デイリーレビュー・日報
-```
+| **PWA基盤完成** | Day 2 | インストール可能な状態 |
+| **AI分析機能完成** | Day 4 | 分析結果表示 |
+| **統計ダッシュボード完成** | Day 6 | KPI + チャート |
+| **Web プッシュ完成** | Day 11 | リマインダー配信 |
+| **テスト完了** | Day 13 | テストカバレッジ 80%+ |
+| **本番リリース** | Day 14 | Live |
 
 ---
 
@@ -1334,114 +1056,33 @@ Week 3 (Day 15-21)
 | **OpenAI API レート制限** | High | High | キャッシング、バッチ処理、フォールバック |
 | **Supabase ダウンタイム** | High | Low | Retry logic、ローカルキャッシュ |
 | **Service Worker バグ** | Medium | Medium | 徹底テスト、段階的ロールアウト |
+| **Web Push 非対応ブラウザ** | Medium | Low | Graceful degradation、フォールバック UI |
 | **Core Web Vitals 未達** | Medium | Medium | 継続的な最適化、監視 |
-| **セキュリティ脆弱性** | High | Medium | セキュリティ監査、SAST ツール |
-| **スコープクリープ** | Medium | High | 厳密なスコープ管理、優先度付け |
-
-### 12.2 リスク対策詳細
-
-#### OpenAI API コスト管理
-
-```typescript
-// レート制限: 1ユーザー / 1日3回
-const MAX_ANALYSES_PER_DAY = 3;
-
-// トークン使用量追跡
-const trackTokenUsage = (tokens: number) => {
-  // Supabase に記録
-  // 月間上限: 100,000 tokens
-};
-
-// フォールバック: キャッシュ済み分析を表示
-if (analyzisExists()) {
-  return cachedAnalysis;
-} else {
-  return <AnalysisUnavailable />;
-}
-```
-
-#### Service Worker デプロイ戦略
-
-```typescript
-// 段階的ロールアウト
-// Phase 1: Canary (10%)
-// Phase 2: Beta (50%)
-// Phase 3: Stable (100%)
-
-// ロールバック機能
-const SW_VERSION = '1.0.0';
-if (swVersion < MIN_REQUIRED_VERSION) {
-  // 古い Service Worker をアンインストール
-  unregisterServiceWorker();
-}
-```
-
-#### セキュリティ監査
-
-```
-- OWASP Top 10 チェック
-- Dependency scanning (npm audit)
-- SAST ツール (SonarQube, CodeClimate)
-- Penetration Testing (外部)
-- GDPR / 個人情報保護対応確認
-```
-
-### 12.3 本番サポート計画
-
-| 項目 | 詳細 |
-|-----|------|
-| **監視** | Vercel Analytics + Sentry |
-| **アラート** | Slack 通知（クリティカルエラー） |
-| **エスカレーション** | on-call rotation |
-| **通知テンプレート** | 日本語対応 |
-| **災害復旧計画** | データベースバックアップ (日1回) |
-| **SLA** | 99.5% uptime |
 
 ---
 
-## 13. 付録・参考資料
+## 付録
 
-### 13.1 参考リンク
+### 参考リンク
 
 - [Web App Manifest - MDN](https://developer.mozilla.org/docs/Web/Manifest)
 - [Service Worker - MDN](https://developer.mozilla.org/docs/Web/API/Service_Worker_API)
+- [Web Push API - MDN](https://developer.mozilla.org/docs/Web/API/Push_API)
 - [OpenAI API Documentation](https://platform.openai.com/docs)
 - [Recharts Documentation](https://recharts.org/)
 - [Next.js 15 Documentation](https://nextjs.org/docs)
 - [Supabase Documentation](https://supabase.io/docs)
-- [OWASP Top 10](https://owasp.org/www-project-top-ten/)
 
-### 13.2 用語集
+### 用語集
 
 | 用語 | 説明 |
 |-----|------|
-| **PWA** | Progressive Web Application - ネイティブアプリ同様の機能を持つWebアプリ |
-| **Service Worker** | バックグラウンドで動作し、オフライン機能やキャッシング を管理するスクリプト |
-| **ISR** | Incremental Static Regeneration - Next.js の静的生成機能 |
-| **SWR** | Stale-While-Revalidate - キャッシュ戦略 |
-| **RLS** | Row-Level Security - Supabase のセキュリティ機構 |
-| **CSRF** | Cross-Site Request Forgery - セキュリティ脅威 |
-| **XSS** | Cross-Site Scripting - セキュリティ脅威 |
+| **PWA** | Progressive Web Application |
+| **Service Worker** | バックグラウンドで動作するスクリプト |
+| **Push API** | ブラウザプッシュ通知 |
+| **Cron Job** | 定期的に実行するバックエンドジョブ |
+| **RLS** | Row-Level Security (Supabase) |
 | **Core Web Vitals** | Google が定義するページパフォーマンス指標 |
-| **Canary Release** | 段階的なロールアウト戦略 |
-
-### 13.3 チェックリスト
-
-実装時の確認項目:
-
-```
-[ ] PWA機能がインストール可能な状態
-[ ] Service Worker がオフラインで動作
-[ ] AI分析がエラーハンドリング済み
-[ ] 統計ダッシュボードが表示可能
-[ ] テストカバレッジ 80%以上
-[ ] セキュリティヘッダー設定済み
-[ ] Lighthouse スコア 90以上
-[ ] Core Web Vitals 達成
-[ ] 本番環境チェックリスト完了
-[ ] ドキュメント完成
-[ ] チーム内レビュー承認
-```
 
 ---
 
@@ -1450,6 +1091,7 @@ if (swVersion < MIN_REQUIRED_VERSION) {
 | バージョン | 日付 | 更新内容 |
 |----------|------|--------|
 | 1.0 | 2025-11-18 | 初版作成 |
+| 2.0 | 2025-11-18 | LINE連携削除、Web Push 通知追加 |
 
 ---
 
