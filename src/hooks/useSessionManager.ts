@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/authStore";
@@ -9,6 +9,16 @@ export function useSessionManager() {
   const router = useRouter();
   const { initialize, signOut } = useAuthStore();
 
+  // 最新の関数参照を保持するためのref
+  const initializeRef = useRef(initialize);
+  const signOutRef = useRef(signOut);
+
+  // refを常に最新の関数で更新
+  useEffect(() => {
+    initializeRef.current = initialize;
+    signOutRef.current = signOut;
+  }, [initialize, signOut]);
+
   // セッション変更の監視
   useEffect(() => {
     const {
@@ -16,25 +26,25 @@ export function useSessionManager() {
     } = supabase.auth.onAuthStateChange(async (event) => {
       switch (event) {
         case "INITIAL_SESSION":
-          await initialize();
+          await initializeRef.current();
           break;
 
         case "SIGNED_IN":
-          await initialize();
+          await initializeRef.current();
           break;
 
         case "SIGNED_OUT":
-          await signOut();
+          await signOutRef.current();
           router.push("/auth");
           break;
 
         case "TOKEN_REFRESHED":
           // 新しいセッション情報でストアを更新
-          await initialize();
+          await initializeRef.current();
           break;
 
         case "USER_UPDATED":
-          await initialize();
+          await initializeRef.current();
           break;
 
         default:
@@ -43,7 +53,8 @@ export function useSessionManager() {
     });
 
     return () => subscription.unsubscribe();
-  }, [initialize, signOut, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]);
 
   // 手動セッション確認
   const checkSession = useCallback(async () => {
