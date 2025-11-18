@@ -1,18 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Framework, FrameworkField } from '@/types/framework';
+import { describe, it, expect, vi } from 'vitest';
+import type { FrameworkField } from '@/types/framework';
 
 // Mock Supabase
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => ({
     from: vi.fn(() => ({
       select: vi.fn(() => ({
-        eq: vi.fn(function(this: any) {
+        eq: vi.fn(function(this: Record<string, unknown>) {
           return this;
         }),
-        order: vi.fn(function(this: any) {
+        order: vi.fn(function(this: Record<string, unknown>) {
           return this;
         }),
-        single: vi.fn(function(this: any) {
+        single: vi.fn(function(this: Record<string, unknown>) {
           return this;
         }),
       })),
