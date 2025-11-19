@@ -5,17 +5,27 @@ import { cookies } from 'next/headers';
 export async function GET(_request: NextRequest) {
   try {
     const cookieStore = await cookies();
+
+    // Debug: log all cookies received
+    console.log('[GET /api/auth/verify] Received cookies:', {
+      cookieCount: cookieStore.getAll().length,
+      cookieNames: cookieStore.getAll().map(c => c.name),
+    });
+
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
           get(name: string) {
-            return cookieStore.get(name)?.value;
+            const value = cookieStore.get(name)?.value;
+            console.log(`[GET /api/auth/verify] Getting cookie "${name}":`, !!value);
+            return value;
           },
           set(name: string, value: string, options: CookieOptions) {
             try {
               cookieStore.set({ name, value, ...options });
+              console.log(`[GET /api/auth/verify] Setting cookie "${name}"`);
             } catch {
               // Silent failure
             }
@@ -32,6 +42,12 @@ export async function GET(_request: NextRequest) {
     );
 
     const { data: { session }, error } = await supabase.auth.getSession();
+
+    console.log('[GET /api/auth/verify] Session check:', {
+      hasSession: !!session,
+      userId: session?.user?.id,
+      error: error?.message,
+    });
 
     if (error) {
       return NextResponse.json(
