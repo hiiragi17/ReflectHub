@@ -120,13 +120,20 @@ export const useAuthStore = create<AuthStore>()(
         set({ isLoading: true });
 
         try {
+          console.log('[authStore] initialize: attempting to fetch /api/auth/verify');
           const serverSessionResponse = await fetch("/api/auth/verify", {
             method: "GET",
             credentials: "include",
           });
 
+          console.log('[authStore] initialize: /api/auth/verify response:', {
+            ok: serverSessionResponse.ok,
+            status: serverSessionResponse.status,
+          });
+
           if (serverSessionResponse.ok) {
             const serverSession = await serverSessionResponse.json();
+            console.log('[authStore] initialize: server session:', serverSession);
 
             if (serverSession.authenticated) {
               try {
@@ -183,9 +190,15 @@ export const useAuthStore = create<AuthStore>()(
             }
           }
 
+          console.log('[authStore] initialize: /api/auth/verify failed or unauthenticated, falling back to client-side session check');
           const {
             data: { session },
           } = await supabase.auth.getSession();
+
+          console.log('[authStore] initialize: client-side session check:', {
+            hasSession: !!session,
+            userId: session?.user?.id,
+          });
 
           if (session?.user) {
             const { data: profile } = await supabase
@@ -237,13 +250,15 @@ export const useAuthStore = create<AuthStore>()(
               }
             }
           } else {
+            console.log('[authStore] initialize: no session found, user is not authenticated');
             set({
               user: null,
               isAuthenticated: false,
               isLoading: false,
             });
           }
-        } catch {
+        } catch (error) {
+          console.error('[authStore] initialize: error during authentication:', error);
           set({
             error: "初期化に失敗しました。",
             isLoading: false,
