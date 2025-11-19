@@ -62,18 +62,6 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {/* Edit Profile Link */}
-                <Link
-                  href="/profile/edit"
-                  className="flex items-center justify-between p-4 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-                >
-                  <div>
-                    <p className="font-medium text-gray-900">プロフィール情報を編集</p>
-                    <p className="text-sm text-gray-600">名前やその他の基本情報</p>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400" />
-                </Link>
-
                 {/* View Profile Link */}
                 <Link
                   href="/profile"

@@ -9,19 +9,16 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/useToast';
 
 export default function ProfileEditPage() {
-  const { user, signOut, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
   const { showToast } = useToast();
 
   const [name, setName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [isSigningOut, setIsSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showSignOutDialog, setShowSignOutDialog] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -79,17 +76,6 @@ export default function ProfileEditPage() {
       showToast(errorMessage, 'error');
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleSignOut = async () => {
-    setIsSigningOut(true);
-    try {
-      await signOut();
-      router.push('/');
-    } catch (error) {
-      console.error('Sign out failed:', error);
-      setIsSigningOut(false);
     }
   };
 
@@ -155,41 +141,8 @@ export default function ProfileEditPage() {
               </Button>
             </div>
           </form>
-
-          {/* Sign out section */}
-          <div className="mt-8 pt-8 border-t border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">その他の操作</h2>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => setShowSignOutDialog(true)}
-              disabled={isSigningOut}
-              className="w-full"
-            >
-              {isSigningOut ? 'サインアウト中...' : 'サインアウト'}
-            </Button>
-          </div>
         </Card>
       </main>
-
-      {/* Sign out confirmation dialog */}
-      <AlertDialog open={showSignOutDialog} onOpenChange={setShowSignOutDialog}>
-        <AlertDialogContent>
-          <AlertDialogTitle>サインアウト</AlertDialogTitle>
-          <AlertDialogDescription>
-            本当にサインアウトしますか？
-          </AlertDialogDescription>
-          <div className="flex gap-3 justify-end">
-            <AlertDialogCancel>キャンセル</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleSignOut}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              サインアウト
-            </AlertDialogAction>
-          </div>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

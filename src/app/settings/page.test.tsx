@@ -136,19 +136,6 @@ describe('SettingsPage', () => {
     expect(screen.getByText('プロフィール設定')).toBeInTheDocument();
   });
 
-  it('should have link to edit profile', () => {
-    mockUseAuth.mockReturnValue({
-      user: mockUser,
-      isLoading: false,
-      signOut: mockSignOut,
-    });
-
-    render(<SettingsPage />);
-
-    const editLink = screen.getByText('プロフィール情報を編集').closest('a');
-    expect(editLink).toHaveAttribute('href', '/profile/edit');
-  });
-
   it('should have link to view profile', () => {
     mockUseAuth.mockReturnValue({
       user: mockUser,

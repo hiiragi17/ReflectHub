@@ -206,19 +206,6 @@ describe('ProfileEditPage', () => {
     expect(mockRouter.push).toHaveBeenCalledWith('/profile');
   });
 
-  it('should render sign out section', () => {
-    mockUseAuth.mockReturnValue({
-      user: mockUser,
-      isLoading: false,
-      signOut: mockSignOut,
-    });
-
-    render(<ProfileEditPage />);
-
-    expect(screen.getByText('その他の操作')).toBeInTheDocument();
-    expect(screen.getByText(/サインアウト/)).toBeInTheDocument();
-  });
-
   it('should disable save button when name has not changed', () => {
     mockUseAuth.mockReturnValue({
       user: mockUser,
