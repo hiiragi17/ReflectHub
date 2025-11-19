@@ -1,50 +1,42 @@
 "use client";
 
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/authStore";
 
 export function useSessionManager() {
   const router = useRouter();
-  const { initialize, signOut } = useAuthStore();
-
-  // 最新の関数参照を保持するためのref
-  const initializeRef = useRef(initialize);
-  const signOutRef = useRef(signOut);
-
-  // refを常に最新の関数で更新
-  useEffect(() => {
-    initializeRef.current = initialize;
-    signOutRef.current = signOut;
-  }, [initialize, signOut]);
 
   // セッション変更の監視
   useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event) => {
+      // コールバック内で最新のストア関数を取得することで依存配列の問題を回避
+      const { initialize, signOut } = useAuthStore.getState();
+
       switch (event) {
         case "INITIAL_SESSION":
-          await initializeRef.current();
+          await initialize();
           break;
 
         case "SIGNED_IN":
-          await initializeRef.current();
+          await initialize();
           break;
 
         case "SIGNED_OUT":
-          await signOutRef.current();
+          await signOut();
           router.push("/auth");
           break;
 
         case "TOKEN_REFRESHED":
           // 新しいセッション情報でストアを更新
-          await initializeRef.current();
+          await initialize();
           break;
 
         case "USER_UPDATED":
-          await initializeRef.current();
+          await initialize();
           break;
 
         default:
@@ -80,12 +72,14 @@ export function useSessionManager() {
     }
 
     if (data.session) {
+      // 最新のストア関数を取得
+      const { initialize } = useAuthStore.getState();
       await initialize();
       return true;
     }
 
     return false;
-  }, [initialize]);
+  }, []);
 
   return {
     checkSession,
