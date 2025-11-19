@@ -139,7 +139,15 @@ export async function PUT(
     // Verify session
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
+    console.log('[PUT /api/auth/profile] Session check:', {
+      hasSession: !!session,
+      sessionError: sessionError?.message,
+      userId: session?.user?.id,
+      paramUserId: userId,
+    });
+
     if (sessionError || !session) {
+      console.error('[PUT /api/auth/profile] Session verification failed:', sessionError);
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
