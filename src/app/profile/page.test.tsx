@@ -126,7 +126,7 @@ describe('ProfilePage', () => {
 
     render(<ProfilePage />);
 
-    expect(screen.getByText('テストユーザー')).toBeInTheDocument();
+    expect(screen.getAllByText('テストユーザー').length).toBeGreaterThan(0);
   });
 
   it('should display correct header title', () => {

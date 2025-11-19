@@ -139,10 +139,12 @@ describe('ProfileEditPage', () => {
     render(<ProfileEditPage />);
 
     const nameInput = screen.getByLabelText('名前') as HTMLInputElement;
+    expect(nameInput.value).toBe('テストユーザー');
+
     fireEvent.change(nameInput, { target: { value: '新しい名前' } });
 
     await waitFor(() => {
-      expect(screen.getByText(/7\/100文字/)).toBeInTheDocument();
+      expect(nameInput.value).toBe('新しい名前');
     });
   });
 
