@@ -63,6 +63,7 @@ export default function ProfileEditPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ name: name.trim() }),
+        credentials: 'include',
       });
 
       if (!response.ok) {
