@@ -218,6 +218,49 @@ export async function PUT(
       );
     }
 
+    // Check if profile exists, create if not
+    const { data: existingProfile, error: checkError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .single();
+
+    if (checkError?.code === 'PGRST116') {
+      // Profile doesn't exist, create it first
+      console.log('[PUT /api/auth/profile] Profile not found, creating new profile');
+      const { data: newProfile, error: createError } = await supabase
+        .from('profiles')
+        .insert({
+          id: session.user.id,
+          email: session.user.email,
+          name: trimmedName,
+          provider: 'google',
+          avatar_url: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Profile creation error:', createError);
+        return NextResponse.json(
+          { error: 'Failed to create profile' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ profile: newProfile });
+    }
+
+    if (checkError) {
+      console.error('Profile check error:', checkError);
+      return NextResponse.json(
+        { error: 'Failed to check profile' },
+        { status: 500 }
+      );
+    }
+
     // Update profile
     const { data: updatedProfile, error: updateError } = await supabase
       .from('profiles')

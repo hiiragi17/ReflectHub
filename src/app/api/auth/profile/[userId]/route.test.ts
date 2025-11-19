@@ -300,8 +300,20 @@ describe('Profile API Route', () => {
             data: { session: mockSession },
             error: null,
           }),
+          getUser: vi.fn().mockResolvedValue({
+            data: { user: mockSession.user },
+            error: null,
+          }),
         },
         from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({
+                data: { id: mockUserId },
+                error: null,
+              }),
+            }),
+          }),
           update: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
               select: vi.fn().mockReturnValue({
@@ -325,6 +337,9 @@ describe('Profile API Route', () => {
 
       const request = new NextRequest('http://localhost:3000/api/auth/profile/user-123', {
         method: 'PUT',
+        headers: {
+          'Authorization': `Bearer test-token`,
+        },
         body: JSON.stringify({ name: 'New Name' }),
       });
       const response = await PUT(request, { params: Promise.resolve({ userId: mockUserId }) });
@@ -342,8 +357,20 @@ describe('Profile API Route', () => {
             data: { session: mockSession },
             error: null,
           }),
+          getUser: vi.fn().mockResolvedValue({
+            data: { user: mockSession.user },
+            error: null,
+          }),
         },
         from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({
+                data: { id: mockUserId },
+                error: null,
+              }),
+            }),
+          }),
           update: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
               select: vi.fn().mockReturnValue({
@@ -367,6 +394,9 @@ describe('Profile API Route', () => {
 
       const request = new NextRequest('http://localhost:3000/api/auth/profile/user-123', {
         method: 'PUT',
+        headers: {
+          'Authorization': `Bearer test-token`,
+        },
         body: JSON.stringify({ name: '  New Name  ' }),
       });
       const response = await PUT(request, { params: Promise.resolve({ userId: mockUserId }) });
