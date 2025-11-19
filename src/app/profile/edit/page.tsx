@@ -12,6 +12,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/useToast';
+import { supabase } from '@/lib/supabase/client';
 
 export default function ProfileEditPage() {
   const { user, isLoading } = useAuth();
@@ -56,10 +57,20 @@ export default function ProfileEditPage() {
     setIsSaving(true);
 
     try {
+      // Get the session token from Supabase client
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError || !session?.access_token) {
+        setError('セッションが見つかりません。再度ログインしてください。');
+        setIsSaving(false);
+        return;
+      }
+
       const response = await fetch(`/api/auth/profile/${user.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ name: name.trim() }),
         credentials: 'include',

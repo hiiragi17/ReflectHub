@@ -136,18 +136,47 @@ export async function PUT(
       }
     );
 
-    // Verify session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // Verify session - try to get it from Authorization header first
+    const authHeader = request.headers.get('Authorization');
+    let session = null;
+
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice(7);
+      console.log('[PUT /api/auth/profile] Verifying Bearer token:', token.slice(0, 20) + '...');
+
+      const { data: { user }, error: verifyError } = await supabase.auth.getUser(token);
+
+      if (!verifyError && user) {
+        session = { user };
+        console.log('[PUT /api/auth/profile] Session verified from Bearer token:', { userId: user.id });
+      } else {
+        console.error('[PUT /api/auth/profile] Bearer token verification failed:', verifyError?.message);
+      }
+    }
+
+    // Fallback: try to get session from cookies
+    if (!session) {
+      const { data: { session: cookieSession }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError || !cookieSession) {
+        console.error('[PUT /api/auth/profile] No session found in cookies or Bearer token');
+        return NextResponse.json(
+          { error: 'Unauthorized' },
+          { status: 401 }
+        );
+      }
+
+      session = cookieSession;
+    }
 
     console.log('[PUT /api/auth/profile] Session check:', {
       hasSession: !!session,
-      sessionError: sessionError?.message,
       userId: session?.user?.id,
       paramUserId: userId,
     });
 
-    if (sessionError || !session) {
-      console.error('[PUT /api/auth/profile] Session verification failed:', sessionError);
+    if (!session) {
+      console.error('[PUT /api/auth/profile] Session verification failed');
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
