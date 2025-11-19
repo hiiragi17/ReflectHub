@@ -98,7 +98,7 @@ export function useErrorHandler() {
     (
       error: Error | unknown,
       context?: string,
-      metadata?: Record<string, unknown>
+      _metadata?: Record<string, unknown>
     ): void => {
       const appError = createAppError(error);
       errorLogger.log(appError);

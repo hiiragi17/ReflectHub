@@ -7,7 +7,7 @@ import type { Reflection } from '@/types/reflection';
 import { getUserReflections } from '@/services/reflectionService';
 import { frameworkService } from '@/services/frameworkService';
 import { getMonthCalendarData } from '@/services/calendarService';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase/client';
 
 interface UseMonthlyReflectionsOptions {
   year?: number;
@@ -58,17 +58,6 @@ export const useMonthlyReflections = (
 
   // Get current user ID
   useEffect(() => {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      setError('Supabase configuration is missing');
-      setIsLoading(false);
-      return;
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
     const getUser = async () => {
       try {
         const {
