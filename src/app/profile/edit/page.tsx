@@ -110,9 +110,6 @@ export default function ProfileEditPage() {
           <form onSubmit={handleSave} className="space-y-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 mb-6">プロフィール情報を編集</h1>
-              <p className="text-gray-600 text-sm mb-6">
-                現在のところ、名前のみ編集できます
-              </p>
             </div>
 
             {error && (
