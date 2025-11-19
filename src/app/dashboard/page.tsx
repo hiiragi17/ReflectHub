@@ -86,13 +86,15 @@ export default function DashboardPage() {
           </Card>
 
           {/* 設定 */}
-          <Card className="h-full">
-            <CardContent className="p-6 text-center">
-              <Settings className="w-8 h-8 text-gray-500 mx-auto mb-3" />
-              <h3 className="font-semibold mb-2">設定</h3>
-              <p className="text-sm text-gray-600">リマインダーなど</p>
-            </CardContent>
-          </Card>
+          <Link href="/profile">
+            <Card className="cursor-pointer hover:shadow-md transition-shadow h-full">
+              <CardContent className="p-6 text-center">
+                <Settings className="w-8 h-8 text-gray-500 mx-auto mb-3" />
+                <h3 className="font-semibold mb-2">プロフィール</h3>
+                <p className="text-sm text-gray-600">プロフィール設定</p>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
 
         {/* Getting Started */}
