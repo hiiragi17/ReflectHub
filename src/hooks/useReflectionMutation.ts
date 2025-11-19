@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase/client";
 import { v4 as uuidv4 } from "uuid";
 import {
   CreateReflectionRequest,
@@ -17,20 +17,6 @@ interface SaveState {
 }
 
 export const useReflectionMutation = () => {
-  const [supabase] = useState(() => {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!url || url.trim() === "") {
-      throw new Error("Supabase URL is missing: NEXT_PUBLIC_SUPABASE_URL");
-    }
-    if (!key || key.trim() === "") {
-      throw new Error(
-        "Supabase anon key is missing: NEXT_PUBLIC_SUPABASE_ANON_KEY"
-      );
-    }
-    return createClient(url, key);
-  });
-
   const [userId, setUserId] = useState<string>("");
 
   const [state, setState] = useState<SaveState>({
@@ -62,7 +48,7 @@ export const useReflectionMutation = () => {
     };
 
     getUser();
-  }, [supabase]);
+  }, []);
 
   const saveReflection = useCallback(
     async (

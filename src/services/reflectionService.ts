@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase/client";
 import {
   CreateReflectionRequest,
   UpdateReflectionRequest,
@@ -6,18 +6,6 @@ import {
   ReflectionError,
   Reflection,
 } from "@/types/reflection";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-if (!supabaseUrl || supabaseUrl.trim() === "") {
-  throw new Error("Supabase URL is missing: NEXT_PUBLIC_SUPABASE_URL");
-}
-if (!supabaseAnonKey || supabaseAnonKey.trim() === "") {
-  throw new Error(
-    "Supabase anon key is missing: NEXT_PUBLIC_SUPABASE_ANON_KEY"
-  );
-}
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const formatError = (error: unknown): ReflectionError => {
   if (error instanceof Error) {
