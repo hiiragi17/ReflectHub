@@ -269,26 +269,35 @@ export async function PUT(
     }
 
     console.log('[PUT /api/auth/profile] Profile exists, updating...');
-    // Update profile
-    const { data: updatedProfile, error: updateError } = await supabase
+    // Update profile (don't use .select().single() due to potential RLS issues)
+    const { error: updateError } = await supabase
       .from('profiles')
       .update({
         name: trimmedName,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', userId)
-      .select()
-      .single();
-
-    console.log('[PUT /api/auth/profile] Update result:', {
-      hasProfile: !!updatedProfile,
-      updateError: updateError ? { code: updateError.code, message: updateError.message } : null,
-    });
+      .eq('id', userId);
 
     if (updateError) {
       console.error('[PUT /api/auth/profile] Profile update error:', updateError);
       return NextResponse.json(
         { error: 'Failed to update profile' },
+        { status: 500 }
+      );
+    }
+
+    console.log('[PUT /api/auth/profile] Profile updated, fetching updated data...');
+    // Fetch the updated profile separately
+    const { data: updatedProfile, error: fetchError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError || !updatedProfile) {
+      console.error('[PUT /api/auth/profile] Failed to fetch updated profile:', fetchError);
+      return NextResponse.json(
+        { error: 'Profile updated but failed to fetch updated data' },
         { status: 500 }
       );
     }

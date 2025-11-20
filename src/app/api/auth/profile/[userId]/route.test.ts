@@ -294,6 +294,26 @@ describe('Profile API Route', () => {
 
     it('should update profile successfully', async () => {
       const { createServerClient } = await import('@supabase/ssr');
+
+      // Create a call counter for tracking multiple calls to select().eq().single()
+      let selectCallCount = 0;
+      const singleMock = vi.fn().mockImplementation(() => {
+        selectCallCount++;
+        if (selectCallCount === 1) {
+          // First call: profile existence check
+          return Promise.resolve({
+            data: { id: mockUserId },
+            error: null,
+          });
+        } else {
+          // Second call: fetch updated profile
+          return Promise.resolve({
+            data: { ...mockProfile, name: 'New Name' },
+            error: null,
+          });
+        }
+      });
+
       const mockSupabaseInstance: MockSupabase = {
         auth: {
           getSession: vi.fn().mockResolvedValue({
@@ -305,25 +325,21 @@ describe('Profile API Route', () => {
             error: null,
           }),
         },
-        from: vi.fn().mockReturnValue({
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({
-                data: { id: mockUserId },
-                error: null,
-              }),
-            }),
-          }),
-          update: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
+        from: vi.fn().mockImplementation((table: string) => {
+          if (table === 'profiles') {
+            return {
               select: vi.fn().mockReturnValue({
-                single: vi.fn().mockResolvedValue({
-                  data: { ...mockProfile, name: 'New Name' },
+                eq: vi.fn().mockReturnValue({
+                  single: singleMock,
+                }),
+              }),
+              update: vi.fn().mockReturnValue({
+                eq: vi.fn().mockResolvedValue({
                   error: null,
                 }),
               }),
-            }),
-          }),
+            };
+          }
         }),
       };
       (createServerClient as ReturnType<typeof vi.fn>).mockReturnValue(mockSupabaseInstance);
@@ -351,6 +367,26 @@ describe('Profile API Route', () => {
 
     it('should trim whitespace from name', async () => {
       const { createServerClient } = await import('@supabase/ssr');
+
+      // Create a call counter for tracking multiple calls to select().eq().single()
+      let selectCallCount = 0;
+      const singleMock = vi.fn().mockImplementation(() => {
+        selectCallCount++;
+        if (selectCallCount === 1) {
+          // First call: profile existence check
+          return Promise.resolve({
+            data: { id: mockUserId },
+            error: null,
+          });
+        } else {
+          // Second call: fetch updated profile
+          return Promise.resolve({
+            data: { ...mockProfile, name: 'New Name' },
+            error: null,
+          });
+        }
+      });
+
       const mockSupabaseInstance: MockSupabase = {
         auth: {
           getSession: vi.fn().mockResolvedValue({
@@ -362,25 +398,21 @@ describe('Profile API Route', () => {
             error: null,
           }),
         },
-        from: vi.fn().mockReturnValue({
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({
-                data: { id: mockUserId },
-                error: null,
-              }),
-            }),
-          }),
-          update: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
+        from: vi.fn().mockImplementation((table: string) => {
+          if (table === 'profiles') {
+            return {
               select: vi.fn().mockReturnValue({
-                single: vi.fn().mockResolvedValue({
-                  data: { ...mockProfile, name: 'New Name' },
+                eq: vi.fn().mockReturnValue({
+                  single: singleMock,
+                }),
+              }),
+              update: vi.fn().mockReturnValue({
+                eq: vi.fn().mockResolvedValue({
                   error: null,
                 }),
               }),
-            }),
-          }),
+            };
+          }
         }),
       };
       (createServerClient as ReturnType<typeof vi.fn>).mockReturnValue(mockSupabaseInstance);
