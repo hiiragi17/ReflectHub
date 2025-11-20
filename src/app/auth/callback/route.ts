@@ -41,14 +41,28 @@ export async function GET(request: NextRequest) {
 
     // Exchange the code for a session
     // This call will automatically set the auth cookies via the Supabase SSR client
-    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+    console.log('[auth/callback] Exchanging code for session');
+    const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
     if (exchangeError) {
       console.error('[auth/callback] Code exchange error:', exchangeError);
       return NextResponse.redirect(new URL('/auth?error=callback_error', requestUrl.origin));
     }
 
-    console.log('[auth/callback] Successfully exchanged code for session, redirecting to:', next);
+    console.log('[auth/callback] Successfully exchanged code for session:', {
+      userId: data.user?.id,
+      email: data.user?.email,
+      sessionPresent: !!data.session,
+    });
+
+    // Check if cookies were set
+    const allCookies = cookieStore.getAll();
+    console.log('[auth/callback] Cookies after exchange:', {
+      count: allCookies.length,
+      names: allCookies.map(c => c.name),
+    });
+
+    console.log('[auth/callback] Redirecting to:', next);
     return NextResponse.redirect(new URL(next, requestUrl.origin));
   } catch (error) {
     console.error('[auth/callback] Unexpected error:', error);
