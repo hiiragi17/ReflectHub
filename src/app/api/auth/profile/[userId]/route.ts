@@ -219,11 +219,17 @@ export async function PUT(
     }
 
     // Check if profile exists, create if not
+    console.log('[PUT /api/auth/profile] Checking if profile exists for userId:', userId);
     const { data: existingProfile, error: checkError } = await supabase
       .from('profiles')
       .select('id')
       .eq('id', userId)
       .single();
+
+    console.log('[PUT /api/auth/profile] Profile check result:', {
+      hasProfile: !!existingProfile,
+      checkError: checkError ? { code: checkError.code, message: checkError.message } : null,
+    });
 
     if (checkError?.code === 'PGRST116') {
       // Profile doesn't exist, create it first
@@ -250,17 +256,19 @@ export async function PUT(
         );
       }
 
+      console.log('[PUT /api/auth/profile] Profile created successfully');
       return NextResponse.json({ profile: newProfile });
     }
 
     if (checkError) {
-      console.error('Profile check error:', checkError);
+      console.error('[PUT /api/auth/profile] Profile check error:', checkError);
       return NextResponse.json(
         { error: 'Failed to check profile' },
         { status: 500 }
       );
     }
 
+    console.log('[PUT /api/auth/profile] Profile exists, updating...');
     // Update profile
     const { data: updatedProfile, error: updateError } = await supabase
       .from('profiles')
@@ -272,14 +280,20 @@ export async function PUT(
       .select()
       .single();
 
+    console.log('[PUT /api/auth/profile] Update result:', {
+      hasProfile: !!updatedProfile,
+      updateError: updateError ? { code: updateError.code, message: updateError.message } : null,
+    });
+
     if (updateError) {
-      console.error('Profile update error:', updateError);
+      console.error('[PUT /api/auth/profile] Profile update error:', updateError);
       return NextResponse.json(
         { error: 'Failed to update profile' },
         { status: 500 }
       );
     }
 
+    console.log('[PUT /api/auth/profile] Profile updated successfully');
     return NextResponse.json({ profile: updatedProfile });
 
   } catch (error) {
