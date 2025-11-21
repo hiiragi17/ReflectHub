@@ -7,7 +7,7 @@ import type { Reflection } from '@/types/reflection';
 import { getUserReflections } from '@/services/reflectionService';
 import { frameworkService } from '@/services/frameworkService';
 import { getMonthCalendarData } from '@/services/calendarService';
-import { supabase } from '@/lib/supabase/client';
+import { useAuthStore } from '@/stores/authStore';
 
 interface UseMonthlyReflectionsOptions {
   year?: number;
@@ -49,42 +49,20 @@ export const useMonthlyReflections = (
     limit = 200,
   } = options;
 
+  // authStoreから最新のユーザー情報を取得（TOKEN_REFRESHEDで自動更新される）
+  const { user } = useAuthStore();
+
   const [calendar, setCalendar] = useState<MonthlyCalendarData | null>(null);
   const [frameworks, setFrameworks] = useState<Framework[]>([]);
   const [reflections, setReflections] = useState<Reflection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
 
-  // Get current user ID
-  useEffect(() => {
-    const getUser = async () => {
-      try {
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser();
-
-        if (authError || !user) {
-          setError('Not authenticated');
-          setIsLoading(false);
-          return;
-        }
-
-        setUserId(user.id);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to get user';
-        setError(errorMessage);
-        setIsLoading(false);
-      }
-    };
-
-    getUser();
-  }, []);
-
-  // Fetch data when userId or month/year changes
+  // Fetch data when user or month/year changes
   const fetchMonthlyData = useCallback(async () => {
-    if (!userId) {
+    if (!user?.id) {
+      setError('Not authenticated');
+      setIsLoading(false);
       return;
     }
 
@@ -94,7 +72,7 @@ export const useMonthlyReflections = (
     try {
       // Fetch reflections and frameworks in parallel
       const [reflectionsData, frameworksData] = await Promise.all([
-        getUserReflections(userId, limit, timeZone),
+        getUserReflections(user.id, limit, timeZone),
         frameworkService.getFrameworks(),
       ]);
 
@@ -118,7 +96,7 @@ export const useMonthlyReflections = (
     } finally {
       setIsLoading(false);
     }
-  }, [userId, year, month, limit, timeZone]);
+  }, [user, year, month, limit, timeZone]);
 
   // Initial fetch
   useEffect(() => {

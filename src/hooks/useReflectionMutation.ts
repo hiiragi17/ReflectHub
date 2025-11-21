@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
-import { supabase } from "@/lib/supabase/client";
+import { useState, useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
 import {
   CreateReflectionRequest,
@@ -9,6 +8,7 @@ import {
   ReflectionError,
 } from "@/types/reflection";
 import { reflectionService } from "@/services/reflectionService";
+import { useAuthStore } from "@/stores/authStore";
 
 interface SaveState {
   isLoading: boolean;
@@ -17,7 +17,8 @@ interface SaveState {
 }
 
 export const useReflectionMutation = () => {
-  const [userId, setUserId] = useState<string>("");
+  // authStoreから最新のユーザー情報を取得（TOKEN_REFRESHEDで自動更新される）
+  const { user } = useAuthStore();
 
   const [state, setState] = useState<SaveState>({
     isLoading: false,
@@ -25,44 +26,19 @@ export const useReflectionMutation = () => {
     error: null,
   });
 
-  useEffect(() => {
-    const getUser = async () => {
-      try {
-        const {
-          data: { user },
-          error,
-        } = await supabase.auth.getUser();
-
-        if (error) {
-          console.error("Auth error:", error.message);
-          return;
-        }
-
-        if (user?.id) {
-          setUserId(user.id);
-          console.log("User ID:", user.id);
-        }
-      } catch (error) {
-        console.error("Failed to get user:", error);
-      }
-    };
-
-    getUser();
-  }, []);
-
   const saveReflection = useCallback(
     async (
       request: CreateReflectionRequest,
       onOptimisticUpdate?: (data: ReflectionResponse) => void,
       onOptimisticRollback?: (tempId: string) => void
     ): Promise<ReflectionResponse | null> => {
-      if (!userId) {
+      if (!user?.id) {
         setState({
           isLoading: false,
           isSuccess: false,
           error: {
-            code: "USER_ID_NOT_SET",
-            message: "ユーザーID を取得中です。しばらくお待ちください。",
+            code: "USER_NOT_AUTHENTICATED",
+            message: "認証されていません。ログインしてください。",
           },
         });
         return null;
@@ -79,7 +55,7 @@ export const useReflectionMutation = () => {
 
         const optimisticData: ReflectionResponse = {
           id: tempId,
-          user_id: userId,
+          user_id: user.id,
           framework_id: request.framework_id,
           content: request.content,
           reflection_date:
@@ -89,7 +65,7 @@ export const useReflectionMutation = () => {
 
         onOptimisticUpdate?.(optimisticData);
 
-        const result = await reflectionService.create(userId, request);
+        const result = await reflectionService.create(user.id, request);
 
         setState({
           isLoading: false,
@@ -111,7 +87,7 @@ export const useReflectionMutation = () => {
         throw reflectionError;
       }
     },
-    [userId]
+    [user]
   );
 
   const clearError = useCallback(() => {
@@ -162,7 +138,6 @@ export const useReflectionMutation = () => {
     isLoading: state.isLoading,
     isSuccess: state.isSuccess,
     error: state.error,
-    userId,
 
     saveReflection,
     retryWithBackoff,
