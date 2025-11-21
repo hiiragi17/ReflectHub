@@ -1,5 +1,4 @@
 import { useAuthStore } from '@/stores/authStore';
-import { useEffect } from 'react';
 
 export function useAuth() {
   const {
@@ -9,14 +8,8 @@ export function useAuth() {
     error,
     signInWithGoogle,
     signOut,
-    initialize,
     clearError,
   } = useAuthStore();
-
-  // アプリ起動時の初期化
-  useEffect(() => {
-    initialize();
-  }, [initialize]);
 
   return {
     user,
