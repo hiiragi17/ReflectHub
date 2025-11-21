@@ -17,10 +17,6 @@ export function useSessionManager() {
       const { initialize, signOut } = useAuthStore.getState();
 
       switch (event) {
-        case "INITIAL_SESSION":
-          await initialize();
-          break;
-
         case "SIGNED_IN":
           await initialize();
           break;
