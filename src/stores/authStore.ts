@@ -114,22 +114,52 @@ export const useAuthStore = create<AuthStore>()(
         set({ isLoading: true });
 
         try {
-          const serverSessionResponse = await fetch("/api/auth/verify", {
-            method: "GET",
-            credentials: "include",
-          });
+          // タイムアウト付きfetchヘルパー関数
+          const fetchWithTimeout = async (
+            url: string,
+            options: RequestInit,
+            timeoutMs = 10000
+          ): Promise<Response> => {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+            try {
+              const response = await fetch(url, {
+                ...options,
+                signal: controller.signal,
+              });
+              clearTimeout(timeoutId);
+              return response;
+            } catch (error) {
+              clearTimeout(timeoutId);
+              if (error instanceof Error && error.name === "AbortError") {
+                throw new Error("Request timeout");
+              }
+              throw error;
+            }
+          };
+
+          const serverSessionResponse = await fetchWithTimeout(
+            "/api/auth/verify",
+            {
+              method: "GET",
+              credentials: "include",
+            },
+            10000
+          );
 
           if (serverSessionResponse.ok) {
             const serverSession = await serverSessionResponse.json();
 
             if (serverSession.authenticated) {
               try {
-                const profileResponse = await fetch(
+                const profileResponse = await fetchWithTimeout(
                   `/api/auth/profile/${serverSession.user.id}`,
                   {
                     method: "GET",
                     credentials: "include",
-                  }
+                  },
+                  10000
                 );
 
                 if (profileResponse.ok) {
@@ -155,8 +185,9 @@ export const useAuthStore = create<AuthStore>()(
                     return;
                   }
                 }
-              } catch {
+              } catch (profileError) {
                 // Profile check error is non-critical
+                console.error("Profile fetch error:", profileError);
               }
 
               const user: User = {
@@ -177,16 +208,35 @@ export const useAuthStore = create<AuthStore>()(
             }
           }
 
+          // Supabaseクエリにタイムアウトを追加
+          const timeoutPromise = <T>(
+            promise: Promise<T>,
+            timeoutMs: number
+          ): Promise<T> => {
+            return Promise.race([
+              promise,
+              new Promise<T>((_, reject) =>
+                setTimeout(
+                  () => reject(new Error("Supabase query timeout")),
+                  timeoutMs
+                )
+              ),
+            ]);
+          };
+
           const {
             data: { session },
-          } = await supabase.auth.getSession();
+          } = await timeoutPromise(supabase.auth.getSession(), 10000);
 
           if (session?.user) {
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("*")
-              .eq("id", session.user.id)
-              .single();
+            const { data: profile } = await timeoutPromise(
+              supabase
+                .from("profiles")
+                .select("*")
+                .eq("id", session.user.id)
+                .single(),
+              10000
+            );
 
             if (profile) {
               const user: User = {
@@ -245,9 +295,20 @@ export const useAuthStore = create<AuthStore>()(
               isLoading: false,
             });
           }
-        } catch {
+        } catch (error) {
+          console.error("Initialize error:", error);
+          const errorMessage =
+            error instanceof Error && error.message === "Request timeout"
+              ? "接続がタイムアウトしました。ネットワーク接続を確認してください。"
+              : error instanceof Error &&
+                error.message === "Supabase query timeout"
+              ? "データベース接続がタイムアウトしました。"
+              : "初期化に失敗しました。";
+
           set({
-            error: "初期化に失敗しました。",
+            user: null,
+            isAuthenticated: false,
+            error: errorMessage,
             isLoading: false,
           });
         }

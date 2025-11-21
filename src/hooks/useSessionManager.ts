@@ -12,9 +12,11 @@ export function useSessionManager() {
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       // コールバック内で最新のストア関数を取得することで依存配列の問題を回避
       const { initialize, signOut } = useAuthStore.getState();
+
+      console.log("Auth state change:", event, session ? "session exists" : "no session");
 
       switch (event) {
         case "SIGNED_IN":
@@ -29,7 +31,7 @@ export function useSessionManager() {
         case "TOKEN_REFRESHED":
           // トークンリフレッシュは自動的に処理されるため、
           // ローディング状態を引き起こす初期化は不要
-          console.log("Token refreshed");
+          console.log("Token refreshed successfully");
           break;
 
         case "USER_UPDATED":
@@ -38,7 +40,25 @@ export function useSessionManager() {
           console.log("User updated");
           break;
 
+        case "PASSWORD_RECOVERY":
+          console.log("Password recovery initiated");
+          break;
+
+        case "MFA_CHALLENGE_VERIFIED":
+          console.log("MFA challenge verified");
+          await initialize();
+          break;
+
         default:
+          // その他のイベント（エラーケースを含む）をログ
+          console.warn("Unhandled auth event:", event);
+
+          // セッションがないのに認証が必要な状態の場合、ログアウト処理
+          if (!session) {
+            console.log("No session found, redirecting to auth");
+            await signOut();
+            router.push("/auth");
+          }
           break;
       }
     });
