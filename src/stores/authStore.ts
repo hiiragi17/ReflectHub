@@ -229,12 +229,14 @@ export const useAuthStore = create<AuthStore>()(
           } = await timeoutPromise(supabase.auth.getSession(), 10000);
 
           if (session?.user) {
+            const profileQuery = supabase
+              .from("profiles")
+              .select("*")
+              .eq("id", session.user.id)
+              .single();
+
             const { data: profile } = await timeoutPromise(
-              supabase
-                .from("profiles")
-                .select("*")
-                .eq("id", session.user.id)
-                .single(),
+              profileQuery as unknown as Promise<{ data: ProfileData | null }>,
               10000
             );
 
@@ -243,7 +245,7 @@ export const useAuthStore = create<AuthStore>()(
                 id: profile.id,
                 email: profile.email,
                 name: profile.name,
-                provider: profile.provider,
+                provider: profile.provider as "google" | "line",
                 avatar_url: profile.avatar_url,
                 line_user_id: profile.line_user_id,
                 created_at: profile.created_at,
