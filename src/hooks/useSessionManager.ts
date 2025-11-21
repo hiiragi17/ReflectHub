@@ -27,12 +27,15 @@ export function useSessionManager() {
           break;
 
         case "TOKEN_REFRESHED":
-          // 新しいセッション情報でストアを更新
-          await initialize();
+          // トークンリフレッシュは自動的に処理されるため、
+          // ローディング状態を引き起こす初期化は不要
+          console.log("Token refreshed");
           break;
 
         case "USER_UPDATED":
-          await initialize();
+          // ユーザー情報更新時も、ローディング状態を避けるため
+          // フル初期化は行わない
+          console.log("User updated");
           break;
 
         default:

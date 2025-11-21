@@ -41,8 +41,8 @@ export const useAuthStore = create<AuthStore>()(
               error: "Googleログインに失敗しました。もう一度お試しください。",
               isLoading: false,
             });
-          } else {
           }
+          // Note: 成功時はリダイレクトするため、isLoadingはリセットしない
         } catch (error) {
           console.error("Google sign in error:", error);
           set({
@@ -99,19 +99,13 @@ export const useAuthStore = create<AuthStore>()(
 
           if (createError) {
             console.error("Profile creation error:", createError);
-            set({
-              error: "プロフィールの作成に失敗しました。",
-              isLoading: false,
-            });
+            // Note: isLoadingは呼び出し元で制御する
             return null;
           }
           return newProfile as ProfileData;
         } catch (error) {
           console.error("Unexpected error creating profile:", error);
-          set({
-            error: "プロフィールの作成中に予期しないエラーが発生しました。",
-            isLoading: false,
-          });
+          // Note: isLoadingは呼び出し元で制御する
           return null;
         }
       },
@@ -233,6 +227,14 @@ export const useAuthStore = create<AuthStore>()(
                   user,
                   isAuthenticated: true,
                   isLoading: false,
+                });
+              } else {
+                // プロファイル作成に失敗した場合
+                set({
+                  user: null,
+                  isAuthenticated: false,
+                  isLoading: false,
+                  error: "プロフィールの作成に失敗しました。",
                 });
               }
             }
