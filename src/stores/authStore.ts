@@ -111,7 +111,9 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       initialize: async () => {
+        console.log('[AuthStore] initialize() called');
         set({ isLoading: true });
+        console.log('[AuthStore] isLoading set to true');
 
         try {
           // タイムアウト付きfetchヘルパー関数
@@ -139,6 +141,7 @@ export const useAuthStore = create<AuthStore>()(
             }
           };
 
+          console.log('[AuthStore] Checking server session...');
           const serverSessionResponse = await fetchWithTimeout(
             "/api/auth/verify",
             {
@@ -147,9 +150,14 @@ export const useAuthStore = create<AuthStore>()(
             },
             30000
           );
+          console.log('[AuthStore] Server session response:', serverSessionResponse.status);
 
           if (serverSessionResponse.ok) {
             const serverSession = await serverSessionResponse.json();
+            console.log('[AuthStore] Server session data:', {
+              authenticated: serverSession.authenticated,
+              hasUser: !!serverSession.user
+            });
 
             if (serverSession.authenticated) {
               try {
@@ -177,11 +185,13 @@ export const useAuthStore = create<AuthStore>()(
                       updated_at: profileData.profile.updated_at,
                     };
 
+                    console.log('[AuthStore] Setting user from profile data');
                     set({
                       user,
                       isAuthenticated: true,
                       isLoading: false,
                     });
+                    console.log('[AuthStore] isLoading set to false (profile success)');
                     return;
                   }
                 }
@@ -199,15 +209,18 @@ export const useAuthStore = create<AuthStore>()(
                 updated_at: new Date().toISOString(),
               };
 
+              console.log('[AuthStore] Setting user from server session');
               set({
                 user,
                 isAuthenticated: true,
                 isLoading: false,
               });
+              console.log('[AuthStore] isLoading set to false (server session)');
               return;
             }
           }
 
+          console.log('[AuthStore] Checking Supabase session...');
           // Supabaseクエリにタイムアウトを追加
           const timeoutPromise = <T>(
             promise: Promise<T>,
@@ -227,8 +240,10 @@ export const useAuthStore = create<AuthStore>()(
           const {
             data: { session },
           } = await timeoutPromise(supabase.auth.getSession(), 30000);
+          console.log('[AuthStore] Supabase session:', { hasSession: !!session, hasUser: !!session?.user });
 
           if (session?.user) {
+            console.log('[AuthStore] Fetching profile from Supabase...');
             const profileQuery = supabase
               .from("profiles")
               .select("*")
@@ -239,8 +254,10 @@ export const useAuthStore = create<AuthStore>()(
               profileQuery as unknown as Promise<{ data: ProfileData | null }>,
               30000
             );
+            console.log('[AuthStore] Profile fetch result:', { hasProfile: !!profile });
 
             if (profile) {
+              console.log('[AuthStore] Setting user from Supabase profile');
               const user: User = {
                 id: profile.id,
                 email: profile.email,
@@ -257,13 +274,17 @@ export const useAuthStore = create<AuthStore>()(
                 isAuthenticated: true,
                 isLoading: false,
               });
+              console.log('[AuthStore] isLoading set to false (Supabase profile)');
             } else {
+              console.log('[AuthStore] No profile, creating default...');
               const { createDefaultProfile } = get();
               const newProfile = await createDefaultProfile(
                 session.user as SupabaseUser
               );
 
+              console.log('[AuthStore] Profile creation result:', { success: !!newProfile });
               if (newProfile) {
+                console.log('[AuthStore] Setting user from new profile');
                 const user: User = {
                   id: newProfile.id,
                   email: newProfile.email,
@@ -280,25 +301,30 @@ export const useAuthStore = create<AuthStore>()(
                   isAuthenticated: true,
                   isLoading: false,
                 });
+                console.log('[AuthStore] isLoading set to false (new profile)');
               } else {
                 // プロファイル作成に失敗した場合
+                console.error('[AuthStore] Profile creation failed');
                 set({
                   user: null,
                   isAuthenticated: false,
                   isLoading: false,
                   error: "プロフィールの作成に失敗しました。",
                 });
+                console.log('[AuthStore] isLoading set to false (profile creation failed)');
               }
             }
           } else {
+            console.log('[AuthStore] No session, user not authenticated');
             set({
               user: null,
               isAuthenticated: false,
               isLoading: false,
             });
+            console.log('[AuthStore] isLoading set to false (no session)');
           }
         } catch (error) {
-          console.error("Initialize error:", error);
+          console.error("[AuthStore] Initialize error:", error);
           const errorMessage =
             error instanceof Error && error.message === "Request timeout"
               ? "接続がタイムアウトしました。ネットワーク接続を確認してください。"
@@ -313,7 +339,9 @@ export const useAuthStore = create<AuthStore>()(
             error: errorMessage,
             isLoading: false,
           });
+          console.log('[AuthStore] isLoading set to false (error)');
         }
+        console.log('[AuthStore] initialize() completed');
       },
       clearError: () => {
         set({ error: null });
