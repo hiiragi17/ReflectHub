@@ -62,12 +62,16 @@ export default function HistoryPage() {
         }
 
         // Parse schema field if it's a string
-        const parsedFrameworks = (frameworksData || []).map((framework) => ({
-          ...framework,
-          schema: typeof framework.schema === 'string'
+        const parsedFrameworks = (frameworksData || []).map((framework) => {
+          const schema = typeof framework.schema === 'string'
             ? JSON.parse(framework.schema)
-            : framework.schema,
-        }));
+            : framework.schema;
+
+          return {
+            ...framework,
+            schema: schema?.fields || [],
+          };
+        });
 
         setFrameworks(parsedFrameworks);
       } catch (err) {

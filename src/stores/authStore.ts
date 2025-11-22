@@ -199,6 +199,7 @@ export const useAuthStore = create<AuthStore>()(
                       user,
                       isAuthenticated: true,
                       isLoading: false,
+                      error: null,
                     });
                     console.log('[AuthStore] isLoading set to false (profile success)');
                     return;
@@ -223,6 +224,7 @@ export const useAuthStore = create<AuthStore>()(
                 user,
                 isAuthenticated: true,
                 isLoading: false,
+                error: null,
               });
               console.log('[AuthStore] isLoading set to false (server session)');
               return;
@@ -302,6 +304,7 @@ export const useAuthStore = create<AuthStore>()(
                 user,
                 isAuthenticated: true,
                 isLoading: false,
+                error: null,
               });
               console.log('[AuthStore] isLoading set to false (Supabase profile)');
             } else {
@@ -329,6 +332,7 @@ export const useAuthStore = create<AuthStore>()(
                   user,
                   isAuthenticated: true,
                   isLoading: false,
+                  error: null,
                 });
                 console.log('[AuthStore] isLoading set to false (new profile)');
               } else {
@@ -349,6 +353,7 @@ export const useAuthStore = create<AuthStore>()(
               user: null,
               isAuthenticated: false,
               isLoading: false,
+              error: null,
             });
             console.log('[AuthStore] isLoading set to false (no session)');
           }
