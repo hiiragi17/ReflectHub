@@ -15,7 +15,7 @@ export const useAuthStore = create<AuthStore>()(
   persist(
     (set, get) => ({
       user: null,
-      isLoading: false,
+      isLoading: true, // 初期化完了まで待機
       isAuthenticated: false,
       error: null,
 
