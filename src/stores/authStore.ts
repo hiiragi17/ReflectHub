@@ -118,7 +118,7 @@ export const useAuthStore = create<AuthStore>()(
           const fetchWithTimeout = async (
             url: string,
             options: RequestInit,
-            timeoutMs = 10000
+            timeoutMs = 30000
           ): Promise<Response> => {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -145,7 +145,7 @@ export const useAuthStore = create<AuthStore>()(
               method: "GET",
               credentials: "include",
             },
-            10000
+            30000
           );
 
           if (serverSessionResponse.ok) {
@@ -159,7 +159,7 @@ export const useAuthStore = create<AuthStore>()(
                     method: "GET",
                     credentials: "include",
                   },
-                  10000
+                  30000
                 );
 
                 if (profileResponse.ok) {
@@ -226,7 +226,7 @@ export const useAuthStore = create<AuthStore>()(
 
           const {
             data: { session },
-          } = await timeoutPromise(supabase.auth.getSession(), 10000);
+          } = await timeoutPromise(supabase.auth.getSession(), 30000);
 
           if (session?.user) {
             const profileQuery = supabase
@@ -237,7 +237,7 @@ export const useAuthStore = create<AuthStore>()(
 
             const { data: profile } = await timeoutPromise(
               profileQuery as unknown as Promise<{ data: ProfileData | null }>,
-              10000
+              30000
             );
 
             if (profile) {
