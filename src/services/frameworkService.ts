@@ -13,10 +13,20 @@ export const frameworkService = {
       throw new Error(`フレームワーク取得エラー: ${error.message}`);
     }
 
-    return (data || []).map((framework) => ({
-      ...framework,
-      schema: framework.schema?.fields || [],
-    }));
+    return (data || []).map((framework) => {
+      const fields = framework.schema?.fields || [];
+      // Sort fields by order property (ascending)
+      const sortedFields = [...fields].sort((a, b) => {
+        const orderA = a.order ?? 999;
+        const orderB = b.order ?? 999;
+        return orderA - orderB;
+      });
+
+      return {
+        ...framework,
+        schema: sortedFields,
+      };
+    });
   },
 
   async getFrameworkById(id: string): Promise<Framework | null> {
@@ -31,9 +41,21 @@ export const frameworkService = {
       throw new Error(`フレームワーク取得エラー: ${error.message}`);
     }
 
-    return data ? {
+    if (!data) {
+      return null;
+    }
+
+    const fields = data.schema?.fields || [];
+    // Sort fields by order property (ascending)
+    const sortedFields = [...fields].sort((a, b) => {
+      const orderA = a.order ?? 999;
+      const orderB = b.order ?? 999;
+      return orderA - orderB;
+    });
+
+    return {
       ...data,
-      schema: data.schema?.fields || [],
-    } : null;
+      schema: sortedFields,
+    };
   },
 };
