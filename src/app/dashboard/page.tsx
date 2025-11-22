@@ -9,11 +9,22 @@ import DashboardLoading from './loading';
 import Header from '@/components/layout/Header';
 
 export default function DashboardPage() {
-  const { user, signOut, isLoading } = useAuth();
+  const { user, signOut, isLoading, error } = useAuth();
   const router = useRouter();
+
+  // デバッグログ
+  useEffect(() => {
+    console.log('[Dashboard] State:', {
+      isLoading,
+      hasUser: !!user,
+      error,
+      userName: user?.name
+    });
+  }, [isLoading, user, error]);
 
   useEffect(() => {
     if (!isLoading && !user) {
+      console.log('[Dashboard] Redirecting to /auth - no user');
       router.push('/auth');
     }
   }, [user, isLoading, router]);
@@ -23,13 +34,42 @@ export default function DashboardPage() {
     router.push('/auth');
   };
 
+  // エラー表示
+  if (error && !isLoading) {
+    return (
+      <div className="min-h-screen bg-[#fafafa] flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white border border-red-200 rounded-lg p-6">
+          <div className="text-center">
+            <div className="text-red-600 text-lg font-semibold mb-2">
+              エラーが発生しました
+            </div>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <button
+              onClick={() => {
+                console.log('[Dashboard] Reloading page...');
+                window.location.reload();
+              }}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              再読み込み
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading) {
+    console.log('[Dashboard] Showing loading state');
     return <DashboardLoading />;
   }
 
   if (!user) {
+    console.log('[Dashboard] No user, showing loading state');
     return <DashboardLoading />;
   }
+
+  console.log('[Dashboard] Rendering main content for user:', user.name);
 
   return (
     <div className="min-h-screen bg-[#fafafa]">

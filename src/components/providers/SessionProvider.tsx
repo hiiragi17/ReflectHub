@@ -3,6 +3,7 @@ import { createContext, useContext, ReactNode, useEffect, useRef } from 'react';
 import { useSessionManager } from '@/hooks/useSessionManager';
 import { useAuthStore } from '@/stores/authStore';
 import { Session } from '@supabase/supabase-js';
+import { SessionUtils } from '@/utils/sessionUtils';
 
 interface SessionContextType {
   checkSession: () => Promise<Session | null>;
@@ -26,6 +27,17 @@ export function SessionProvider({ children }: SessionProviderProps) {
       const { initialize } = useAuthStore.getState();
       initialize();
     }
+  }, []);
+
+  // セッション自動リフレッシュを設定
+  useEffect(() => {
+    // 期限切れ5分前にリフレッシュ
+    const cleanup = SessionUtils.setupAutoRefresh(5);
+
+    return () => {
+      // コンポーネントのアンマウント時にクリーンアップ
+      cleanup();
+    };
   }, []);
 
   return (
