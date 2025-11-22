@@ -20,6 +20,21 @@ export function useSessionManager() {
 
       switch (event) {
         case "SIGNED_IN":
+          // すでにユーザーが認証済みの場合は、不必要な初期化を避ける
+          const currentState = useAuthStore.getState();
+          console.log("[SessionManager] SIGNED_IN event, current state:", {
+            hasUser: !!currentState.user,
+            isLoading: currentState.isLoading,
+            isAuthenticated: currentState.isAuthenticated
+          });
+
+          // ユーザーが既に存在してローディング中でない場合は、初期化をスキップ
+          if (currentState.user && !currentState.isLoading) {
+            console.log("[SessionManager] User already authenticated, skipping initialize");
+            break;
+          }
+
+          console.log("[SessionManager] Calling initialize for SIGNED_IN");
           await initialize();
           break;
 

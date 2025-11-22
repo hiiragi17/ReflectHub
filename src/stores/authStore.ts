@@ -112,6 +112,14 @@ export const useAuthStore = create<AuthStore>()(
 
       initialize: async () => {
         console.log('[AuthStore] initialize() called');
+
+        // すでに初期化中の場合は、重複した呼び出しを防ぐ
+        const currentState = get();
+        if (currentState.isLoading) {
+          console.log('[AuthStore] Already initializing, skipping duplicate call');
+          return;
+        }
+
         set({ isLoading: true });
         console.log('[AuthStore] isLoading set to true');
 
@@ -237,23 +245,43 @@ export const useAuthStore = create<AuthStore>()(
             ]);
           };
 
+          let supabaseSessionResult;
+          try {
+            console.log('[AuthStore] Starting Supabase session query...');
+            supabaseSessionResult = await timeoutPromise(supabase.auth.getSession(), 30000);
+            console.log('[AuthStore] Supabase session query completed');
+          } catch (sessionError) {
+            console.error('[AuthStore] Supabase session query failed:', sessionError);
+            throw sessionError;
+          }
+
           const {
             data: { session },
-          } = await timeoutPromise(supabase.auth.getSession(), 30000);
+          } = supabaseSessionResult;
           console.log('[AuthStore] Supabase session:', { hasSession: !!session, hasUser: !!session?.user });
 
           if (session?.user) {
-            console.log('[AuthStore] Fetching profile from Supabase...');
+            console.log('[AuthStore] Fetching profile from Supabase for user:', session.user.id);
             const profileQuery = supabase
               .from("profiles")
               .select("*")
               .eq("id", session.user.id)
               .single();
 
-            const { data: profile } = await timeoutPromise(
-              profileQuery as unknown as Promise<{ data: ProfileData | null }>,
-              30000
-            );
+            let profileResult;
+            try {
+              console.log('[AuthStore] Starting profile query...');
+              profileResult = await timeoutPromise(
+                profileQuery as unknown as Promise<{ data: ProfileData | null }>,
+                30000
+              );
+              console.log('[AuthStore] Profile query completed');
+            } catch (profileError) {
+              console.error('[AuthStore] Profile query failed:', profileError);
+              throw profileError;
+            }
+
+            const { data: profile } = profileResult;
             console.log('[AuthStore] Profile fetch result:', { hasProfile: !!profile });
 
             if (profile) {
