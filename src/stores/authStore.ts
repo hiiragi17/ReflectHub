@@ -15,7 +15,7 @@ export const useAuthStore = create<AuthStore>()(
   persist(
     (set, get) => ({
       user: null,
-      isLoading: false,
+      isLoading: true, // 初期化完了まで待機
       isAuthenticated: false,
       error: null,
 
@@ -114,8 +114,9 @@ export const useAuthStore = create<AuthStore>()(
         console.log('[AuthStore] initialize() called');
 
         // すでに初期化中の場合は、重複した呼び出しを防ぐ
+        // ただし、初期状態（user === null && isLoading === true）の場合は初回実行を許可
         const currentState = get();
-        if (currentState.isLoading) {
+        if (currentState.isLoading && currentState.user !== null) {
           console.log('[AuthStore] Already initializing, skipping duplicate call');
           return;
         }

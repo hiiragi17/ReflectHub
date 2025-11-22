@@ -1,7 +1,6 @@
 'use client';
-import { createContext, useContext, ReactNode, useEffect, useRef } from 'react';
+import { createContext, useContext, ReactNode, useEffect } from 'react';
 import { useSessionManager } from '@/hooks/useSessionManager';
-import { useAuthStore } from '@/stores/authStore';
 import { Session } from '@supabase/supabase-js';
 import { SessionUtils } from '@/utils/sessionUtils';
 
@@ -18,16 +17,6 @@ interface SessionProviderProps {
 
 export function SessionProvider({ children }: SessionProviderProps) {
   const sessionManager = useSessionManager();
-  const initialized = useRef(false);
-
-  // 初回マウント時に一度だけ認証状態を初期化
-  useEffect(() => {
-    if (!initialized.current) {
-      initialized.current = true;
-      const { initialize } = useAuthStore.getState();
-      initialize();
-    }
-  }, []);
 
   // セッション自動リフレッシュを設定
   useEffect(() => {

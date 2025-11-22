@@ -31,7 +31,8 @@ export default function HistoryPage() {
   // Authentication check
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/auth');
+      const currentPath = window.location.pathname;
+      router.push(`/auth?next=${encodeURIComponent(currentPath)}`);
     }
   }, [user, authLoading, router]);
 

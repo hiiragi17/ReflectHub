@@ -15,7 +15,8 @@ export default function ReflectionPage() {
 
   useEffect(() => {
     if (!isLoading && !user) {
-      router.push("/auth");
+      const currentPath = window.location.pathname;
+      router.push(`/auth?next=${encodeURIComponent(currentPath)}`);
     }
   }, [user, isLoading, router]);
 

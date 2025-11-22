@@ -25,7 +25,8 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!isLoading && !user) {
       console.log('[Dashboard] Redirecting to /auth - no user');
-      router.push('/auth');
+      const currentPath = window.location.pathname;
+      router.push(`/auth?next=${encodeURIComponent(currentPath)}`);
     }
   }, [user, isLoading, router]);
 

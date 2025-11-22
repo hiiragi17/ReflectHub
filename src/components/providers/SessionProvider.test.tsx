@@ -72,7 +72,7 @@ describe("SessionProvider - Auto Refresh", () => {
     });
   });
 
-  it("should initialize auth state only once", async () => {
+  it("should not initialize auth state directly", async () => {
     const { useAuthStore } = await import("@/stores/authStore");
     const initializeMock = vi.fn();
 
@@ -87,18 +87,20 @@ describe("SessionProvider - Auto Refresh", () => {
     );
 
     await waitFor(() => {
-      expect(initializeMock).toHaveBeenCalledTimes(1);
+      // SessionProvider should not call initialize directly
+      // It's handled by useSessionManager's INITIAL_SESSION event
+      expect(initializeMock).toHaveBeenCalledTimes(0);
     });
 
-    // Rerender should not call initialize again
+    // Rerender should still not call initialize
     rerender(
       <SessionProvider>
         <div>Test Child Updated</div>
       </SessionProvider>
     );
 
-    // Still only called once
-    expect(initializeMock).toHaveBeenCalledTimes(1);
+    // Still not called
+    expect(initializeMock).toHaveBeenCalledTimes(0);
   });
 
   it("should call setupAutoRefresh with correct parameters", async () => {
