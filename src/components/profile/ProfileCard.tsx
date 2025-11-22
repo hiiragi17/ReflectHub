@@ -1,12 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User as UserIcon, Mail, Calendar, Edit2, X, Check } from 'lucide-react';
+import { User as UserIcon, Edit2, X, Check } from 'lucide-react';
 import type { User } from '@/types/auth';
 
 interface ProfileCardProps {
@@ -41,15 +40,6 @@ export function ProfileCard({ user, onUpdateProfile, isUpdating = false }: Profi
     setIsEditing(false);
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('ja-JP', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
-
   return (
     <Card>
       <CardHeader>
@@ -71,21 +61,7 @@ export function ProfileCard({ user, onUpdateProfile, isUpdating = false }: Profi
           )}
         </div>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {/* アバター表示 */}
-        {user.avatar_url && (
-          <div className="flex justify-center">
-            <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200 relative">
-              <Image
-                src={user.avatar_url}
-                alt={user.name}
-                fill
-                className="object-cover"
-              />
-            </div>
-          </div>
-        )}
-
+      <CardContent className="space-y-4">
         {/* 名前 */}
         <div className="space-y-2">
           <Label htmlFor="name" className="flex items-center gap-2">
@@ -105,35 +81,6 @@ export function ProfileCard({ user, onUpdateProfile, isUpdating = false }: Profi
             <p className="text-gray-900 font-medium">{user.name}</p>
           )}
           {error && <p className="text-sm text-red-500">{error}</p>}
-        </div>
-
-        {/* メールアドレス */}
-        <div className="space-y-2">
-          <Label className="flex items-center gap-2">
-            <Mail className="w-4 h-4 text-gray-500" />
-            メールアドレス
-          </Label>
-          <p className="text-gray-900">{user.email}</p>
-          <p className="text-xs text-gray-500">メールアドレスは変更できません</p>
-        </div>
-
-        {/* プロバイダー */}
-        <div className="space-y-2">
-          <Label>ログイン方法</Label>
-          <div className="flex items-center gap-2">
-            <div className="px-3 py-1 bg-gray-100 rounded-md text-sm font-medium capitalize">
-              {user.provider}
-            </div>
-          </div>
-        </div>
-
-        {/* 登録日 */}
-        <div className="space-y-2">
-          <Label className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-gray-500" />
-            登録日
-          </Label>
-          <p className="text-gray-600">{formatDate(user.created_at)}</p>
         </div>
 
         {/* 編集モードのアクションボタン */}
