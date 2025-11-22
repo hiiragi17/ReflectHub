@@ -16,10 +16,13 @@ export default function LoginForm() {
   } = useAuth();
   const router = useRouter();
 
-  // 認証済みの場合はダッシュボードにリダイレクト
+  // 認証済みの場合は元のページまたはダッシュボードにリダイレクト
   useEffect(() => {
     if (isAuthenticated) {
-      router.push('/');
+      // URLから next パラメータを取得して、元のページに戻る
+      const searchParams = new URLSearchParams(window.location.search);
+      const next = searchParams.get('next') || '/';
+      router.push(next);
     }
   }, [isAuthenticated, router]);
 
