@@ -61,23 +61,15 @@ export default function HistoryPage() {
           throw new Error('フレームワークの取得に失敗しました');
         }
 
-        // Parse schema field if it's a string and sort fields by order
+        // Parse schema field if it's a string
         const parsedFrameworks = (frameworksData || []).map((framework) => {
           const schema = typeof framework.schema === 'string'
             ? JSON.parse(framework.schema)
             : framework.schema;
 
-          // Extract and sort fields by order property
-          const fields = schema?.fields || [];
-          const sortedFields = [...fields].sort((a: { order?: number }, b: { order?: number }) => {
-            const orderA = a.order ?? 999;
-            const orderB = b.order ?? 999;
-            return orderA - orderB;
-          });
-
           return {
             ...framework,
-            schema: sortedFields,
+            schema: schema?.fields || [],
           };
         });
 
