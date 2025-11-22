@@ -35,6 +35,30 @@ export function useSessionManager() {
             break;
           }
 
+          // セッションが存在する場合、サーバー側にもセッションを確立
+          if (session) {
+            console.log(`[SessionManager] Syncing session to server for ${event}`);
+            try {
+              const response = await fetch('/api/auth/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                  access_token: session.access_token,
+                  refresh_token: session.refresh_token,
+                }),
+              });
+
+              if (!response.ok) {
+                console.error(`[SessionManager] Failed to sync session to server:`, response.status);
+              } else {
+                console.log(`[SessionManager] Session synced to server successfully`);
+              }
+            } catch (error) {
+              console.error(`[SessionManager] Error syncing session to server:`, error);
+            }
+          }
+
           console.log(`[SessionManager] Calling initialize for ${event}`);
           await initialize();
           break;
