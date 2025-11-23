@@ -41,57 +41,14 @@ ReflectHubは、週次の振り返りを簡単に記録・管理できるWebア�
 - **Supabase** - 認証・データベース
 - **Next.js API Routes** - サーバーサイドAPI
 
-### テスト
+## テスト
+
+**使用技術:**
 - **Vitest** - ユニットテスト
 - **React Testing Library** - コンポーネントテスト
 - 包括的なテストカバレッジ（コンポーネント、ページ、APIルート）
 
-## セットアップ
-
-### 必要な環境
-- Node.js 18.x 以上
-- npm / yarn / pnpm
-
-### インストール
-
-```bash
-# 依存関係のインストール
-npm install
-
-# 環境変数の設定
-cp .env.example .env.local
-```
-
-### 環境変数
-
-`.env.local` に以下の環境変数を設定してください：
-
-```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-
-# LINE Bot（オプション）
-LINE_CHANNEL_ACCESS_TOKEN=your-line-channel-access-token
-LINE_CHANNEL_SECRET=your-line-channel-secret
-```
-
-### 開発サーバーの起動
-
-```bash
-npm run dev
-```
-
-ブラウザで [http://localhost:3000](http://localhost:3000) を開いてアプリケーションを確認できます。
-
-### ビルド
-
-```bash
-npm run build
-npm run start
-```
-
-## テスト
+**テスト実行:**
 
 ```bash
 # すべてのテストを実行
