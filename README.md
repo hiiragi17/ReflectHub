@@ -1,36 +1,137 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ReflectHub
 
-## Getting Started
+振り返りフレームワーク（YWT・KPT）を使った振り返り記録アプリケーション
 
-First, run the development server:
+## 概要
+
+ReflectHubは、週次の振り返りを簡単に記録・管理できるWebアプリケーションです。YWT（やったこと・わかったこと・次にやること）やKPT（Keep・Problem・Try）などの振り返りフレームワークを使って、継続的な成長を支援します。
+
+## 主な機能
+
+### 🔐 認証機能
+- Google / LINE アカウントでのログイン
+- セッション管理とサーバーサイド認証
+- プロフィール編集機能
+
+### 📝 振り返り機能
+- YWT・KPTフレームワークでの振り返り作成
+- リアルタイム保存
+- タグ・気分の記録
+- 振り返り期間の設定
+
+### 📅 履歴管理
+- カレンダー表示での振り返り確認
+- 振り返り詳細の閲覧・編集・削除
+- 日本標準時（JST）でのタイムゾーン管理
+
+### 👤 プロフィール管理
+- ユーザー名の表示・編集
+- ダッシュボードからの設定画面遷移
+
+## 技術スタック
+
+### フロントエンド
+- **Next.js 15** - Reactフレームワーク
+- **TypeScript** - 型安全な開発
+- **Tailwind CSS** - ユーティリティファーストCSS
+- **shadcn/ui** - UIコンポーネントライブラリ
+- **Zustand** - 状態管理
+
+### バックエンド
+- **Supabase** - 認証・データベース
+- **Next.js API Routes** - サーバーサイドAPI
+
+## テスト
+
+**使用技術:**
+- **Vitest** - ユニットテスト
+- **React Testing Library** - コンポーネントテスト
+- 包括的なテストカバレッジ（コンポーネント、ページ、APIルート）
+
+**テスト実行:**
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# すべてのテストを実行
+npm test
+
+# 特定のファイルのテストを実行
+npm test -- src/components/profile/ProfileCard.test.tsx
+
+# カバレッジレポートの生成
+npm run test:coverage
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## プロジェクト構成
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── api/               # APIルート
+│   ├── auth/              # 認証ページ
+│   ├── dashboard/         # ダッシュボード
+│   ├── history/           # 履歴ページ
+│   ├── profile/           # プロフィールページ
+│   └── reflection/        # 振り返り作成・編集
+├── components/            # Reactコンポーネント
+│   ├── auth/             # 認証関連
+│   ├── layout/           # レイアウト
+│   ├── profile/          # プロフィール
+│   ├── reflection/       # 振り返り
+│   ├── providers/        # コンテキストプロバイダー
+│   └── ui/               # shadcn/uiコンポーネント
+├── hooks/                # カスタムフック
+├── lib/                  # ユーティリティ
+├── services/             # ビジネスロジック
+├── stores/               # Zustand ストア
+├── types/                # TypeScript型定義
+└── utils/                # ヘルパー関数
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## コーディング規約
 
-## Learn More
+### スタイルガイド
+- TypeScript strictモード
+- ESLint + Prettier
+- shadcn/ui コンポーネントパターン
 
-To learn more about Next.js, take a look at the following resources:
+### コミットメッセージ
+```
+feat: 新機能
+fix: バグ修正
+refactor: リファクタリング
+test: テスト追加・修正
+docs: ドキュメント更新
+chore: その他の変更
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 主な画面
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### ダッシュボード (`/dashboard`)
+- クイックアクション（新規振り返り、履歴、統計、設定）
+- 振り返りフレームワークの選択
 
-## Deploy on Vercel
+### 振り返り作成 (`/reflection`)
+- YWT / KPT フレームワークでの入力
+- 自動保存機能
+- タグ・気分・期間の設定
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 履歴 (`/history`)
+- カレンダー表示
+- 振り返り一覧
+- 詳細表示・編集・削除
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### プロフィール (`/profile`)
+- ユーザー名の表示・編集
+- アカウント情報の確認
+
+## ライセンス
+
+このプロジェクトはMITライセンスの下で公開されています。
+
+## 貢献
+
+プルリクエストを歓迎します。大きな変更の場合は、まずissueを開いて変更内容を議論してください。
+
+---
+
+Created with ❤️ using Next.js and Supabase
