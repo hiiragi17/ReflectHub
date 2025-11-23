@@ -118,16 +118,16 @@ export default function DashboardPage() {
           </Link>
 
           {/* 統計を見る */}
-          <Card className="h-full relative opacity-60">
+          <Card className="h-full relative bg-gray-100">
             <CardContent className="p-6 text-center">
               <div className="absolute top-2 right-2">
-                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-md">
+                <span className="px-2 py-1 bg-white text-gray-600 text-xs font-medium rounded-md border border-gray-300">
                   Coming soon
                 </span>
               </div>
-              <BarChart3 className="w-8 h-8 text-purple-500 mx-auto mb-3" />
-              <h3 className="font-semibold mb-2">統計を見る</h3>
-              <p className="text-sm text-gray-600">成長の記録を確認</p>
+              <BarChart3 className="w-8 h-8 text-gray-400 mx-auto mb-3" />
+              <h3 className="font-semibold mb-2 text-gray-600">統計を見る</h3>
+              <p className="text-sm text-gray-500">成長の記録を確認</p>
             </CardContent>
           </Card>
 
