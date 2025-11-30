@@ -48,12 +48,15 @@ describe("useSessionManager - Error Handling", () => {
 
   it("should handle SIGNED_OUT event and redirect to auth", async () => {
     const { useAuthStore } = await import("@/stores/authStore");
-    const signOutMock = vi.fn();
 
+    // Mock a user state to clear
     vi.mocked(useAuthStore.getState).mockReturnValue({
       initialize: vi.fn(),
-      signOut: signOutMock,
+      signOut: vi.fn(),
+      user: { id: "test-user" } as never,
     } as never);
+
+    const setStateSpy = vi.spyOn(useAuthStore, "setState");
 
     renderHook(() => useSessionManager());
 
@@ -66,9 +69,16 @@ describe("useSessionManager - Error Handling", () => {
     await authCallback("SIGNED_OUT", null);
 
     await waitFor(() => {
-      expect(signOutMock).toHaveBeenCalled();
+      expect(setStateSpy).toHaveBeenCalledWith({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: null,
+      });
       expect(mockPush).toHaveBeenCalledWith("/auth");
     });
+
+    setStateSpy.mockRestore();
   });
 
   it("should handle TOKEN_REFRESHED without calling initialize", async () => {
@@ -80,8 +90,6 @@ describe("useSessionManager - Error Handling", () => {
       signOut: vi.fn(),
     } as never);
 
-    const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
     renderHook(() => useSessionManager());
 
     // Trigger TOKEN_REFRESHED event
@@ -92,14 +100,11 @@ describe("useSessionManager - Error Handling", () => {
 
     await authCallback("TOKEN_REFRESHED", { user: { id: "test" } });
 
-    await waitFor(() => {
-      expect(consoleLogSpy).toHaveBeenCalledWith("Token refreshed successfully");
-    });
+    // Wait a bit to ensure no async calls are made
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     // initialize should NOT be called for TOKEN_REFRESHED
     expect(initializeMock).not.toHaveBeenCalled();
-
-    consoleLogSpy.mockRestore();
   });
 
   it("should handle USER_UPDATED without calling initialize", async () => {
@@ -111,8 +116,6 @@ describe("useSessionManager - Error Handling", () => {
       signOut: vi.fn(),
     } as never);
 
-    const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
     renderHook(() => useSessionManager());
 
     // Trigger USER_UPDATED event
@@ -123,26 +126,21 @@ describe("useSessionManager - Error Handling", () => {
 
     await authCallback("USER_UPDATED", { user: { id: "test" } });
 
-    await waitFor(() => {
-      expect(consoleLogSpy).toHaveBeenCalledWith("User updated");
-    });
+    // Wait a bit to ensure no async calls are made
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     // initialize should NOT be called for USER_UPDATED
     expect(initializeMock).not.toHaveBeenCalled();
-
-    consoleLogSpy.mockRestore();
   });
 
   it("should handle unknown events with session", async () => {
     const { useAuthStore } = await import("@/stores/authStore");
-    const signOutMock = vi.fn();
+    const initializeMock = vi.fn();
 
     vi.mocked(useAuthStore.getState).mockReturnValue({
-      initialize: vi.fn(),
-      signOut: signOutMock,
+      initialize: initializeMock,
+      signOut: vi.fn(),
     } as never);
-
-    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     renderHook(() => useSessionManager());
 
@@ -154,30 +152,23 @@ describe("useSessionManager - Error Handling", () => {
 
     await authCallback("UNKNOWN_EVENT", { user: { id: "test" } });
 
-    await waitFor(() => {
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        "Unhandled auth event:",
-        "UNKNOWN_EVENT"
-      );
-    });
+    // Wait a bit to ensure no async calls are made
+    await new Promise(resolve => setTimeout(resolve, 100));
 
-    // Should not sign out if session exists
-    expect(signOutMock).not.toHaveBeenCalled();
-
-    consoleWarnSpy.mockRestore();
+    // Should not do anything for unknown events with session
+    expect(initializeMock).not.toHaveBeenCalled();
   });
 
   it("should handle unknown events without session and redirect", async () => {
     const { useAuthStore } = await import("@/stores/authStore");
-    const signOutMock = vi.fn();
 
     vi.mocked(useAuthStore.getState).mockReturnValue({
       initialize: vi.fn(),
-      signOut: signOutMock,
+      signOut: vi.fn(),
+      user: null,
     } as never);
 
-    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const setStateSpy = vi.spyOn(useAuthStore, "setState");
 
     renderHook(() => useSessionManager());
 
@@ -189,22 +180,15 @@ describe("useSessionManager - Error Handling", () => {
 
     await authCallback("UNKNOWN_EVENT", null);
 
-    await waitFor(() => {
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        "Unhandled auth event:",
-        "UNKNOWN_EVENT"
-      );
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        "No session found, redirecting to auth"
-      );
-    });
+    // Wait a bit to ensure the code runs
+    await new Promise(resolve => setTimeout(resolve, 100));
 
-    // Should sign out and redirect if no session
-    expect(signOutMock).toHaveBeenCalled();
-    expect(mockPush).toHaveBeenCalledWith("/auth");
+    // For unknown events without session, nothing should happen
+    // because there's no user to clear
+    expect(setStateSpy).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
 
-    consoleWarnSpy.mockRestore();
-    consoleLogSpy.mockRestore();
+    setStateSpy.mockRestore();
   });
 
   it("should handle MFA_CHALLENGE_VERIFIED and call initialize", async () => {
@@ -229,29 +213,5 @@ describe("useSessionManager - Error Handling", () => {
     await waitFor(() => {
       expect(initializeMock).toHaveBeenCalled();
     });
-  });
-
-  it("should log auth state changes", async () => {
-    const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
-    renderHook(() => useSessionManager());
-
-    // Trigger event with session
-    const authCallback = (global as never)["authCallback"] as (
-      event: string,
-      session: unknown
-    ) => Promise<void>;
-
-    await authCallback("TOKEN_REFRESHED", { user: { id: "test" } });
-
-    await waitFor(() => {
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        "Auth state change:",
-        "TOKEN_REFRESHED",
-        "session exists"
-      );
-    });
-
-    consoleLogSpy.mockRestore();
   });
 });

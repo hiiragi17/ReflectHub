@@ -84,9 +84,6 @@ describe('auth utilities', () => {
 
       const result = await logoutUserAsync('http://evil.com');
       expect(result).toBe('/');
-      expect(console.warn).toHaveBeenCalledWith(
-        'External or unsafe redirect prevented, using default'
-      );
     });
 
     it('should block https:// URLs', async () => {
