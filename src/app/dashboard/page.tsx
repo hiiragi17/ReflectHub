@@ -12,19 +12,8 @@ export default function DashboardPage() {
   const { user, signOut, isLoading, error } = useAuth();
   const router = useRouter();
 
-  // デバッグログ
-  useEffect(() => {
-    console.log('[Dashboard] State:', {
-      isLoading,
-      hasUser: !!user,
-      error,
-      userName: user?.name
-    });
-  }, [isLoading, user, error]);
-
   useEffect(() => {
     if (!isLoading && !user) {
-      console.log('[Dashboard] Redirecting to /auth - no user');
       const currentPath = window.location.pathname;
       router.push(`/auth?next=${encodeURIComponent(currentPath)}`);
     }
@@ -47,7 +36,6 @@ export default function DashboardPage() {
             <p className="text-gray-600 mb-4">{error}</p>
             <button
               onClick={() => {
-                console.log('[Dashboard] Reloading page...');
                 window.location.reload();
               }}
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -61,16 +49,12 @@ export default function DashboardPage() {
   }
 
   if (isLoading) {
-    console.log('[Dashboard] Showing loading state');
     return <DashboardLoading />;
   }
 
   if (!user) {
-    console.log('[Dashboard] No user, showing loading state');
     return <DashboardLoading />;
   }
-
-  console.log('[Dashboard] Rendering main content for user:', user.name);
 
   return (
     <div className="min-h-screen bg-[#fafafa]">

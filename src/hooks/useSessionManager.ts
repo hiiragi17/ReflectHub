@@ -16,28 +16,19 @@ export function useSessionManager() {
       // コールバック内で最新のストア関数を取得することで依存配列の問題を回避
       const { initialize, signOut } = useAuthStore.getState();
 
-      console.log("Auth state change:", event, session ? "session exists" : "no session");
-
       switch (event) {
         case "INITIAL_SESSION":
         case "SIGNED_IN":
           // すでにユーザーが認証済みの場合は、不必要な初期化を避ける
           const currentState = useAuthStore.getState();
-          console.log(`[SessionManager] ${event} event, current state:`, {
-            hasUser: !!currentState.user,
-            isLoading: currentState.isLoading,
-            isAuthenticated: currentState.isAuthenticated
-          });
 
           // ユーザーが既に存在してローディング中でない場合は、初期化をスキップ
           if (currentState.user && !currentState.isLoading) {
-            console.log(`[SessionManager] User already authenticated, skipping initialize for ${event}`);
             break;
           }
 
           // セッションが存在する場合、サーバー側にもセッションを確立
           if (session) {
-            console.log(`[SessionManager] Syncing session to server for ${event}`);
             try {
               const response = await fetch('/api/auth/session', {
                 method: 'POST',
@@ -51,51 +42,49 @@ export function useSessionManager() {
 
               if (!response.ok) {
                 console.error(`[SessionManager] Failed to sync session to server:`, response.status);
-              } else {
-                console.log(`[SessionManager] Session synced to server successfully`);
               }
             } catch (error) {
               console.error(`[SessionManager] Error syncing session to server:`, error);
             }
           }
 
-          console.log(`[SessionManager] Calling initialize for ${event}`);
           await initialize();
           break;
 
         case "SIGNED_OUT":
-          await signOut();
-          router.push("/auth");
+          // SIGNED_OUTイベント時は既にログアウト済みなので、signOut()を呼ばずに状態だけクリア
+          const { user } = useAuthStore.getState();
+          if (user) {
+            useAuthStore.setState({
+              user: null,
+              isAuthenticated: false,
+              isLoading: false,
+              error: null,
+            });
+            router.push("/auth");
+          }
           break;
 
         case "TOKEN_REFRESHED":
           // トークンリフレッシュは自動的に処理されるため、
           // ローディング状態を引き起こす初期化は不要
-          console.log("Token refreshed successfully");
           break;
 
         case "USER_UPDATED":
           // ユーザー情報更新時も、ローディング状態を避けるため
           // フル初期化は行わない
-          console.log("User updated");
           break;
 
         case "PASSWORD_RECOVERY":
-          console.log("Password recovery initiated");
           break;
 
         case "MFA_CHALLENGE_VERIFIED":
-          console.log("MFA challenge verified");
           await initialize();
           break;
 
         default:
-          // その他のイベント（エラーケースを含む）をログ
-          console.warn("Unhandled auth event:", event);
-
           // セッションがないのに認証が必要な状態の場合、ログアウト処理
           if (!session) {
-            console.log("No session found, redirecting to auth");
             await signOut();
             router.push("/auth");
           }

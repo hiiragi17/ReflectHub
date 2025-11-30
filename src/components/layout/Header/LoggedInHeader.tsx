@@ -47,18 +47,9 @@ export default function LoggedInHeader({
                 <span className="text-xs sm:text-sm">戻る</span>
               </Link>
             )}
-            {title === 'ReflectHub' ? (
-              <Link
-                href="/dashboard"
-                className="text-lg sm:text-2xl font-semibold text-gray-900 hover:text-blue-600 transition-colors truncate"
-              >
-                {title}
-              </Link>
-            ) : (
-              <h1 className="text-lg sm:text-2xl font-semibold text-gray-900 truncate">
-                {title}
-              </h1>
-            )}
+            <h1 className="text-lg sm:text-2xl font-semibold text-gray-900 truncate">
+              {title}
+            </h1>
           </div>
 
           {/* 右側：ユーザー名 + ログアウト */}

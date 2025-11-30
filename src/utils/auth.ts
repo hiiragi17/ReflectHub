@@ -13,7 +13,6 @@ function validateRedirectUrl(redirectUrl: string): string {
     urlLower.startsWith("file:") ||
     redirectUrl.startsWith("\\")
   ) {
-    console.warn("External or unsafe redirect prevented, using default");
     return "/";
   }
 

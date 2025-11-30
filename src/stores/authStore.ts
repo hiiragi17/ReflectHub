@@ -56,9 +56,34 @@ export const useAuthStore = create<AuthStore>()(
         set({ isLoading: true });
 
         try {
-          const { error } = await supabase.auth.signOut();
+          // サーバー側のセッションもクリア
+          try {
+            await fetch('/api/auth/logout', {
+              method: 'POST',
+              credentials: 'include',
+            });
+          } catch (logoutError) {
+            console.error('Server logout error:', logoutError);
+            // サーバー側のログアウトが失敗してもクライアント側のログアウトは続行
+          }
+
+          // すべてのタブでログアウトする
+          const { error } = await supabase.auth.signOut({ scope: 'global' });
           if (error) {
             console.error("Signout error:", error);
+          }
+
+          // ローカルストレージを明示的にクリア
+          try {
+            // Supabaseのセッション情報をクリア
+            const keys = Object.keys(localStorage);
+            keys.forEach(key => {
+              if (key.startsWith('sb-')) {
+                localStorage.removeItem(key);
+              }
+            });
+          } catch (storageError) {
+            console.error('LocalStorage clear error:', storageError);
           }
 
           set({
@@ -111,18 +136,14 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       initialize: async () => {
-        console.log('[AuthStore] initialize() called');
-
         // すでに初期化中の場合は、重複した呼び出しを防ぐ
         // ただし、初期状態（user === null && isLoading === true）の場合は初回実行を許可
         const currentState = get();
         if (currentState.isLoading && currentState.user !== null) {
-          console.log('[AuthStore] Already initializing, skipping duplicate call');
           return;
         }
 
         set({ isLoading: true });
-        console.log('[AuthStore] isLoading set to true');
 
         try {
           // タイムアウト付きfetchヘルパー関数
@@ -150,7 +171,6 @@ export const useAuthStore = create<AuthStore>()(
             }
           };
 
-          console.log('[AuthStore] Checking server session...');
           const serverSessionResponse = await fetchWithTimeout(
             "/api/auth/verify",
             {
@@ -159,14 +179,9 @@ export const useAuthStore = create<AuthStore>()(
             },
             30000
           );
-          console.log('[AuthStore] Server session response:', serverSessionResponse.status);
 
           if (serverSessionResponse.ok) {
             const serverSession = await serverSessionResponse.json();
-            console.log('[AuthStore] Server session data:', {
-              authenticated: serverSession.authenticated,
-              hasUser: !!serverSession.user
-            });
 
             if (serverSession.authenticated) {
               try {
@@ -194,14 +209,12 @@ export const useAuthStore = create<AuthStore>()(
                       updated_at: profileData.profile.updated_at,
                     };
 
-                    console.log('[AuthStore] Setting user from profile data');
                     set({
                       user,
                       isAuthenticated: true,
                       isLoading: false,
                       error: null,
                     });
-                    console.log('[AuthStore] isLoading set to false (profile success)');
                     return;
                   }
                 }
@@ -219,19 +232,15 @@ export const useAuthStore = create<AuthStore>()(
                 updated_at: new Date().toISOString(),
               };
 
-              console.log('[AuthStore] Setting user from server session');
               set({
                 user,
                 isAuthenticated: true,
                 isLoading: false,
                 error: null,
               });
-              console.log('[AuthStore] isLoading set to false (server session)');
               return;
             }
           }
-
-          console.log('[AuthStore] Checking Supabase session...');
           // Supabaseクエリにタイムアウトを追加
           const timeoutPromise = <T>(
             promise: Promise<T>,
@@ -250,9 +259,7 @@ export const useAuthStore = create<AuthStore>()(
 
           let supabaseSessionResult;
           try {
-            console.log('[AuthStore] Starting Supabase session query...');
             supabaseSessionResult = await timeoutPromise(supabase.auth.getSession(), 30000);
-            console.log('[AuthStore] Supabase session query completed');
           } catch (sessionError) {
             console.error('[AuthStore] Supabase session query failed:', sessionError);
             throw sessionError;
@@ -261,10 +268,8 @@ export const useAuthStore = create<AuthStore>()(
           const {
             data: { session },
           } = supabaseSessionResult;
-          console.log('[AuthStore] Supabase session:', { hasSession: !!session, hasUser: !!session?.user });
 
           if (session?.user) {
-            console.log('[AuthStore] Fetching profile from Supabase for user:', session.user.id);
             const profileQuery = supabase
               .from("profiles")
               .select("*")
@@ -273,22 +278,18 @@ export const useAuthStore = create<AuthStore>()(
 
             let profileResult;
             try {
-              console.log('[AuthStore] Starting profile query...');
               profileResult = await timeoutPromise(
                 profileQuery as unknown as Promise<{ data: ProfileData | null }>,
                 30000
               );
-              console.log('[AuthStore] Profile query completed');
             } catch (profileError) {
               console.error('[AuthStore] Profile query failed:', profileError);
               throw profileError;
             }
 
             const { data: profile } = profileResult;
-            console.log('[AuthStore] Profile fetch result:', { hasProfile: !!profile });
 
             if (profile) {
-              console.log('[AuthStore] Setting user from Supabase profile');
               const user: User = {
                 id: profile.id,
                 email: profile.email,
@@ -306,17 +307,13 @@ export const useAuthStore = create<AuthStore>()(
                 isLoading: false,
                 error: null,
               });
-              console.log('[AuthStore] isLoading set to false (Supabase profile)');
             } else {
-              console.log('[AuthStore] No profile, creating default...');
               const { createDefaultProfile } = get();
               const newProfile = await createDefaultProfile(
                 session.user as SupabaseUser
               );
 
-              console.log('[AuthStore] Profile creation result:', { success: !!newProfile });
               if (newProfile) {
-                console.log('[AuthStore] Setting user from new profile');
                 const user: User = {
                   id: newProfile.id,
                   email: newProfile.email,
@@ -334,7 +331,6 @@ export const useAuthStore = create<AuthStore>()(
                   isLoading: false,
                   error: null,
                 });
-                console.log('[AuthStore] isLoading set to false (new profile)');
               } else {
                 // プロファイル作成に失敗した場合
                 console.error('[AuthStore] Profile creation failed');
@@ -344,18 +340,15 @@ export const useAuthStore = create<AuthStore>()(
                   isLoading: false,
                   error: "プロフィールの作成に失敗しました。",
                 });
-                console.log('[AuthStore] isLoading set to false (profile creation failed)');
               }
             }
           } else {
-            console.log('[AuthStore] No session, user not authenticated');
             set({
               user: null,
               isAuthenticated: false,
               isLoading: false,
               error: null,
             });
-            console.log('[AuthStore] isLoading set to false (no session)');
           }
         } catch (error) {
           console.error("[AuthStore] Initialize error:", error);
@@ -373,9 +366,7 @@ export const useAuthStore = create<AuthStore>()(
             error: errorMessage,
             isLoading: false,
           });
-          console.log('[AuthStore] isLoading set to false (error)');
         }
-        console.log('[AuthStore] initialize() completed');
       },
       clearError: () => {
         set({ error: null });
