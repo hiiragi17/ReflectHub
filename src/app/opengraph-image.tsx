@@ -22,6 +22,7 @@ export default async function Image() {
           justifyContent: 'center',
           backgroundColor: '#fafafa',
           backgroundImage: 'linear-gradient(to bottom right, #f0f9ff, #fafafa)',
+          padding: '60px',
         }}
       >
         {/* Logo/Icon */}
@@ -30,7 +31,7 @@ export default async function Image() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            marginBottom: 40,
+            marginBottom: 30,
           }}
         >
           <div
@@ -42,24 +43,22 @@ export default async function Image() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: 48,
-              color: 'white',
-              fontWeight: 'bold',
+              fontSize: 64,
             }}
           >
-            R
+            🔄
           </div>
         </div>
 
         {/* Title */}
         <div
           style={{
-            fontSize: 72,
+            fontSize: 64,
             fontWeight: 'bold',
             background: 'linear-gradient(to right, #2563eb, #3b82f6)',
             backgroundClip: 'text',
             color: 'transparent',
-            marginBottom: 20,
+            marginBottom: 15,
             display: 'flex',
           }}
         >
@@ -69,9 +68,9 @@ export default async function Image() {
         {/* Subtitle */}
         <div
           style={{
-            fontSize: 36,
+            fontSize: 32,
             color: '#64748b',
-            marginBottom: 40,
+            marginBottom: 30,
             display: 'flex',
           }}
         >
@@ -82,8 +81,8 @@ export default async function Image() {
         <div
           style={{
             display: 'flex',
-            gap: 30,
-            marginTop: 20,
+            gap: 20,
+            marginBottom: 40,
           }}
         >
           <div
@@ -92,14 +91,14 @@ export default async function Image() {
               flexDirection: 'column',
               alignItems: 'center',
               backgroundColor: 'white',
-              padding: '20px 30px',
+              padding: '15px 25px',
               borderRadius: 12,
               boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
             }}
           >
             <div
               style={{
-                fontSize: 28,
+                fontSize: 24,
                 fontWeight: 'bold',
                 color: '#3b82f6',
                 display: 'flex',
@@ -114,14 +113,14 @@ export default async function Image() {
               flexDirection: 'column',
               alignItems: 'center',
               backgroundColor: 'white',
-              padding: '20px 30px',
+              padding: '15px 25px',
               borderRadius: 12,
               boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
             }}
           >
             <div
               style={{
-                fontSize: 28,
+                fontSize: 24,
                 fontWeight: 'bold',
                 color: '#10b981',
                 display: 'flex',
@@ -136,14 +135,14 @@ export default async function Image() {
               flexDirection: 'column',
               alignItems: 'center',
               backgroundColor: 'white',
-              padding: '20px 30px',
+              padding: '15px 25px',
               borderRadius: 12,
               boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
             }}
           >
             <div
               style={{
-                fontSize: 28,
+                fontSize: 24,
                 fontWeight: 'bold',
                 color: '#8b5cf6',
                 display: 'flex',
@@ -151,6 +150,38 @@ export default async function Image() {
             >
               継続的成長
             </div>
+          </div>
+        </div>
+
+        {/* Bottom text */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+            maxWidth: '800px',
+          }}
+        >
+          <div
+            style={{
+              fontSize: 28,
+              fontWeight: 'bold',
+              color: '#1e293b',
+              marginBottom: 10,
+              display: 'flex',
+            }}
+          >
+            振り返りで成長を加速しよう
+          </div>
+          <div
+            style={{
+              fontSize: 20,
+              color: '#64748b',
+              display: 'flex',
+            }}
+          >
+            3分で今週の振り返りを記録し、継続的な成長を実現しましょう。
           </div>
         </div>
       </div>
