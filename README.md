@@ -2,6 +2,11 @@
 
 振り返りフレームワーク（YWT・KPT）を使った振り返り記録アプリケーション
 
+https://reflecthub.vercel.app/
+
+<img width="500" height="300" alt="OGP" src="https://github.com/user-attachments/assets/459489ae-ca95-4b8c-9966-2d8ddec20bc9" />
+
+
 ## 概要
 
 ReflectHubは、週次の振り返りを簡単に記録・管理できるWebアプリケーションです。YWT（やったこと・わかったこと・次にやること）やKPT（Keep・Problem・Try）などの振り返りフレームワークを使って、継続的な成長を支援します。
@@ -28,6 +33,11 @@ ReflectHubは、週次の振り返りを簡単に記録・管理できるWebア�
 - ユーザー名の表示・編集
 - ダッシュボードからの設定画面遷移
 
+## 今後追加予定の機能
+
+- PWA
+- AIによる分析
+
 ## 技術スタック
 
 ### フロントエンド
@@ -47,19 +57,6 @@ ReflectHubは、週次の振り返りを簡単に記録・管理できるWebア�
 - **Vitest** - ユニットテスト
 - **React Testing Library** - コンポーネントテスト
 - 包括的なテストカバレッジ（コンポーネント、ページ、APIルート）
-
-**テスト実行:**
-
-```bash
-# すべてのテストを実行
-npm test
-
-# 特定のファイルのテストを実行
-npm test -- src/components/profile/ProfileCard.test.tsx
-
-# カバレッジレポートの生成
-npm run test:coverage
-```
 
 ## プロジェクト構成
 
@@ -94,16 +91,6 @@ src/
 - ESLint + Prettier
 - shadcn/ui コンポーネントパターン
 
-### コミットメッセージ
-```
-feat: 新機能
-fix: バグ修正
-refactor: リファクタリング
-test: テスト追加・修正
-docs: ドキュメント更新
-chore: その他の変更
-```
-
 ## 主な画面
 
 ### ダッシュボード (`/dashboard`)
@@ -123,15 +110,3 @@ chore: その他の変更
 ### プロフィール (`/profile`)
 - ユーザー名の表示・編集
 - アカウント情報の確認
-
-## ライセンス
-
-このプロジェクトはMITライセンスの下で公開されています。
-
-## 貢献
-
-プルリクエストを歓迎します。大きな変更の場合は、まずissueを開いて変更内容を議論してください。
-
----
-
-Created with ❤️ using Next.js and Supabase
