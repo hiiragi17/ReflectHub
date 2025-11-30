@@ -4,6 +4,7 @@ import "./globals.css";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 import { ToastProvider } from "@/components/providers/ToastProvider";
 import ErrorBoundary from "@/components/common/ErrorBoundary";
+import { Analytics } from "@vercel/analytics/react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -72,6 +73,7 @@ export default function RootLayout({
             </ToastProvider>
           </SessionProvider>
         </ErrorBoundary>
+        <Analytics />
       </body>
     </html>
   );
