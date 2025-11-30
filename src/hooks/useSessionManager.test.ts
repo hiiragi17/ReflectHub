@@ -37,6 +37,7 @@ vi.mock("@/stores/authStore", () => ({
       initialize: vi.fn(),
       signOut: vi.fn(),
     })),
+    setState: vi.fn(),
   },
 }));
 
@@ -56,8 +57,6 @@ describe("useSessionManager - Error Handling", () => {
       user: { id: "test-user" } as never,
     } as never);
 
-    const setStateSpy = vi.spyOn(useAuthStore, "setState");
-
     renderHook(() => useSessionManager());
 
     // Trigger SIGNED_OUT event
@@ -69,7 +68,7 @@ describe("useSessionManager - Error Handling", () => {
     await authCallback("SIGNED_OUT", null);
 
     await waitFor(() => {
-      expect(setStateSpy).toHaveBeenCalledWith({
+      expect(useAuthStore.setState).toHaveBeenCalledWith({
         user: null,
         isAuthenticated: false,
         isLoading: false,
@@ -77,8 +76,6 @@ describe("useSessionManager - Error Handling", () => {
       });
       expect(mockPush).toHaveBeenCalledWith("/auth");
     });
-
-    setStateSpy.mockRestore();
   });
 
   it("should handle TOKEN_REFRESHED without calling initialize", async () => {
@@ -161,14 +158,13 @@ describe("useSessionManager - Error Handling", () => {
 
   it("should handle unknown events without session and redirect", async () => {
     const { useAuthStore } = await import("@/stores/authStore");
+    const signOutMock = vi.fn();
 
     vi.mocked(useAuthStore.getState).mockReturnValue({
       initialize: vi.fn(),
-      signOut: vi.fn(),
+      signOut: signOutMock,
       user: null,
     } as never);
-
-    const setStateSpy = vi.spyOn(useAuthStore, "setState");
 
     renderHook(() => useSessionManager());
 
@@ -180,15 +176,11 @@ describe("useSessionManager - Error Handling", () => {
 
     await authCallback("UNKNOWN_EVENT", null);
 
-    // Wait a bit to ensure the code runs
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    // For unknown events without session, nothing should happen
-    // because there's no user to clear
-    expect(setStateSpy).not.toHaveBeenCalled();
-    expect(mockPush).not.toHaveBeenCalled();
-
-    setStateSpy.mockRestore();
+    await waitFor(() => {
+      // For unknown events without session, should call signOut and redirect
+      expect(signOutMock).toHaveBeenCalled();
+      expect(mockPush).toHaveBeenCalledWith("/auth");
+    });
   });
 
   it("should handle MFA_CHALLENGE_VERIFIED and call initialize", async () => {
