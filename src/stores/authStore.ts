@@ -57,6 +57,18 @@ export const useAuthStore = create<AuthStore>()(
         set({ isLoading: true });
 
         try {
+          // サーバー側のセッションもクリア
+          console.log('[AuthStore] Clearing server session');
+          try {
+            await fetch('/api/auth/logout', {
+              method: 'POST',
+              credentials: 'include',
+            });
+          } catch (logoutError) {
+            console.error('Server logout error:', logoutError);
+            // サーバー側のログアウトが失敗してもクライアント側のログアウトは続行
+          }
+
           console.log('[AuthStore] Calling supabase.auth.signOut()');
           const { error } = await supabase.auth.signOut();
           if (error) {

@@ -63,9 +63,19 @@ export function useSessionManager() {
           break;
 
         case "SIGNED_OUT":
-          console.log('[SessionManager] SIGNED_OUT event - calling signOut and redirecting');
-          await signOut();
-          router.push("/auth");
+          console.log('[SessionManager] SIGNED_OUT event - user already signed out, just clearing state');
+          // SIGNED_OUTイベント時は既にログアウト済みなので、signOut()を呼ばずに状態だけクリア
+          const { user } = useAuthStore.getState();
+          if (user) {
+            console.log('[SessionManager] Clearing user state and redirecting to auth');
+            useAuthStore.setState({
+              user: null,
+              isAuthenticated: false,
+              isLoading: false,
+              error: null,
+            });
+            router.push("/auth");
+          }
           break;
 
         case "TOKEN_REFRESHED":
