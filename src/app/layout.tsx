@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     siteName: "ReflectHub",
     images: [
       {
-        url: "/opengraph-image",
+        url: "/ogp.png",
         width: 1200,
         height: 630,
         alt: "ReflectHub - 3分で始める週次振り返り",
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "ReflectHub - 3分で始める週次振り返り",
     description: "YWTやKPTフレームワークを使った週次振り返りアプリ。3分で今週の振り返りを記録し、継続的な成長を実現しましょう。",
-    images: ["/opengraph-image"],
+    images: ["/ogp.png"],
   },
   robots: {
     index: true,
