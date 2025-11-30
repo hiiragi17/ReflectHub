@@ -241,7 +241,7 @@ export default function ReflectionForm() {
             <div className="flex gap-2">
               <span>💾</span>
               <p className="font-medium">
-                「💾 保存」ボタンで Supabase に保存されます
+                「💾 保存」ボタンで保存されます
               </p>
             </div>
             <div className="flex gap-2">
