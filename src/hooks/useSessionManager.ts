@@ -16,19 +16,27 @@ export function useSessionManager() {
       // コールバック内で最新のストア関数を取得することで依存配列の問題を回避
       const { initialize, signOut } = useAuthStore.getState();
 
+      console.log('[SessionManager] Auth state change:', event, session ? 'has session' : 'no session');
+
       switch (event) {
         case "INITIAL_SESSION":
         case "SIGNED_IN":
           // すでにユーザーが認証済みの場合は、不必要な初期化を避ける
           const currentState = useAuthStore.getState();
+          console.log(`[SessionManager] ${event} - current state:`, {
+            hasUser: !!currentState.user,
+            isLoading: currentState.isLoading
+          });
 
           // ユーザーが既に存在してローディング中でない場合は、初期化をスキップ
           if (currentState.user && !currentState.isLoading) {
+            console.log('[SessionManager] Skipping initialize - user already authenticated');
             break;
           }
 
           // セッションが存在する場合、サーバー側にもセッションを確立
           if (session) {
+            console.log('[SessionManager] Syncing session to server');
             try {
               const response = await fetch('/api/auth/session', {
                 method: 'POST',
@@ -42,16 +50,20 @@ export function useSessionManager() {
 
               if (!response.ok) {
                 console.error(`[SessionManager] Failed to sync session to server:`, response.status);
+              } else {
+                console.log('[SessionManager] Session synced successfully');
               }
             } catch (error) {
               console.error(`[SessionManager] Error syncing session to server:`, error);
             }
           }
 
+          console.log('[SessionManager] Calling initialize');
           await initialize();
           break;
 
         case "SIGNED_OUT":
+          console.log('[SessionManager] SIGNED_OUT event - calling signOut and redirecting');
           await signOut();
           router.push("/auth");
           break;
