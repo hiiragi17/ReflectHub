@@ -20,9 +20,7 @@ export default function DashboardPage() {
   }, [user, isLoading, router]);
 
   const handleSignOut = async () => {
-    console.log('[Dashboard] handleSignOut called');
     await signOut();
-    console.log('[Dashboard] signOut completed, redirecting to /auth');
     router.push('/auth');
   };
 

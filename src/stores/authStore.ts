@@ -53,12 +53,10 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       signOut: async () => {
-        console.log('[AuthStore] signOut called');
         set({ isLoading: true });
 
         try {
           // サーバー側のセッションもクリア
-          console.log('[AuthStore] Clearing server session');
           try {
             await fetch('/api/auth/logout', {
               method: 'POST',
@@ -69,38 +67,31 @@ export const useAuthStore = create<AuthStore>()(
             // サーバー側のログアウトが失敗してもクライアント側のログアウトは続行
           }
 
-          console.log('[AuthStore] Calling supabase.auth.signOut() with scope global');
           // すべてのタブでログアウトする
           const { error } = await supabase.auth.signOut({ scope: 'global' });
           if (error) {
             console.error("Signout error:", error);
-          } else {
-            console.log('[AuthStore] Supabase signOut successful');
           }
 
           // ローカルストレージを明示的にクリア
-          console.log('[AuthStore] Clearing localStorage');
           try {
             // Supabaseのセッション情報をクリア
             const keys = Object.keys(localStorage);
             keys.forEach(key => {
               if (key.startsWith('sb-')) {
                 localStorage.removeItem(key);
-                console.log(`[AuthStore] Removed localStorage key: ${key}`);
               }
             });
           } catch (storageError) {
             console.error('LocalStorage clear error:', storageError);
           }
 
-          console.log('[AuthStore] Clearing user state');
           set({
             user: null,
             isAuthenticated: false,
             isLoading: false,
             error: null,
           });
-          console.log('[AuthStore] User state cleared');
         } catch (error) {
           console.error("Sign out error:", error);
           set({
