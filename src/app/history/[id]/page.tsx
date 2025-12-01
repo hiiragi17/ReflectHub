@@ -131,7 +131,7 @@ export default function ReflectionDetailPage() {
         second: '2-digit',
         hour12: false,
       });
-      const [datePart, timePart] = japanTime.split(' ');
+      const [datePart, timePart] = japanTime.split(', ');
       const updatedAtFormatted = `${datePart}T${timePart}`;
 
       // Update local state

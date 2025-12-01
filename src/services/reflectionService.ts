@@ -61,10 +61,9 @@ const convertTimestampToUserTimezone = (
     minute: "2-digit",
     second: "2-digit",
     hour12: false,
-    timeZoneName: "short",
   });
 
-  const [datePart, timePart] = userDate.split(" ");
+  const [datePart, timePart] = userDate.split(", ");
   return `${datePart}T${timePart}`;
 };
 
