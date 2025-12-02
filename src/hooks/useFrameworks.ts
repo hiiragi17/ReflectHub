@@ -32,9 +32,17 @@ export const useFrameworks = () => {
         const data = await frameworkService.getFrameworks();
         setFrameworks(data);
 
-        // 最初のフレームワークを選択
+        // LocalStorageから最後に使用したフレームワークIDを取得
         if (data.length > 0 && !selectedFrameworkId) {
-          setSelectedFramework(data[0].id);
+          const lastUsedId = localStorage.getItem('lastUsedFrameworkId');
+
+          // LocalStorageに保存されているIDが有効な場合はそれを選択
+          if (lastUsedId && data.find(f => f.id === lastUsedId)) {
+            setSelectedFramework(lastUsedId);
+          } else {
+            // なければ最初のフレームワークを選択
+            setSelectedFramework(data[0].id);
+          }
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'フレームワーク取得エラー';
