@@ -1,6 +1,7 @@
 -- ========================================
 -- ReflectHub Phase 2: フレームワーク拡張
 -- YWT, KPT は既に存在するため、残り10個を追加
+-- 初期状態は is_active = false で、UI実装完了後に有効化する
 -- ========================================
 
 -- 既存DB未投入の5フレームワーク（ソート順: 3-7）
@@ -13,7 +14,7 @@ INSERT INTO frameworks (id, name, display_name, description, schema, icon, color
     {"id": "k", "label": "Keep", "icon": "✅", "placeholder": "継続すること", "type": "textarea", "required": false},
     {"id": "i", "label": "Improve", "icon": "📈", "placeholder": "改善すること", "type": "textarea", "required": false}
   ]
-}', '🔄', '#FF9800', true, 3),
+}', '🔄', '#FF9800', false, 3),
 
 ('wlt', 'WLT', 'Win・Learn・Try', 'ポジティブな観点から振り返り。成功体験を軸に学習と挑戦をつなぐ', '{
   "fields": [
@@ -21,7 +22,7 @@ INSERT INTO frameworks (id, name, display_name, description, schema, icon, color
     {"id": "learn", "label": "Learn", "icon": "📚", "placeholder": "学んだこと", "type": "textarea", "required": false},
     {"id": "try", "label": "Try", "icon": "🚀", "placeholder": "挑戦すること", "type": "textarea", "required": false}
   ]
-}', '🏆', '#9C27B0', true, 4),
+}', '🏆', '#9C27B0', false, 4),
 
 ('msg', 'MSG', '喜怒哀', '感情軸の振り返り。感じた喜び・怒り・哀しみから内省を深める', '{
   "fields": [
@@ -29,7 +30,7 @@ INSERT INTO frameworks (id, name, display_name, description, schema, icon, color
     {"id": "sad", "label": "Sad（哀）", "icon": "😢", "placeholder": "悲しかったこと・残念なこと", "type": "textarea", "required": false},
     {"id": "glad", "label": "Glad（喜）", "icon": "😊", "placeholder": "嬉しかったこと・満足", "type": "textarea", "required": false}
   ]
-}', '😊', '#E91E63', true, 5),
+}', '😊', '#E91E63', false, 5),
 
 ('4l', '4L', 'Liked・Learned・Lacked・Longed for', '研修やセミナー学習に最適。学習体験を多角的に分析', '{
   "fields": [
@@ -38,7 +39,7 @@ INSERT INTO frameworks (id, name, display_name, description, schema, icon, color
     {"id": "lacked", "label": "Lacked", "icon": "❌", "placeholder": "不足していたこと", "type": "textarea", "required": false},
     {"id": "longed", "label": "Longed For", "icon": "🌟", "placeholder": "望むこと・期待", "type": "textarea", "required": false}
   ]
-}', '4️⃣', '#00BCD4', true, 6),
+}', '4️⃣', '#00BCD4', false, 6),
 
 ('wrap', 'WRAP', 'Wishes・Risks・Appreciations・Puzzles', 'チーム振り返りに最適。多角的な視点を統合する', '{
   "fields": [
@@ -47,7 +48,7 @@ INSERT INTO frameworks (id, name, display_name, description, schema, icon, color
     {"id": "appreciations", "label": "Appreciations", "icon": "🙏", "placeholder": "感謝・貢献", "type": "textarea", "required": false},
     {"id": "puzzles", "label": "Puzzles", "icon": "❓", "placeholder": "疑問・不明点", "type": "textarea", "required": false}
   ]
-}', '🎁', '#795548', true, 7),
+}', '🎁', '#795548', false, 7),
 
 -- 新規追加の5フレームワーク（ソート順: 8-12）
 ('star', 'STAR', 'Situation・Task・Action・Result', 'キャリア面接や事例整理に最適。具体的なストーリーを構造化', '{
@@ -57,7 +58,7 @@ INSERT INTO frameworks (id, name, display_name, description, schema, icon, color
     {"id": "action", "label": "Action", "icon": "⚡", "placeholder": "あなたが実施したアクション", "type": "textarea", "required": false},
     {"id": "result", "label": "Result", "icon": "🎯", "placeholder": "得られた結果・成果", "type": "textarea", "required": false}
   ]
-}', '⭐', '#FF6B6B', true, 8),
+}', '⭐', '#FF6B6B', false, 8),
 
 ('diary', '振り返り日記', '時系列日記形式', '時間軸に沿った自由記述。1日の流れを時間帯別に記録', '{
   "fields": [
@@ -66,7 +67,7 @@ INSERT INTO frameworks (id, name, display_name, description, schema, icon, color
     {"id": "time_evening", "label": "夜（PM）", "icon": "🌙", "placeholder": "夜のできごと・活動", "type": "textarea", "required": false},
     {"id": "reflection", "label": "本日の振り返り", "icon": "🤔", "placeholder": "総括・気づき・明日への誓い", "type": "textarea", "required": false}
   ]
-}', '📔', '#FFA726', true, 9),
+}', '📔', '#FFA726', false, 9),
 
 ('grew', 'GREW', 'Goal・Reality・Options・Will', '目標管理者向け。目標達成に向けた意思決定を支援', '{
   "fields": [
@@ -75,7 +76,7 @@ INSERT INTO frameworks (id, name, display_name, description, schema, icon, color
     {"id": "options", "label": "Options", "icon": "🔀", "placeholder": "どんな選択肢・方法がある？", "type": "textarea", "required": false},
     {"id": "will", "label": "Will", "icon": "💪", "placeholder": "次はどうする？（決意・コミットメント）", "type": "textarea", "required": false}
   ]
-}', '🏃', '#64B5F6', true, 10),
+}', '🏃', '#64B5F6', false, 10),
 
 ('ooda', 'OODA Loop', 'Observe・Orient・Decide・Act', 'エンジニア向け。素早い改善ループと意思決定プロセス', '{
   "fields": [
@@ -84,7 +85,7 @@ INSERT INTO frameworks (id, name, display_name, description, schema, icon, color
     {"id": "decide", "label": "Decide", "icon": "🤝", "placeholder": "どう判断・決定した？", "type": "textarea", "required": false},
     {"id": "act", "label": "Act", "icon": "🎬", "placeholder": "何をした？どんな結果が出た？", "type": "textarea", "required": false}
   ]
-}', '🔄', '#42A5F5', true, 11),
+}', '🔄', '#42A5F5', false, 11),
 
 ('5why', '5Why分析', '5つのなぜ - 根本原因分析', '深掘り分析に最適。問題の根本原因を段階的に追求', '{
   "fields": [
@@ -96,7 +97,7 @@ INSERT INTO frameworks (id, name, display_name, description, schema, icon, color
     {"id": "why5", "label": "根本原因", "icon": "🔍", "placeholder": "最終的な原因は？", "type": "textarea", "required": false},
     {"id": "countermeasure", "label": "対策・改善策", "icon": "🛠️", "placeholder": "講じるべき対策や改善方法", "type": "textarea", "required": false}
   ]
-}', '🔍', '#AB47BC', true, 12)
+}', '🔍', '#AB47BC', false, 12)
 
 ON CONFLICT (id) DO NOTHING;
 
