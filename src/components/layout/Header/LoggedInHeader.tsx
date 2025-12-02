@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { LogOut, Loader2, User, ArrowLeft } from 'lucide-react';
+import { LogOut, Loader2, User, ArrowLeft, Mail } from 'lucide-react';
 import Link from 'next/link';
 
 interface LoggedInHeaderProps {
@@ -11,14 +11,16 @@ interface LoggedInHeaderProps {
   title?: string;
   showBackButton?: boolean;
   backHref?: string;
+  contactUrl?: string;
 }
 
-export default function LoggedInHeader({ 
-  userName, 
-  onSignOut, 
+export default function LoggedInHeader({
+  userName,
+  onSignOut,
   title = 'ReflectHub',
   showBackButton = false,
-  backHref = '/dashboard'
+  backHref = '/dashboard',
+  contactUrl
 }: LoggedInHeaderProps) {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -52,12 +54,23 @@ export default function LoggedInHeader({
             </h1>
           </div>
 
-          {/* 右側：ユーザー名 + ログアウト */}
+          {/* 右側：ユーザー名 + お問い合わせ + ログアウト */}
           <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
             <div className="hidden sm:flex items-center gap-2 text-gray-600">
               <User className="w-4 h-4" />
               <span className="text-sm">{userName}</span>
             </div>
+            {contactUrl && (
+              <a
+                href={contactUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 sm:gap-2 text-gray-600 hover:text-blue-600 transition px-2 sm:px-3 py-1.5 rounded-md hover:bg-gray-50"
+              >
+                <Mail className="w-4 h-4" />
+                <span className="hidden sm:inline text-sm">お問い合わせ</span>
+              </a>
+            )}
             <Button
               onClick={handleSignOut}
               variant="outline"
