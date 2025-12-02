@@ -50,7 +50,7 @@ export default function HomePage() {
             3分で今週の振り返りを記録し、継続的な成長を実現しましょう。
           </p>
           <p className="text-sm text-gray-500 mb-8 max-w-2xl mx-auto">
-            YWT（やったこと・わかったこと・次にやること）またはKPT（Keep・Problem・Try）から選べます
+            YWT、KPT、DAKI、WLT、MSGなど、12種類のフレームワークから目的に合ったものを選べます
           </p>
           <a
             href="/auth?mode=signup"
@@ -130,7 +130,7 @@ export default function HomePage() {
                     振り返りフレームワークを選択
                   </h4>
                   <p className="text-gray-600">
-                    YWT（やったこと・わかったこと・次にやること）またはKPT（Keep・Problem・Try）から選べます
+                    YWT、KPT、DAKI、WLT、MSGなど、12種類のフレームワークから目的に合ったものを選択できます
                   </p>
                 </div>
               </div>
