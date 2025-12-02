@@ -115,6 +115,12 @@ export const Calendar: React.FC<CalendarProps> = ({
     }).join('\n');
   }, [frameworks]);
 
+  // Get used frameworks (only frameworks that have reflections)
+  const usedFrameworks = useMemo(() => {
+    const usedFrameworkIds = new Set(reflections.map((r) => r.framework_id));
+    return frameworks.filter((f) => usedFrameworkIds.has(f.id));
+  }, [reflections, frameworks]);
+
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
       <style jsx global>{`
@@ -294,12 +300,14 @@ export const Calendar: React.FC<CalendarProps> = ({
         onDayClick={handleDayClick}
       />
 
-      {/* Legend */}
-      {frameworks.length > 0 && (
+      {/* Legend - Show only used frameworks */}
+      {usedFrameworks.length > 0 && (
         <div className="mt-6 pt-6 border-t border-gray-200">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">フレームワーク</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">
+            使用中のフレームワーク
+          </h3>
           <div className="flex flex-wrap gap-3">
-            {frameworks.map((framework) => (
+            {usedFrameworks.map((framework) => (
               <div key={framework.id} className="flex items-center gap-2">
                 <div
                   className="w-4 h-4 rounded-full"
