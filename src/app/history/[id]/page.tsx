@@ -216,7 +216,7 @@ export default function ReflectionDetailPage() {
             {/* Delete Confirmation Dialog */}
             {showDeleteConfirm && (
               <DeleteConfirmDialog
-                reflectionDate={reflection.reflection_date}
+                reflectionDate={reflection.created_at?.split('T')[0] || reflection.reflection_date}
                 error={deleteError}
                 isLoading={false}
                 onConfirm={handleConfirmDelete}
