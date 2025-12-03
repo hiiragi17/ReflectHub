@@ -70,10 +70,11 @@ export const ReflectionDetail: React.FC<ReflectionDetailProps> = ({
   };
 
   // Parse timestamps with fallback handling
-  const reflectionDate = safeParse(reflection.reflection_date);
+  // Use created_at date instead of reflection_date
+  const createdAtDate = safeParse(reflection.created_at?.split('T')[0] || reflection.reflection_date);
   // Note: created_at and updated_at are already converted to user timezone in reflectionService
   // so we just need to format them as strings
-  const dateStr = format(reflectionDate, 'yyyy年MM月dd日（EEEE）', {
+  const dateStr = format(createdAtDate, 'yyyy年MM月dd日（EEEE）', {
     locale: ja,
   });
   const createdStr = reflection.created_at.replace('T', ' ');
