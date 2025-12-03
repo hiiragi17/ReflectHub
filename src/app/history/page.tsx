@@ -285,7 +285,7 @@ export default function HistoryPage() {
                         {/* Metadata */}
                         <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
                           <div className="text-xs text-gray-500">
-                            作成日: {reflection.reflection_date}
+                            作成日: {reflection.created_at?.split('T')[0] || reflection.reflection_date}
                           </div>
 
                           {/* Detail View Button */}
