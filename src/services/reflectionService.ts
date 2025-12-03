@@ -52,7 +52,8 @@ const convertTimestampToUserTimezone = (
 ): string => {
   const date = new Date(utcTimestamp);
 
-  const userDate = date.toLocaleString("en-CA", {
+  // Use Intl.DateTimeFormat for more reliable formatting
+  const formatter = new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
     month: "2-digit",
@@ -63,7 +64,10 @@ const convertTimestampToUserTimezone = (
     hour12: false,
   });
 
-  const [datePart, timePart] = userDate.split(", ");
+  const parts = formatter.formatToParts(date);
+  const datePart = `${parts.find(p => p.type === 'year')?.value}-${parts.find(p => p.type === 'month')?.value}-${parts.find(p => p.type === 'day')?.value}`;
+  const timePart = `${parts.find(p => p.type === 'hour')?.value}:${parts.find(p => p.type === 'minute')?.value}:${parts.find(p => p.type === 'second')?.value}`;
+
   return `${datePart}T${timePart}`;
 };
 

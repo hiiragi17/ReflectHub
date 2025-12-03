@@ -285,35 +285,7 @@ export default function HistoryPage() {
                         {/* Metadata */}
                         <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
                           <div className="text-xs text-gray-500">
-                            作成日: {(() => {
-                              try {
-                                // Try parsing as ISO string first
-                                const date = parseISO(reflection.created_at);
-                                if (!isNaN(date.getTime())) {
-                                  return format(date, 'yyyy-MM-dd', { locale: ja });
-                                }
-                              } catch {
-                                // Ignore parsing error and try fallback
-                              }
-
-                              try {
-                                // Fallback to direct Date parsing
-                                const fallbackDate = new Date(reflection.created_at);
-                                if (!isNaN(fallbackDate.getTime())) {
-                                  return format(fallbackDate, 'yyyy-MM-dd', { locale: ja });
-                                }
-                              } catch {
-                                // Ignore parsing error and try string extraction
-                              }
-
-                              // Last resort: extract date from string (YYYY-MM-DD format)
-                              const dateMatch = reflection.created_at?.match(/(\d{4}-\d{2}-\d{2})/);
-                              if (dateMatch) {
-                                return dateMatch[1];
-                              }
-
-                              return '不明';
-                            })()}
+                            作成日: {reflection.reflection_date}
                           </div>
 
                           {/* Detail View Button */}
