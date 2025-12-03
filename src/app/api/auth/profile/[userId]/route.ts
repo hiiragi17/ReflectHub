@@ -72,7 +72,6 @@ export async function GET(
             email: session.user.email,
             name: googleName,
             provider: 'google',
-            avatar_url: session.user.user_metadata?.avatar_url,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
@@ -108,7 +107,6 @@ export async function GET(
           .from('profiles')
           .update({
             name: googleName,
-            avatar_url: session.user.user_metadata?.avatar_url,
             updated_at: new Date().toISOString(),
           })
           .eq('id', userId)
@@ -117,24 +115,6 @@ export async function GET(
 
         if (updateError) {
           console.error('Profile update error:', updateError);
-          return NextResponse.json({ profile });
-        }
-
-        return NextResponse.json({ profile: updatedProfile });
-      } else {
-        // ユーザーが手動で変更した名前はそのまま保持し、アバターのみ更新
-        const { data: updatedProfile, error: updateError } = await supabase
-          .from('profiles')
-          .update({
-            avatar_url: session.user.user_metadata?.avatar_url,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', userId)
-          .select()
-          .single();
-
-        if (updateError) {
-          console.error('Profile avatar update error:', updateError);
           return NextResponse.json({ profile });
         }
 
