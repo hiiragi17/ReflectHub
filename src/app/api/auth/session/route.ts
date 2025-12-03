@@ -54,23 +54,26 @@ export async function POST(request: NextRequest) {
     }
 
     if (data.session) {
-      // プロフィール確認・作成
+      // プロフィール確認・作成・更新
       try {
-        const { error: profileError } = await supabase
+        const { data: existingProfile, error: profileError } = await supabase
           .from('profiles')
-          .select('id')
+          .select('id, name')
           .eq('id', data.session.user.id)
           .single();
 
+        const googleName = data.session.user.user_metadata?.full_name ||
+                          data.session.user.user_metadata?.name ||
+                          data.session.user.email?.split('@')[0];
+
         if (profileError && profileError.code === 'PGRST116') {
+          // プロフィールが存在しない場合は新規作成
           const { error: createError } = await supabase
             .from('profiles')
             .insert({
               id: data.session.user.id,
               email: data.session.user.email,
-              name: data.session.user.user_metadata?.full_name || 
-                    data.session.user.user_metadata?.name || 
-                    data.session.user.email?.split('@')[0],
+              name: googleName,
               provider: 'google',
               avatar_url: data.session.user.user_metadata?.avatar_url,
               created_at: new Date().toISOString(),
@@ -78,11 +81,46 @@ export async function POST(request: NextRequest) {
             });
 
           if (createError) {
-            // プロフィール作成エラーは非致命的
+            console.error('Profile creation error:', createError);
+          }
+        } else if (existingProfile && googleName) {
+          // 既存プロフィールの名前がデフォルト値の場合のみ、Googleの名前で更新
+          const currentName = existingProfile.name || '';
+          const emailPrefix = data.session.user.email?.split('@')[0] || '';
+          const isDefaultName = currentName === 'Test User' ||
+                               currentName === 'ユーザー' ||
+                               currentName === emailPrefix;
+
+          if (isDefaultName) {
+            const { error: updateError } = await supabase
+              .from('profiles')
+              .update({
+                name: googleName,
+                avatar_url: data.session.user.user_metadata?.avatar_url,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', data.session.user.id);
+
+            if (updateError) {
+              console.error('Profile update error:', updateError);
+            }
+          } else {
+            // ユーザーが手動で変更した名前はそのまま保持し、アバターのみ更新
+            const { error: updateError } = await supabase
+              .from('profiles')
+              .update({
+                avatar_url: data.session.user.user_metadata?.avatar_url,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', data.session.user.id);
+
+            if (updateError) {
+              console.error('Profile avatar update error:', updateError);
+            }
           }
         }
-      } catch {
-        // プロフィール関連エラーは非致命的
+      } catch (err) {
+        console.error('Profile operation error:', err);
       }
 
       const response = NextResponse.json({ 

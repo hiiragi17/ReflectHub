@@ -58,16 +58,19 @@ export async function GET(
       .eq('id', userId)  // params.userId → userId
       .single();
 
+    const googleName = session.user.user_metadata?.full_name ||
+                      session.user.user_metadata?.name ||
+                      session.user.email?.split('@')[0] || 'ユーザー';
+
     if (profileError) {
       if (profileError.code === 'PGRST116') {
+        // プロフィールが存在しない場合は新規作成
         const { data: newProfile, error: createError } = await supabase
           .from('profiles')
           .insert({
             id: session.user.id,
             email: session.user.email,
-            name: session.user.user_metadata?.full_name || 
-                  session.user.user_metadata?.name || 
-                  session.user.email?.split('@')[0] || 'ユーザー',
+            name: googleName,
             provider: 'google',
             avatar_url: session.user.user_metadata?.avatar_url,
             created_at: new Date().toISOString(),
@@ -89,6 +92,53 @@ export async function GET(
           { error: 'Failed to fetch profile' },
           { status: 500 }
         );
+      }
+    }
+
+    // 既存プロフィールの名前がデフォルト値の場合のみ、Googleの名前で更新
+    if (profile && googleName) {
+      const currentName = profile.name || '';
+      const emailPrefix = session.user.email?.split('@')[0] || '';
+      const isDefaultName = currentName === 'Test User' ||
+                           currentName === 'ユーザー' ||
+                           currentName === emailPrefix;
+
+      if (isDefaultName) {
+        const { data: updatedProfile, error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            name: googleName,
+            avatar_url: session.user.user_metadata?.avatar_url,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', userId)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error('Profile update error:', updateError);
+          return NextResponse.json({ profile });
+        }
+
+        return NextResponse.json({ profile: updatedProfile });
+      } else {
+        // ユーザーが手動で変更した名前はそのまま保持し、アバターのみ更新
+        const { data: updatedProfile, error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            avatar_url: session.user.user_metadata?.avatar_url,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', userId)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error('Profile avatar update error:', updateError);
+          return NextResponse.json({ profile });
+        }
+
+        return NextResponse.json({ profile: updatedProfile });
       }
     }
 

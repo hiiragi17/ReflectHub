@@ -15,12 +15,22 @@ export default function AuthCallback() {
         const next = url.searchParams.get('next') || '/dashboard';
 
         if (code) {
-          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
           if (exchangeError) {
             console.error('コード交換エラー:', exchangeError);
             router.push('/auth?error=callback_error');
             return;
           }
+
+          // Googleから取得したユーザー情報をログ出力
+          if (data.session?.user) {
+            console.log('Google user_metadata:', data.session.user.user_metadata);
+            console.log('User name from Google:',
+              data.session.user.user_metadata?.full_name ||
+              data.session.user.user_metadata?.name ||
+              'No name found');
+          }
+
           router.push(next);
           return;
         }
