@@ -352,18 +352,11 @@ export const useAuthStore = create<AuthStore>()(
           }
         } catch (error) {
           console.error("[AuthStore] Initialize error:", error);
-          const errorMessage =
-            error instanceof Error && error.message === "Request timeout"
-              ? "接続がタイムアウトしました。ネットワーク接続を確認してください。"
-              : error instanceof Error &&
-                error.message === "Supabase query timeout"
-              ? "データベース接続がタイムアウトしました。"
-              : "初期化に失敗しました。";
-
+          // 初期化エラーは内部的にログ出力するのみで、ユーザーには通知しない
           set({
             user: null,
             isAuthenticated: false,
-            error: errorMessage,
+            error: null,
             isLoading: false,
           });
         }
