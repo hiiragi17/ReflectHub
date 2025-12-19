@@ -1,6 +1,6 @@
 # データベースマイグレーション
 
-## Phase 2: フレームワーク拡張（2個 → 12個）
+## Phase 2: フレームワーク拡張（2個 → 7個）
 
 ### 実行手順（2段階）
 
@@ -20,8 +20,8 @@
    - 「Run」ボタンをクリック
 
 4. **結果を確認**
-   - 12個のフレームワークが追加されたことを確認
-   - 新規追加の10個は `is_active = false` になっていることを確認
+   - 7個のフレームワークが追加されたことを確認
+   - 新規追加の5個は `is_active = false` になっていることを確認
    - エラーがないことを確認
 
 **注意**: この段階では既存ユーザーには影響しません（YWT/KPTのみ表示されます）
@@ -36,7 +36,7 @@
    - 「Run」ボタンをクリック
 
 3. **結果を確認**
-   - アクティブなフレームワークが12個になったことを確認
+   - アクティブなフレームワークが7個になったことを確認
 
 ### 追加されるフレームワーク一覧
 
@@ -44,26 +44,21 @@
 - YWT（やったこと・わかったこと・次にやること）
 - KPT（Keep・Problem・Try）
 
-#### 追加（10個）
+#### 追加（5個）
 1. **DAKI** - Drop・Add・Keep・Improve（プロセス改善）
-2. **WLT** - Win・Learn・Try（成功体験重視）
-3. **MSG** - 喜怒哀（感情軸）
+2. **STAR** - Situation・Task・Action・Result（キャリア面接向け）
+3. **WLT** - Win・Learn・Try（成功体験重視）
 4. **4L** - Liked・Learned・Lacked・Longed for（学習向け）
-5. **WRAP** - Wishes・Risks・Appreciations・Puzzles（チーム向け）
-6. **STAR** - Situation・Task・Action・Result（キャリア面接向け）
-7. **振り返り日記** - 時系列日記形式
-8. **GREW** - Goal・Reality・Options・Will（目標管理）
-9. **OODA Loop** - Observe・Orient・Decide・Act（意思決定）
-10. **5Why分析** - 5つのなぜ（根本原因分析）
+5. **振り返り日記** - 時系列日記形式
 
 ### ロールバック（削除）
 
 もし追加したフレームワークを削除したい場合：
 
 ```sql
--- 追加した10個のフレームワークを削除
+-- 追加した5個のフレームワークを削除
 DELETE FROM frameworks
-WHERE id IN ('daki', 'wlt', 'msg', '4l', 'wrap', 'star', 'diary', 'grew', 'ooda', '5why');
+WHERE id IN ('daki', 'star', 'wlt', '4l', 'diary');
 ```
 
 ### 注意事項

@@ -141,7 +141,7 @@ export default function DashboardPage() {
                 <div>
                   <h4 className="font-medium">振り返りフレームワークを選択</h4>
                   <p className="text-sm text-gray-600">
-                    YWT、KPT、DAKI、WLT、MSGなど、12種類のフレームワークから目的に合ったものを選択できます
+                    YWT、KPT、DAKI、STAR、WLTなど、7種類のフレームワークから目的に合ったものを選択できます
                   </p>
                 </div>
               </div>
