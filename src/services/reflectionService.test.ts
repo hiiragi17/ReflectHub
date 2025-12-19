@@ -329,7 +329,7 @@ describe('reflectionService', () => {
         .mockReturnValueOnce({ select: mockSelect })
         .mockReturnValueOnce({ update: mockUpdate });
 
-      const result = await updateReflection(mockReflectionId, updateData);
+      await updateReflection(mockReflectionId, updateData);
 
       expect(mockUpdate).toHaveBeenCalledWith(updateData);
     });
