@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Setup environment variables and mocks with vi.hoisted to ensure they are set before module imports
-const setup = vi.hoisted(() => {
+const { mockSupabaseClient } = vi.hoisted(() => {
   // Setup environment variables
   process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
@@ -17,10 +17,9 @@ const setup = vi.hoisted(() => {
   return { mockSupabaseClient };
 });
 
-const { mockSupabaseClient } = setup;
-
-vi.mock('@supabase/supabase-js', () => ({
-  createClient: vi.fn(() => mockSupabaseClient),
+// Mock the supabase client module directly
+vi.mock('@/lib/supabase/client', () => ({
+  supabase: mockSupabaseClient,
 }));
 
 // NOW import the module after mocks are set up

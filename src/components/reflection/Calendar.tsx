@@ -31,7 +31,8 @@ export const Calendar: React.FC<CalendarProps> = ({
     const map = new Map<string, Reflection[]>();
 
     reflections.forEach((reflection) => {
-      const dateKey = reflection.reflection_date; // Already in YYYY-MM-DD format
+      // Use created_at date instead of reflection_date
+      const dateKey = reflection.created_at?.split('T')[0] || reflection.reflection_date;
       if (!map.has(dateKey)) {
         map.set(dateKey, []);
       }
