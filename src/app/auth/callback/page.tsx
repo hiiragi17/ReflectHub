@@ -15,7 +15,7 @@ export default function AuthCallback() {
         const next = url.searchParams.get('next') || '/dashboard';
 
         if (code) {
-          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
           if (exchangeError) {
             console.error('コード交換エラー:', exchangeError);
             router.push('/auth?error=callback_error');
@@ -23,12 +23,39 @@ export default function AuthCallback() {
           }
 
           // Googleから取得したユーザー情報をログ出力
-          if (data.session?.user) {
-            console.log('Google user_metadata:', data.session.user.user_metadata);
+          if (sessionData.session?.user) {
+            console.log('Google user_metadata:', sessionData.session.user.user_metadata);
             console.log('User name from Google:',
-              data.session.user.user_metadata?.full_name ||
-              data.session.user.user_metadata?.name ||
+              sessionData.session.user.user_metadata?.full_name ||
+              sessionData.session.user.user_metadata?.name ||
               'No name found');
+          }
+
+          // サーバー側のセッションを設定
+          if (sessionData.session) {
+            try {
+              const response = await fetch('/api/auth/session', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                  access_token: sessionData.session.access_token,
+                  refresh_token: sessionData.session.refresh_token,
+                }),
+              });
+
+              if (!response.ok) {
+                console.error('サーバーセッション設定エラー:', await response.text());
+                router.push('/auth?error=session_error');
+                return;
+              }
+            } catch (sessionError) {
+              console.error('サーバーセッション設定エラー:', sessionError);
+              router.push('/auth?error=session_error');
+              return;
+            }
           }
 
           router.push(next);

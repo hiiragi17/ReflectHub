@@ -14,7 +14,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const response = NextResponse.json({ success: true });
     const cookieStore = await cookies();
+
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -26,6 +28,7 @@ export async function POST(request: NextRequest) {
           set(name: string, value: string, options: CookieOptions) {
             try {
               cookieStore.set({ name, value, ...options });
+              response.cookies.set({ name, value, ...options });
             } catch {
               // Silent failure
             }
@@ -33,6 +36,7 @@ export async function POST(request: NextRequest) {
           remove(name: string, options: CookieOptions) {
             try {
               cookieStore.delete({ name, ...options });
+              response.cookies.delete({ name, ...options });
             } catch {
               // Silent failure
             }
@@ -108,18 +112,13 @@ export async function POST(request: NextRequest) {
         console.error('Profile operation error:', err);
       }
 
-      const response = NextResponse.json({ 
-        success: true, 
-        user: data.session.user.email 
-      });
-      
       response.cookies.set('session-set', 'true', {
         httpOnly: false,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         maxAge: 60 * 60 * 24 * 7
       });
-      
+
       return response;
     }
 

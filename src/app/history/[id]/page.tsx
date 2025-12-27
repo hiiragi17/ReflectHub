@@ -121,7 +121,7 @@ export default function ReflectionDetailPage() {
 
       // Get current time in Japan timezone format
       const now = new Date();
-      const japanTime = now.toLocaleString('en-CA', {
+      const formatter = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Tokyo',
         year: 'numeric',
         month: '2-digit',
@@ -131,7 +131,9 @@ export default function ReflectionDetailPage() {
         second: '2-digit',
         hour12: false,
       });
-      const [datePart, timePart] = japanTime.split(' ');
+      const parts = formatter.formatToParts(now);
+      const datePart = `${parts.find(p => p.type === 'year')?.value}-${parts.find(p => p.type === 'month')?.value}-${parts.find(p => p.type === 'day')?.value}`;
+      const timePart = `${parts.find(p => p.type === 'hour')?.value}:${parts.find(p => p.type === 'minute')?.value}:${parts.find(p => p.type === 'second')?.value}`;
       const updatedAtFormatted = `${datePart}T${timePart}`;
 
       // Update local state
@@ -214,7 +216,7 @@ export default function ReflectionDetailPage() {
             {/* Delete Confirmation Dialog */}
             {showDeleteConfirm && (
               <DeleteConfirmDialog
-                reflectionDate={reflection.reflection_date}
+                reflectionDate={reflection.created_at?.split('T')[0] || reflection.reflection_date}
                 error={deleteError}
                 isLoading={false}
                 onConfirm={handleConfirmDelete}
