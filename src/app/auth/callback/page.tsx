@@ -22,8 +22,8 @@ export default function AuthCallback() {
             return;
           }
 
-          // Googleから取得したユーザー情報をログ出力
-          if (sessionData.session?.user) {
+          // Googleから取得したユーザー情報をログ出力（開発環境のみ）
+          if (process.env.NODE_ENV === 'development' && sessionData.session?.user) {
             console.log('Google user_metadata:', sessionData.session.user.user_metadata);
             console.log('User name from Google:',
               sessionData.session.user.user_metadata?.full_name ||
