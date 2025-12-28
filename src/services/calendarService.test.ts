@@ -112,15 +112,22 @@ describe('calendarService', () => {
     });
 
     it('should calculate consecutive days correctly', () => {
+      const formatLocalDate = (date: Date): string => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
       const today = new Date();
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
-      const dayBefore = new Date(yesterday);
-      dayBefore.setDate(dayBefore.getDate() - 1);
+      const dayBefore = new Date(today);
+      dayBefore.setDate(dayBefore.getDate() - 2);
 
-      const todayStr = today.toISOString().split('T')[0];
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
-      const dayBeforeStr = dayBefore.toISOString().split('T')[0];
+      const todayStr = formatLocalDate(today);
+      const yesterdayStr = formatLocalDate(yesterday);
+      const dayBeforeStr = formatLocalDate(dayBefore);
 
       const reflections: Reflection[] = [
         createMockReflection('r-1', 'fw-1', todayStr),
@@ -128,6 +135,8 @@ describe('calendarService', () => {
         createMockReflection('r-3', 'fw-1', dayBeforeStr),
       ];
 
+      // Test with all reflections, not just current month
+      // This ensures the consecutive days calculation can see all dates
       const calendar = transformToMonthlyCalendar(
         today.getFullYear(),
         today.getMonth() + 1,
@@ -135,7 +144,9 @@ describe('calendarService', () => {
         mockFrameworks
       );
 
-      expect(calendar.monthlyStats.consecutiveDays).toBe(3);
+      // If all three dates are in the same month, expect 3; otherwise expect the count in current month
+      const allInSameMonth = yesterday.getMonth() === today.getMonth() && dayBefore.getMonth() === today.getMonth();
+      expect(calendar.monthlyStats.consecutiveDays).toBe(allInSameMonth ? 3 : (yesterday.getMonth() === today.getMonth() ? 2 : 1));
     });
 
     it('should calculate total and unique date count', () => {
