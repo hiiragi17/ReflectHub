@@ -47,9 +47,17 @@ export default function Footer() {
             <h3 className="text-sm font-semibold text-gray-900 mb-3">
               サポート
             </h3>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 mb-3">
               ご質問やご要望がございましたら、お気軽にお問い合わせください。
             </p>
+            <a
+              href="https://docs.google.com/forms/d/e/1FAIpQLSf5ekx9seCCOEa0Yn5QrPzcN-E24SgR8gvvGODd_1m_-Wxz6Q/viewform"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-blue-600 hover:text-blue-700 hover:underline transition"
+            >
+              お問い合わせフォーム →
+            </a>
           </div>
         </div>
 

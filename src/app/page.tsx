@@ -37,9 +37,10 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-white">
       {/* ヘッダー */}
-        <Header 
+        <Header
           isAuthenticated={false}
           title="ReflectHub"
+          contactUrl="https://docs.google.com/forms/d/e/1FAIpQLSf5ekx9seCCOEa0Yn5QrPzcN-E24SgR8gvvGODd_1m_-Wxz6Q/viewform"
         />
         {/* ヒーロー セクション */}
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">

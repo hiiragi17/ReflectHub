@@ -9,8 +9,12 @@ export default function TermsPage() {
   const router = useRouter();
 
   const handleSignOut = async () => {
-    await signOut();
-    router.push('/auth');
+    try {
+      await signOut();
+      router.push('/auth');
+    } catch (error) {
+      console.error('Sign out failed:', error);
+    }
   };
 
   return (
@@ -20,6 +24,7 @@ export default function TermsPage() {
         userName={user?.name}
         onSignOut={handleSignOut}
         title="ReflectHub"
+        contactUrl="https://docs.google.com/forms/d/e/1FAIpQLSf5ekx9seCCOEa0Yn5QrPzcN-E24SgR8gvvGODd_1m_-Wxz6Q/viewform"
       />
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-1">

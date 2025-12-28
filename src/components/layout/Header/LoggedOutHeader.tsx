@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { LogIn, Mail } from 'lucide-react';
+import { isValidUrl } from '@/utils/urlValidation';
 
 interface LoggedOutHeaderProps {
   title?: string;
@@ -24,11 +25,12 @@ export default function LoggedOutHeader({
             </p>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
-            {contactUrl && (
+            {contactUrl && isValidUrl(contactUrl) && (
               <a
                 href={contactUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label="お問い合わせ"
                 className="flex items-center gap-1 sm:gap-2 text-gray-600 hover:text-blue-600 transition px-2 sm:px-3 py-1.5 rounded-md hover:bg-gray-50"
               >
                 <Mail className="w-4 h-4" />
