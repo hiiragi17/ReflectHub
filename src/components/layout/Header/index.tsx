@@ -10,27 +10,30 @@ interface HeaderProps {
   title?: string;
   showBackButton?: boolean;
   backHref?: string;
+  contactUrl?: string;
 }
 
-export default function Header({ 
-  isAuthenticated, 
+export default function Header({
+  isAuthenticated,
   userName,
   onSignOut,
   title = 'ReflectHub',
   showBackButton = false,
-  backHref = '/dashboard'
+  backHref = '/dashboard',
+  contactUrl
 }: HeaderProps) {
   if (isAuthenticated && userName != null && onSignOut) {
     return (
-      <LoggedInHeader 
-        userName={userName} 
+      <LoggedInHeader
+        userName={userName}
         onSignOut={onSignOut}
         title={title}
         showBackButton={showBackButton}
         backHref={backHref}
+        contactUrl={contactUrl}
       />
     );
   }
 
-  return <LoggedOutHeader title={title} />;
+  return <LoggedOutHeader title={title} contactUrl={contactUrl} />;
 }
