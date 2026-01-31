@@ -4,6 +4,7 @@ import "./globals.css";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 import { ToastProvider } from "@/components/providers/ToastProvider";
 import ErrorBoundary from "@/components/common/ErrorBoundary";
+import Footer from "@/components/layout/Footer";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
@@ -65,12 +66,15 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}
       >
         <ErrorBoundary>
           <SessionProvider>
             <ToastProvider>
-              {children}
+              <div className="flex-1 flex flex-col">
+                {children}
+              </div>
+              <Footer />
             </ToastProvider>
           </SessionProvider>
         </ErrorBoundary>

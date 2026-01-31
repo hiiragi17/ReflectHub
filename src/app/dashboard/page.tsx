@@ -58,11 +58,12 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#fafafa]">
-      <Header 
+      <Header
         isAuthenticated={!!user}
         userName={user.name}
         onSignOut={handleSignOut}
         title="ReflectHub"
+        contactUrl="https://docs.google.com/forms/d/e/1FAIpQLSf5ekx9seCCOEa0Yn5QrPzcN-E24SgR8gvvGODd_1m_-Wxz6Q/viewform"
       />
 
       {/* Main Content */}
