@@ -55,16 +55,16 @@ export async function GET(
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', userId)  // params.userId → userId
+      .eq('id', userId)
       .single();
-
-    const googleName = session.user.user_metadata?.full_name ||
-                      session.user.user_metadata?.name ||
-                      session.user.email?.split('@')[0] || 'ユーザー';
 
     if (profileError) {
       if (profileError.code === 'PGRST116') {
         // プロフィールが存在しない場合は新規作成
+        const googleName = session.user.user_metadata?.full_name ||
+                          session.user.user_metadata?.name ||
+                          session.user.email?.split('@')[0] || 'ユーザー';
+
         const { data: newProfile, error: createError } = await supabase
           .from('profiles')
           .insert({
@@ -94,34 +94,8 @@ export async function GET(
       }
     }
 
-    // 既存プロフィールの名前がデフォルト値の場合のみ、Googleの名前で更新
-    if (profile && googleName) {
-      const currentName = profile.name || '';
-      const emailPrefix = session.user.email?.split('@')[0] || '';
-      const isDefaultName = currentName === 'Test User' ||
-                           currentName === 'ユーザー' ||
-                           currentName === emailPrefix;
-
-      if (isDefaultName) {
-        const { data: updatedProfile, error: updateError } = await supabase
-          .from('profiles')
-          .update({
-            name: googleName,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', userId)
-          .select()
-          .single();
-
-        if (updateError) {
-          console.error('Profile update error:', updateError);
-          return NextResponse.json({ profile });
-        }
-
-        return NextResponse.json({ profile: updatedProfile });
-      }
-    }
-
+    // GETハンドラーは読み取り専用：既存プロフィールをそのまま返す
+    // 名前の更新は /api/auth/session (POST) で行われる
     return NextResponse.json({ profile });
 
   } catch {
