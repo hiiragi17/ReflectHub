@@ -4,6 +4,9 @@ import { useAuth } from '@/hooks/useAuth';
 import Header from '@/components/layout/Header';
 import { useRouter } from 'next/navigation';
 
+// 利用規約の最終更新日（固定値）
+const TERMS_LAST_UPDATED = new Date('2026-01-31');
+
 export default function TermsPage() {
   const { user, signOut, isLoading } = useAuth();
   const router = useRouter();
@@ -160,7 +163,7 @@ export default function TermsPage() {
 
           <div className="mt-12 pt-8 border-t border-gray-200">
             <p className="text-sm text-gray-500">
-              最終更新日: {new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}
+              最終更新日: {TERMS_LAST_UPDATED.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           </div>
         </div>

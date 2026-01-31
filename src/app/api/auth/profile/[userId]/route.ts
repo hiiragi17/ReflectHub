@@ -55,21 +55,23 @@ export async function GET(
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', userId)  // params.userId → userId
+      .eq('id', userId)
       .single();
 
     if (profileError) {
       if (profileError.code === 'PGRST116') {
+        // プロフィールが存在しない場合は新規作成
+        const googleName = session.user.user_metadata?.full_name ||
+                          session.user.user_metadata?.name ||
+                          session.user.email?.split('@')[0] || 'ユーザー';
+
         const { data: newProfile, error: createError } = await supabase
           .from('profiles')
           .insert({
             id: session.user.id,
             email: session.user.email,
-            name: session.user.user_metadata?.full_name || 
-                  session.user.user_metadata?.name || 
-                  session.user.email?.split('@')[0] || 'ユーザー',
+            name: googleName,
             provider: 'google',
-            avatar_url: session.user.user_metadata?.avatar_url,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
@@ -92,6 +94,8 @@ export async function GET(
       }
     }
 
+    // GETハンドラーは読み取り専用：既存プロフィールをそのまま返す
+    // 名前の更新は /api/auth/session (POST) で行われる
     return NextResponse.json({ profile });
 
   } catch {
