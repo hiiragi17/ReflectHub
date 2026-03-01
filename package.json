@@ -11,7 +11,9 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "create-issues": "npx tsx scripts/create-issues.ts",
+    "create-issues:dry-run": "npx tsx scripts/create-issues.ts --dry-run"
   },
   "dependencies": {
     "@line/bot-sdk": "^10.2.0",
