@@ -2,9 +2,8 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  provider: 'google' | 'line';
+  provider: 'google';
   avatar_url?: string;
-  line_user_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -33,7 +32,6 @@ export interface ProfileData {
   name: string;
   provider: string;
   avatar_url?: string;
-  line_user_id?: string;
   created_at: string;
   updated_at: string;
 }
