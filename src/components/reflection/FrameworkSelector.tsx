@@ -89,13 +89,6 @@ export default function FrameworkSelector() {
                       {framework.name}
                     </h4>
 
-                    {/* 説明（2行まで） */}
-                    {framework.description && (
-                      <p className="text-xs text-gray-600 line-clamp-2 min-h-[2.5rem]">
-                        {framework.description}
-                      </p>
-                    )}
-
                     {/* 項目数 */}
                     {framework.schema && framework.schema.length > 0 && (
                       <div className="pt-2 border-t border-gray-200">
