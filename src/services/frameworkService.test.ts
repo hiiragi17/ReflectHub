@@ -440,7 +440,7 @@ describe('frameworkService', () => {
       expect(mockSupabase.eq).toHaveBeenCalledWith('is_active', true);
     });
 
-    it('should return null for non-existent framework', async () => {
+    it('should throw an error for non-existent framework', async () => {
       const mockSupabase = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),

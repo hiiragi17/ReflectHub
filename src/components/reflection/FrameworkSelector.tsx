@@ -47,55 +47,66 @@ export default function FrameworkSelector() {
     <div className="space-y-6">
       {/* フレームワーク選択グリッド */}
       <div>
-        <label className="text-sm font-semibold text-gray-700 mb-4 block">
+        <h3 className="text-sm font-semibold text-gray-700 mb-4">
           振り返りフレームワークを選択
-        </label>
+        </h3>
 
         {/* カードグリッド */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div
+          role="radiogroup"
+          aria-label="振り返りフレームワーク"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+        >
           {frameworks.map((framework) => {
             const isSelected = selectedFrameworkId === framework.id;
 
             return (
-              <Card
+              <button
                 key={framework.id}
+                type="button"
+                role="radio"
+                aria-checked={isSelected}
                 onClick={() => selectFramework(framework.id)}
-                className={`
-                  cursor-pointer transition-all duration-200 hover:shadow-md
-                  ${isSelected
-                    ? 'border-2 border-blue-500 bg-blue-50 shadow-lg'
-                    : 'border border-gray-200 hover:border-blue-300'
-                  }
-                `}
+                className="text-left rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               >
-                <div className="p-4 text-center space-y-2">
-                  {/* アイコン */}
-                  <div className="text-4xl mb-2">
-                    {framework.icon || '📋'}
-                  </div>
-
-                  {/* フレームワーク名 */}
-                  <h4 className="font-semibold text-gray-900">
-                    {framework.name}
-                  </h4>
-
-                  {/* 説明（2行まで） */}
-                  {framework.description && (
-                    <p className="text-xs text-gray-600 line-clamp-2 min-h-[2.5rem]">
-                      {framework.description}
-                    </p>
-                  )}
-
-                  {/* 項目数 */}
-                  {framework.schema && framework.schema.length > 0 && (
-                    <div className="pt-2 border-t border-gray-200">
-                      <span className="text-xs text-gray-500">
-                        {framework.schema.length}項目
-                      </span>
+                <Card
+                  className={`
+                    cursor-pointer transition-all duration-200 hover:shadow-md
+                    ${isSelected
+                      ? 'border-2 border-blue-500 bg-blue-50 shadow-lg'
+                      : 'border border-gray-200 hover:border-blue-300'
+                    }
+                  `}
+                >
+                  <div className="p-4 text-center space-y-2">
+                    {/* アイコン */}
+                    <div className="text-4xl mb-2">
+                      {framework.icon || '📋'}
                     </div>
-                  )}
-                </div>
-              </Card>
+
+                    {/* フレームワーク名 */}
+                    <h4 className="font-semibold text-gray-900">
+                      {framework.name}
+                    </h4>
+
+                    {/* 説明（2行まで） */}
+                    {framework.description && (
+                      <p className="text-xs text-gray-600 line-clamp-2 min-h-[2.5rem]">
+                        {framework.description}
+                      </p>
+                    )}
+
+                    {/* 項目数 */}
+                    {framework.schema && framework.schema.length > 0 && (
+                      <div className="pt-2 border-t border-gray-200">
+                        <span className="text-xs text-gray-500">
+                          {framework.schema.length}項目
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </button>
             );
           })}
         </div>

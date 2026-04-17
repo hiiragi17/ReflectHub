@@ -65,4 +65,5 @@ WHERE id IN ('daki', 'star', 'wlt', '4l', 'diary');
 
 - `ON CONFLICT (id) DO NOTHING` により、既存のYWT/KPTには影響しません
 - 既存ユーザーのデータには影響しません
-- フロントエンドのUI更新前に実行しても問題ありません
+- Step 1 (`add-frameworks-phase2.sql`) のみ、フロントエンドUI更新前に実行しても問題ありません
+- Step 2 (`activate-frameworks.sql`) はUI実装完了後に実行してください（先行実行すると未実装のフレームワークがユーザーに表示されます）

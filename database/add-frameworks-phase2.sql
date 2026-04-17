@@ -61,5 +61,8 @@ SELECT id, name, display_name, icon, color, sort_order
 FROM frameworks
 ORDER BY sort_order;
 
--- フレームワーク数の確認（7個になるはず）
-SELECT COUNT(*) as total_frameworks FROM frameworks WHERE is_active = true;
+-- フレームワーク総数の確認（7個になるはず）
+SELECT COUNT(*) as total_frameworks FROM frameworks;
+
+-- アクティブ数の確認（Step 1 時点では既存のYWT/KPTのみ2個）
+SELECT COUNT(*) as active_frameworks FROM frameworks WHERE is_active = true;

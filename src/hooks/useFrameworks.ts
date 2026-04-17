@@ -34,7 +34,13 @@ export const useFrameworks = () => {
 
         // LocalStorageから最後に使用したフレームワークIDを取得
         if (data.length > 0 && !selectedFrameworkId) {
-          const lastUsedId = localStorage.getItem('lastUsedFrameworkId');
+          let lastUsedId: string | null = null;
+          try {
+            lastUsedId = localStorage.getItem('lastUsedFrameworkId');
+          } catch (storageError) {
+            // プライベートモードやサンドボックス等でlocalStorageが使えない場合は無視
+            console.warn('Failed to read lastUsedFrameworkId from localStorage:', storageError);
+          }
 
           // LocalStorageに保存されているIDが有効な場合はそれを選択
           if (lastUsedId && data.find(f => f.id === lastUsedId)) {
