@@ -34,6 +34,14 @@ export const useFrameworkStore = create<FrameworkStore>((set, get) => ({
       selectedFrameworkId: id,
       selectedFramework: state.frameworks.find((f) => f.id === id),
     }));
+
+    // LocalStorageに最後に使用したフレームワークIDを保存
+    try {
+      localStorage.setItem('lastUsedFrameworkId', id);
+    } catch (error) {
+      // LocalStorageが使えない環境でもエラーにならないようにする
+      console.warn('Failed to save framework selection to localStorage:', error);
+    }
   },
 
   setLoading: (loading) => set({ isLoading: loading }),
