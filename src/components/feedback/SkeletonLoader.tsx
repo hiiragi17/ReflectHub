@@ -29,7 +29,9 @@ export function SkeletonLoader({
   className,
   count = 1,
 }: SkeletonLoaderProps) {
-  const safeCount = Math.max(1, Math.floor(count));
+  const MAX_SKELETONS = 50;
+  const normalized = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1;
+  const safeCount = Math.min(MAX_SKELETONS, normalized);
 
   const style: CSSProperties = {
     width: toCssSize(width),

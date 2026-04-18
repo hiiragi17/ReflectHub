@@ -213,7 +213,11 @@ export default function HistoryPage() {
             {/* Reflection Detail Panel - Right side */}
             {selectedDetail && (
               <SlideIn
-                key={selectedDetail.date.toISOString()}
+                key={
+                  selectedDetail.date instanceof Date && !isNaN(selectedDetail.date.getTime())
+                    ? String(selectedDetail.date.getTime())
+                    : 'detail'
+                }
                 direction="right"
                 duration={300}
                 className="lg:col-span-2 bg-white rounded-lg shadow-sm overflow-hidden flex flex-col"

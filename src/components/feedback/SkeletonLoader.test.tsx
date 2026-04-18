@@ -43,6 +43,22 @@ describe('SkeletonLoader', () => {
     expect(wrapper.className).toContain('animate-pulse');
   });
 
+  it('treats Infinity count as a single skeleton without throwing', () => {
+    expect(() =>
+      render(<SkeletonLoader count={Number.POSITIVE_INFINITY} />),
+    ).not.toThrow();
+    const wrapper = screen.getByRole('status');
+    expect(wrapper.className).toContain('animate-pulse');
+  });
+
+  it('caps very large count values to avoid runaway rendering', () => {
+    render(<SkeletonLoader count={9999} />);
+    const wrapper = screen.getByRole('status');
+    const lines = wrapper.querySelectorAll('[aria-hidden="true"]');
+    expect(lines.length).toBeLessThanOrEqual(50);
+    expect(lines.length).toBeGreaterThan(0);
+  });
+
   it('includes motion-reduce class for reduced-motion users', () => {
     render(<SkeletonLoader />);
     const node = screen.getByRole('status');

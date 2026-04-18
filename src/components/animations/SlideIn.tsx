@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState, type ReactNode, type ElementType } from 'react';
+import { useEffect, useState, type ReactNode, type ElementType, type CSSProperties } from 'react';
 import { cn } from '@/lib/utils';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 export type SlideDirection = 'top' | 'bottom' | 'left' | 'right';
 
@@ -37,24 +38,33 @@ export function SlideIn({
   className,
   as: Component = 'div',
 }: SlideInProps) {
-  const [visible, setVisible] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
+  const [visible, setVisible] = useState<boolean>(() => prefersReducedMotion);
 
   useEffect(() => {
+    if (prefersReducedMotion) {
+      setVisible(true);
+      return;
+    }
     const timer = window.setTimeout(() => setVisible(true), Math.max(0, delay));
     return () => window.clearTimeout(timer);
-  }, [delay]);
+  }, [delay, prefersReducedMotion]);
+
+  const style: CSSProperties = prefersReducedMotion
+    ? { transitionDuration: '0ms' }
+    : {
+        transitionDuration: `${duration}ms`,
+        transform: visible ? 'translate3d(0, 0, 0)' : getOffset(direction, distance),
+      };
 
   return (
     <Component
       className={cn(
-        'transition-all ease-out motion-reduce:transition-none motion-reduce:transform-none',
+        'transition-all ease-out motion-reduce:transition-none motion-reduce:opacity-100',
         visible ? 'opacity-100' : 'opacity-0',
         className,
       )}
-      style={{
-        transitionDuration: `${duration}ms`,
-        transform: visible ? 'translate3d(0, 0, 0)' : getOffset(direction, distance),
-      }}
+      style={style}
     >
       {children}
     </Component>

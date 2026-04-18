@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode, type ElementType } from 'react';
 import { cn } from '@/lib/utils';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 export interface FadeInProps {
   children: ReactNode;
@@ -18,17 +19,22 @@ export function FadeIn({
   className,
   as: Component = 'div',
 }: FadeInProps) {
-  const [visible, setVisible] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
+  const [visible, setVisible] = useState<boolean>(() => prefersReducedMotion);
 
   useEffect(() => {
+    if (prefersReducedMotion) {
+      setVisible(true);
+      return;
+    }
     const timer = window.setTimeout(() => setVisible(true), Math.max(0, delay));
     return () => window.clearTimeout(timer);
-  }, [delay]);
+  }, [delay, prefersReducedMotion]);
 
   return (
     <Component
       className={cn(
-        'transition-opacity ease-out motion-reduce:transition-none',
+        'transition-opacity ease-out motion-reduce:transition-none motion-reduce:opacity-100',
         visible ? 'opacity-100' : 'opacity-0',
         className,
       )}
