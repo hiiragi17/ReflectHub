@@ -31,4 +31,17 @@ describe('PeriodComparison', () => {
     expect(screen.getByText('0 件')).toBeInTheDocument();
     expect(screen.getByText('(0%)')).toBeInTheDocument();
   });
+
+  it('shows negative change without extra plus sign', () => {
+    render(
+      <PeriodComparison
+        title="前月比"
+        currentLabel="今月"
+        previousLabel="先月"
+        data={{ current: 2, previous: 5, change: -3, changeRate: -60 }}
+      />,
+    );
+    expect(screen.getByText('-3 件')).toBeInTheDocument();
+    expect(screen.getByText('(-60%)')).toBeInTheDocument();
+  });
 });

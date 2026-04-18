@@ -36,7 +36,7 @@ export default function StreakDisplay({ streak }: StreakDisplayProps) {
         <CardTitle className="text-lg">ストリーク</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           {items.map(({ label, value, Icon, color }) => (
             <div key={label} className="text-center">
               <Icon className={`w-7 h-7 mx-auto mb-2 ${color}`} />

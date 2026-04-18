@@ -8,18 +8,18 @@ export async function GET() {
   try {
     const supabase = await createClient();
     const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession();
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-    if (sessionError || !session) {
+    if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { data: reflections, error: reflectionsError } = await supabase
       .from('retrospectives')
       .select('*')
-      .eq('user_id', session.user.id);
+      .eq('user_id', user.id);
 
     if (reflectionsError) {
       return NextResponse.json(

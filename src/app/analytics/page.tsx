@@ -23,11 +23,11 @@ export default function AnalyticsPage() {
   const { user, signOut, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const { summary, trends, distribution, isLoading, error, refetch } =
-    useStatistics();
+    useStatistics(user?.id);
 
   useEffect(() => {
     if (!authLoading && !user) {
-      const currentPath = window.location.pathname;
+      const currentPath = `${window.location.pathname}${window.location.search}`;
       router.push(`/auth?next=${encodeURIComponent(currentPath)}`);
     }
   }, [user, authLoading, router]);

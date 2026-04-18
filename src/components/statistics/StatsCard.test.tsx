@@ -12,7 +12,7 @@ describe('StatsCard', () => {
   });
 
   it('renders optional description and icon', () => {
-    render(
+    const { container } = render(
       <StatsCard
         label="今月"
         value={3}
@@ -21,5 +21,7 @@ describe('StatsCard', () => {
       />,
     );
     expect(screen.getByText('比較用')).toBeInTheDocument();
+    const svg = container.querySelector('svg');
+    expect(svg).not.toBeNull();
   });
 });

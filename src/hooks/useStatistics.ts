@@ -20,7 +20,14 @@ interface StatisticsCache {
   distribution?: CacheEntry<AnalyticsDistribution>;
 }
 
-const cache: StatisticsCache = {};
+const cacheByUser: Record<string, StatisticsCache> = {};
+
+const getCache = (userId: string): StatisticsCache => {
+  if (!cacheByUser[userId]) {
+    cacheByUser[userId] = {};
+  }
+  return cacheByUser[userId];
+};
 
 const isFresh = (entry: CacheEntry<unknown> | undefined): boolean => {
   if (!entry) return false;
@@ -44,71 +51,83 @@ export interface UseStatisticsState {
   refetch: () => Promise<void>;
 }
 
-export const useStatistics = (): UseStatisticsState => {
+export const useStatistics = (userId: string | null | undefined): UseStatisticsState => {
+  const initialCache = userId ? getCache(userId) : undefined;
   const [summary, setSummary] = useState<AnalyticsSummary | null>(
-    cache.summary?.data ?? null,
+    initialCache?.summary?.data ?? null,
   );
   const [trends, setTrends] = useState<AnalyticsTrends | null>(
-    cache.trends?.data ?? null,
+    initialCache?.trends?.data ?? null,
   );
   const [distribution, setDistribution] = useState<AnalyticsDistribution | null>(
-    cache.distribution?.data ?? null,
+    initialCache?.distribution?.data ?? null,
   );
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(Boolean(userId));
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
-  const load = useCallback(async (force = false) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const summaryPromise = force || !isFresh(cache.summary)
-        ? fetchJson<{ summary: AnalyticsSummary }>('/api/analytics/summary').then(
-            (res) => res.summary,
-          )
-        : Promise.resolve(cache.summary!.data);
+  const load = useCallback(
+    async (force = false) => {
+      if (!userId) return;
+      const cache = getCache(userId);
+      setIsLoading(true);
+      setError(null);
+      try {
+        const summaryPromise = force || !isFresh(cache.summary)
+          ? fetchJson<{ summary: AnalyticsSummary }>('/api/analytics/summary').then(
+              (res) => res.summary,
+            )
+          : Promise.resolve(cache.summary!.data);
 
-      const trendsPromise = force || !isFresh(cache.trends)
-        ? fetchJson<{ trends: AnalyticsTrends }>('/api/analytics/trends').then(
-            (res) => res.trends,
-          )
-        : Promise.resolve(cache.trends!.data);
+        const trendsPromise = force || !isFresh(cache.trends)
+          ? fetchJson<{ trends: AnalyticsTrends }>('/api/analytics/trends').then(
+              (res) => res.trends,
+            )
+          : Promise.resolve(cache.trends!.data);
 
-      const distributionPromise = force || !isFresh(cache.distribution)
-        ? fetchJson<{ distribution: AnalyticsDistribution }>(
-            '/api/analytics/distribution',
-          ).then((res) => res.distribution)
-        : Promise.resolve(cache.distribution!.data);
+        const distributionPromise = force || !isFresh(cache.distribution)
+          ? fetchJson<{ distribution: AnalyticsDistribution }>(
+              '/api/analytics/distribution',
+            ).then((res) => res.distribution)
+          : Promise.resolve(cache.distribution!.data);
 
-      const [summaryData, trendsData, distributionData] = await Promise.all([
-        summaryPromise,
-        trendsPromise,
-        distributionPromise,
-      ]);
+        const [summaryData, trendsData, distributionData] = await Promise.all([
+          summaryPromise,
+          trendsPromise,
+          distributionPromise,
+        ]);
 
-      cache.summary = { data: summaryData, timestamp: Date.now() };
-      cache.trends = { data: trendsData, timestamp: Date.now() };
-      cache.distribution = { data: distributionData, timestamp: Date.now() };
+        cache.summary = { data: summaryData, timestamp: Date.now() };
+        cache.trends = { data: trendsData, timestamp: Date.now() };
+        cache.distribution = { data: distributionData, timestamp: Date.now() };
 
-      if (!mountedRef.current) return;
-      setSummary(summaryData);
-      setTrends(trendsData);
-      setDistribution(distributionData);
-    } catch (err) {
-      if (!mountedRef.current) return;
-      setError(err instanceof Error ? err.message : '統計データの取得に失敗しました');
-    } finally {
-      if (mountedRef.current) setIsLoading(false);
-    }
-  }, []);
+        if (!mountedRef.current) return;
+        setSummary(summaryData);
+        setTrends(trendsData);
+        setDistribution(distributionData);
+      } catch (err) {
+        if (!mountedRef.current) return;
+        setError(err instanceof Error ? err.message : '統計データの取得に失敗しました');
+      } finally {
+        if (mountedRef.current) setIsLoading(false);
+      }
+    },
+    [userId],
+  );
 
   useEffect(() => {
     mountedRef.current = true;
-    load(false);
+    if (userId) {
+      const cache = getCache(userId);
+      setSummary(cache.summary?.data ?? null);
+      setTrends(cache.trends?.data ?? null);
+      setDistribution(cache.distribution?.data ?? null);
+      load(false);
+    }
     return () => {
       mountedRef.current = false;
     };
-  }, [load]);
+  }, [load, userId]);
 
   return {
     summary,

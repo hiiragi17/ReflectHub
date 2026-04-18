@@ -4,7 +4,10 @@ import { getTrends } from '@/services/analyticsService';
 import type { Reflection } from '@/types/reflection';
 
 const clampInt = (value: string | null, fallback: number, min: number, max: number): number => {
-  const parsed = Number(value);
+  if (value === null) return fallback;
+  const trimmed = value.trim();
+  if (trimmed === '') return fallback;
+  const parsed = Number(trimmed);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(Math.max(Math.floor(parsed), min), max);
 };
@@ -13,11 +16,11 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
     const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession();
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-    if (sessionError || !session) {
+    if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -28,7 +31,7 @@ export async function GET(request: NextRequest) {
     const { data: reflections, error: reflectionsError } = await supabase
       .from('retrospectives')
       .select('*')
-      .eq('user_id', session.user.id);
+      .eq('user_id', user.id);
 
     if (reflectionsError) {
       return NextResponse.json(

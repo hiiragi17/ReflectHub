@@ -44,6 +44,7 @@ export default function TrendChart({ trends }: TrendChartProps) {
           <button
             type="button"
             onClick={() => setMode('weekly')}
+            aria-pressed={mode === 'weekly'}
             className={`px-3 py-1 text-sm rounded-md transition-colors ${
               mode === 'weekly'
                 ? 'bg-white text-gray-900 shadow-sm'
@@ -55,6 +56,7 @@ export default function TrendChart({ trends }: TrendChartProps) {
           <button
             type="button"
             onClick={() => setMode('monthly')}
+            aria-pressed={mode === 'monthly'}
             className={`px-3 py-1 text-sm rounded-md transition-colors ${
               mode === 'monthly'
                 ? 'bg-white text-gray-900 shadow-sm'

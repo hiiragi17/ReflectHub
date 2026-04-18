@@ -29,7 +29,14 @@ export default function GrowthScore({ score }: GrowthScoreProps) {
       </CardHeader>
       <CardContent>
         <div className="flex items-center justify-center py-2">
-          <div className="relative w-40 h-40">
+          <div
+            className="relative w-40 h-40"
+            role="progressbar"
+            aria-valuenow={clamped}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`成長スコア ${clamped} / 100 (${label})`}
+          >
             <svg className="w-full h-full -rotate-90" viewBox="0 0 140 140">
               <circle
                 cx="70"
