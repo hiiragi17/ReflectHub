@@ -50,4 +50,33 @@ describe('SidebarLayout', () => {
     const aside = container.querySelector('aside');
     expect(aside?.className).toContain('md:w-72');
   });
+
+  it('assigns distinct aria-labels to left and right asides', () => {
+    render(
+      <SidebarLayout
+        sidebar={<div>s</div>}
+        rightPanel={<div>r</div>}
+        sidebarAriaLabel="主要ナビゲーション"
+        rightPanelAriaLabel="詳細パネル"
+      >
+        <div>m</div>
+      </SidebarLayout>,
+    );
+
+    expect(screen.getByRole('complementary', { name: '主要ナビゲーション' })).toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: '詳細パネル' })).toBeInTheDocument();
+  });
+
+  it('right panel has a bounded md width to prevent overflow', () => {
+    const { container } = render(
+      <SidebarLayout sidebar={<div>s</div>} rightPanel={<div>r</div>}>
+        <div>m</div>
+      </SidebarLayout>,
+    );
+
+    const asides = container.querySelectorAll('aside');
+    const rightAside = asides[asides.length - 1];
+    expect(rightAside.className).toContain('md:w-64');
+    expect(rightAside.className).toContain('lg:w-80');
+  });
 });

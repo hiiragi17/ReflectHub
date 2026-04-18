@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useMediaQuery, useBreakpoint, useIsMobile, useIsDesktop } from './useMediaQuery';
+import { useMediaQuery, useBreakpoint, useIsMobile, useIsTablet, useIsDesktop } from './useMediaQuery';
 
 type Listener = (event: MediaQueryListEvent) => void;
 
@@ -103,5 +103,25 @@ describe('useBreakpoint helpers', () => {
 
     const { result } = renderHook(() => useIsDesktop());
     expect(result.current).toBe(true);
+  });
+
+  it('useIsTablet is true when md matches but lg does not', () => {
+    window.matchMedia = vi.fn().mockImplementation((query: string) => {
+      if (query === '(min-width: 768px)') return createMock(true);
+      if (query === '(min-width: 1024px)') return createMock(false);
+      return createMock(false);
+    }) as unknown as typeof window.matchMedia;
+
+    const { result } = renderHook(() => useIsTablet());
+    expect(result.current).toBe(true);
+  });
+
+  it('useIsTablet is false when both md and lg match (desktop)', () => {
+    window.matchMedia = vi
+      .fn()
+      .mockImplementation(() => createMock(true)) as unknown as typeof window.matchMedia;
+
+    const { result } = renderHook(() => useIsTablet());
+    expect(result.current).toBe(false);
   });
 });

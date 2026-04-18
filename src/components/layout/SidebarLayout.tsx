@@ -8,6 +8,8 @@ export interface SidebarLayoutProps {
   sidebarWidth?: 'sm' | 'md' | 'lg';
   className?: string;
   stickyBreakpoint?: 'md' | 'lg';
+  sidebarAriaLabel?: string;
+  rightPanelAriaLabel?: string;
 }
 
 const sidebarWidthClasses: Record<NonNullable<SidebarLayoutProps['sidebarWidth']>, string> = {
@@ -25,6 +27,8 @@ export default function SidebarLayout({
   sidebarWidth = 'md',
   className,
   stickyBreakpoint = 'md',
+  sidebarAriaLabel = 'サイドバー',
+  rightPanelAriaLabel = '関連情報パネル',
 }: SidebarLayoutProps) {
   const stickyClass =
     stickyBreakpoint === 'md' ? stickyTopClass : 'lg:sticky lg:top-20';
@@ -37,6 +41,7 @@ export default function SidebarLayout({
       )}
     >
       <aside
+        aria-label={sidebarAriaLabel}
         className={cn(
           'w-full shrink-0',
           sidebarWidthClasses[sidebarWidth],
@@ -48,7 +53,10 @@ export default function SidebarLayout({
       </aside>
       <main className="flex-1 min-w-0">{children}</main>
       {rightPanel && (
-        <aside className="w-full lg:w-80 shrink-0 lg:self-start lg:sticky lg:top-20">
+        <aside
+          aria-label={rightPanelAriaLabel}
+          className="w-full md:w-64 lg:w-80 shrink-0 lg:self-start lg:sticky lg:top-20"
+        >
           {rightPanel}
         </aside>
       )}
