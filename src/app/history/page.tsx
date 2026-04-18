@@ -10,8 +10,6 @@ import { reflectionService } from '@/services/reflectionService';
 import type { Reflection } from '@/types/reflection';
 import type { Framework } from '@/types/framework';
 import { X, ChevronRight } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
-import { ja } from 'date-fns/locale';
 
 interface ReflectionDetail {
   date: Date;
@@ -148,21 +146,25 @@ export default function HistoryPage() {
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Error Message */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg"
+          >
             <p className="text-red-800">{error}</p>
           </div>
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <section aria-label="振り返り統計" className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <p className="text-sm text-gray-600 mb-1">総振り返り数</p>
-            <p className="text-3xl font-bold text-gray-900">{reflections.length}</p>
+            <p className="text-sm text-gray-700 mb-1" id="stat-total">総振り返り数</p>
+            <p className="text-3xl font-bold text-gray-900" aria-labelledby="stat-total">{reflections.length}</p>
           </div>
 
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <p className="text-sm text-gray-600 mb-1">今月の振り返り</p>
-            <p className="text-3xl font-bold text-gray-900">
+            <p className="text-sm text-gray-700 mb-1" id="stat-month">今月の振り返り</p>
+            <p className="text-3xl font-bold text-gray-900" aria-labelledby="stat-month">
               {reflections.filter((r) => {
                 const date = new Date(r.reflection_date);
                 const now = new Date();
@@ -175,20 +177,20 @@ export default function HistoryPage() {
           </div>
 
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <p className="text-sm text-gray-600 mb-1">継続日数</p>
-            <p className="text-3xl font-bold text-gray-900">
+            <p className="text-sm text-gray-700 mb-1" id="stat-streak">継続日数</p>
+            <p className="text-3xl font-bold text-gray-900" aria-labelledby="stat-streak">
               {new Set(reflections.map((r) => r.reflection_date)).size}
             </p>
           </div>
-        </div>
+        </section>
 
         {/* Calendar and Detail View - Side by side */}
         {reflections.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-            <p className="text-gray-600 mb-4">まだ振り返りがありません</p>
+            <p className="text-gray-700 mb-4">まだ振り返りがありません</p>
             <button
               onClick={() => router.push('/reflection')}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
             >
               最初の振り返りを作成
             </button>
@@ -214,10 +216,10 @@ export default function HistoryPage() {
                   </h2>
                   <button
                     onClick={closeDetail}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors lg:hidden"
-                    aria-label="閉じる"
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors lg:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                    aria-label="詳細パネルを閉じる"
                   >
-                    <X className="w-5 h-5 text-gray-500" />
+                    <X className="w-5 h-5 text-gray-700" aria-hidden="true" />
                   </button>
                 </div>
 
@@ -284,18 +286,19 @@ export default function HistoryPage() {
 
                         {/* Metadata */}
                         <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-gray-700">
                             作成日: {reflection.created_at?.split('T')[0] || reflection.reflection_date}
                           </div>
 
                           {/* Detail View Button */}
                           <button
                             onClick={() => router.push(`/history/${reflection.id}`)}
-                            className="flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:underline transition-colors text-sm font-medium"
+                            className="flex items-center gap-1 text-blue-700 hover:text-blue-800 hover:underline transition-colors text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded"
+                            aria-label={`${framework?.display_name || '振り返り'}の詳細ページへ`}
                             title="詳細ページで編集可能です"
                           >
                             詳細表示
-                            <ChevronRight className="w-4 h-4" />
+                            <ChevronRight className="w-4 h-4" aria-hidden="true" />
                           </button>
                         </div>
                       </div>

@@ -44,9 +44,10 @@ export default function LoggedInHeader({
             {showBackButton && (
               <Link
                 href={backHref}
-                className="flex items-center gap-1 text-gray-600 hover:text-gray-900 flex-shrink-0"
+                aria-label="前の画面に戻る"
+                className="flex items-center gap-1 text-gray-700 hover:text-gray-900 flex-shrink-0"
               >
-                <ArrowLeft className="w-5 h-5" />
+                <ArrowLeft className="w-5 h-5" aria-hidden="true" />
                 <span className="text-xs sm:text-sm">戻る</span>
               </Link>
             )}
@@ -56,9 +57,9 @@ export default function LoggedInHeader({
           </div>
 
           {/* 右側：ユーザー名 + お問い合わせ + ログアウト */}
-          <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
-            <div className="hidden sm:flex items-center gap-2 text-gray-600">
-              <User className="w-4 h-4" />
+          <nav aria-label="ユーザーメニュー" className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+            <div className="hidden sm:flex items-center gap-2 text-gray-700">
+              <User className="w-4 h-4" aria-hidden="true" />
               <span className="text-sm">{userName}</span>
             </div>
             {contactUrl && isValidUrl(contactUrl) && (
@@ -66,10 +67,10 @@ export default function LoggedInHeader({
                 href={contactUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="お問い合わせ"
-                className="flex items-center gap-1 sm:gap-2 text-gray-600 hover:text-blue-600 transition px-2 sm:px-3 py-1.5 rounded-md hover:bg-gray-50"
+                aria-label="お問い合わせ (新しいタブで開く)"
+                className="flex items-center gap-1 sm:gap-2 text-gray-700 hover:text-blue-700 transition px-2 sm:px-3 py-1.5 rounded-md hover:bg-gray-50"
               >
-                <Mail className="w-4 h-4" />
+                <Mail className="w-4 h-4" aria-hidden="true" />
                 <span className="hidden sm:inline text-sm">お問い合わせ</span>
               </a>
             )}
@@ -78,23 +79,25 @@ export default function LoggedInHeader({
               variant="outline"
               size="sm"
               disabled={isLoading}
-              className="text-gray-600 hover:text-gray-800 px-2 sm:px-3"
+              aria-busy={isLoading}
+              aria-label={isLoading ? 'ログアウト中' : 'ログアウト'}
+              className="text-gray-700 hover:text-gray-900 px-2 sm:px-3"
             >
               {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
               ) : (
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-4 h-4" aria-hidden="true" />
               )}
               <span className="hidden sm:inline ml-2">
                 {isLoading ? 'ログアウト中...' : 'ログアウト'}
               </span>
             </Button>
-          </div>
+          </nav>
         </div>
 
         {/* モバイル用ユーザー表示 */}
-        <div className="sm:hidden flex items-center gap-2 text-gray-600 text-xs mt-2">
-          <User className="w-3 h-3" />
+        <div className="sm:hidden flex items-center gap-2 text-gray-700 text-xs mt-2">
+          <User className="w-3 h-3" aria-hidden="true" />
           <span>{userName}</span>
         </div>
       </div>

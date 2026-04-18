@@ -28,17 +28,21 @@ export default function DashboardPage() {
   if (error && !isLoading) {
     return (
       <div className="min-h-screen bg-[#fafafa] flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white border border-red-200 rounded-lg p-6">
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="max-w-md w-full bg-white border border-red-200 rounded-lg p-6"
+        >
           <div className="text-center">
-            <div className="text-red-600 text-lg font-semibold mb-2">
+            <div className="text-red-700 text-lg font-semibold mb-2">
               エラーが発生しました
             </div>
-            <p className="text-gray-600 mb-4">{error}</p>
+            <p className="text-gray-700 mb-4">{error}</p>
             <button
               onClick={() => {
                 window.location.reload();
               }}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
             >
               再読み込み
             </button>
@@ -73,57 +77,57 @@ export default function DashboardPage() {
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
             振り返りを始めましょう
           </h2>
-          <p className="text-gray-600">
+          <p className="text-gray-700">
             3分で今週の振り返りを記録し、継続的な成長を実現しましょう。
           </p>
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <nav aria-label="クイックアクション" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {/* 新しい振り返り */}
-          <Link href="/reflection">
+          <Link href="/reflection" aria-label="新しい振り返り: 今週の振り返りを作成">
             <Card className="cursor-pointer hover:shadow-md transition-shadow h-full">
               <CardContent className="p-6 text-center">
-                <PlusCircle className="w-8 h-8 text-blue-500 mx-auto mb-3" />
+                <PlusCircle className="w-8 h-8 text-blue-600 mx-auto mb-3" aria-hidden="true" />
                 <h3 className="font-semibold mb-2">新しい振り返り</h3>
-                <p className="text-sm text-gray-600">今週の振り返りを作成</p>
+                <p className="text-sm text-gray-700">今週の振り返りを作成</p>
               </CardContent>
             </Card>
           </Link>
 
           {/* 履歴を見る */}
-          <Link href="/history">
+          <Link href="/history" aria-label="履歴を見る: 過去の振り返りを確認">
             <Card className="cursor-pointer hover:shadow-md transition-shadow h-full">
               <CardContent className="p-6 text-center">
-                <Calendar className="w-8 h-8 text-green-500 mx-auto mb-3" />
+                <Calendar className="w-8 h-8 text-green-700 mx-auto mb-3" aria-hidden="true" />
                 <h3 className="font-semibold mb-2">履歴を見る</h3>
-                <p className="text-sm text-gray-600">過去の振り返りを確認</p>
+                <p className="text-sm text-gray-700">過去の振り返りを確認</p>
               </CardContent>
             </Card>
           </Link>
 
           {/* 統計を見る */}
-          <Link href="/analytics">
+          <Link href="/analytics" aria-label="統計を見る: 成長の記録を確認">
             <Card className="cursor-pointer hover:shadow-md transition-shadow h-full">
               <CardContent className="p-6 text-center">
-                <BarChart3 className="w-8 h-8 text-purple-500 mx-auto mb-3" />
+                <BarChart3 className="w-8 h-8 text-purple-700 mx-auto mb-3" aria-hidden="true" />
                 <h3 className="font-semibold mb-2">統計を見る</h3>
-                <p className="text-sm text-gray-600">成長の記録を確認</p>
+                <p className="text-sm text-gray-700">成長の記録を確認</p>
               </CardContent>
             </Card>
           </Link>
 
           {/* 設定 */}
-          <Link href="/profile">
+          <Link href="/profile" aria-label="設定: プロフィール設定">
             <Card className="cursor-pointer hover:shadow-md transition-shadow h-full">
               <CardContent className="p-6 text-center">
-                <Settings className="w-8 h-8 text-gray-500 mx-auto mb-3" />
+                <Settings className="w-8 h-8 text-gray-700 mx-auto mb-3" aria-hidden="true" />
                 <h3 className="font-semibold mb-2">設定</h3>
-                <p className="text-sm text-gray-600">プロフィール設定</p>
+                <p className="text-sm text-gray-700">プロフィール設定</p>
               </CardContent>
             </Card>
           </Link>
-        </div>
+        </nav>
 
         {/* Getting Started */}
         <Card>
@@ -131,43 +135,52 @@ export default function DashboardPage() {
             <CardTitle>はじめに</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">
+            <ol className="space-y-4">
+              <li className="flex items-start gap-3">
+                <div
+                  aria-hidden="true"
+                  className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-sm font-semibold"
+                >
                   1
                 </div>
                 <div>
                   <h4 className="font-medium">振り返りフレームワークを選択</h4>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-700">
                     YWT、KPT、DAKI、STAR、WLTなど、7種類のフレームワークから目的に合ったものを選択できます
                   </p>
                 </div>
-              </div>
-              
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">
+              </li>
+
+              <li className="flex items-start gap-3">
+                <div
+                  aria-hidden="true"
+                  className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-sm font-semibold"
+                >
                   2
                 </div>
                 <div>
                   <h4 className="font-medium">3分で振り返りを記録</h4>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-700">
                     各項目に思ったことを気軽に記入してください。完璧である必要はありません
                   </p>
                 </div>
-              </div>
-              
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">
+              </li>
+
+              <li className="flex items-start gap-3">
+                <div
+                  aria-hidden="true"
+                  className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-sm font-semibold"
+                >
                   3
                 </div>
                 <div>
                   <h4 className="font-medium">継続して成長を実感</h4>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-700">
                     週1回の振り返りを続けることで、確実な成長を実感できます
                   </p>
                 </div>
-              </div>
-            </div>
+              </li>
+            </ol>
           </CardContent>
         </Card>
       </main>
