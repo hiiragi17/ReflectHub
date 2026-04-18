@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { frameworkService } from '@/services/frameworkService';
 import { getDistribution } from '@/services/analyticsService';
 import type { Reflection } from '@/types/reflection';
+import type { Framework } from '@/types/framework';
 
 export async function GET() {
   try {
@@ -16,21 +16,32 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: reflections, error: reflectionsError } = await supabase
-      .from('retrospectives')
-      .select('*')
-      .eq('user_id', user.id);
+    const [reflectionsResult, frameworksResult] = await Promise.all([
+      supabase.from('retrospectives').select('*').eq('user_id', user.id),
+      supabase.from('frameworks').select('*').eq('is_active', true),
+    ]);
 
-    if (reflectionsError) {
+    if (reflectionsResult.error) {
       return NextResponse.json(
         { error: 'Failed to fetch reflections' },
         { status: 500 },
       );
     }
 
-    const frameworks = await frameworkService.getFrameworks();
+    if (frameworksResult.error) {
+      return NextResponse.json(
+        { error: 'Failed to fetch frameworks' },
+        { status: 500 },
+      );
+    }
+
+    const frameworks: Framework[] = (frameworksResult.data || []).map((f) => ({
+      ...f,
+      schema: f.schema?.fields || [],
+    }));
+
     const distribution = getDistribution(
-      (reflections as Reflection[]) || [],
+      (reflectionsResult.data as Reflection[]) || [],
       frameworks,
     );
 
