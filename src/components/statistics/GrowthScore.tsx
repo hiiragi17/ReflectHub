@@ -15,7 +15,8 @@ const getScoreLevel = (score: number): { label: string; color: string } => {
 };
 
 export default function GrowthScore({ score }: GrowthScoreProps) {
-  const clamped = Math.min(Math.max(Math.round(score), 0), 100);
+  const safeScore = Number.isFinite(score) ? score : 0;
+  const clamped = Math.min(Math.max(Math.round(safeScore), 0), 100);
   const { label, color } = getScoreLevel(clamped);
 
   const radius = 56;

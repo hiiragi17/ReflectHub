@@ -30,7 +30,8 @@ export default function PeriodComparison({
 
   const Icon = isPositive ? ArrowUpRight : isNegative ? ArrowDownRight : Minus;
 
-  const rateLabel = `${change > 0 ? '+' : ''}${changeRate}%`;
+  const normalizedRate = Object.is(changeRate, -0) ? 0 : changeRate;
+  const rateLabel = `${normalizedRate > 0 ? '+' : ''}${normalizedRate}%`;
 
   return (
     <Card>
