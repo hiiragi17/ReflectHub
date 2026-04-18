@@ -7,6 +7,8 @@ import { useEffect } from 'react';
 import { PlusCircle, Calendar, BarChart3, Settings } from 'lucide-react';
 import DashboardLoading from './loading';
 import Header from '@/components/layout/Header';
+import { FadeIn } from '@/components/animations/FadeIn';
+import { SlideIn } from '@/components/animations/SlideIn';
 
 export default function DashboardPage() {
   const { user, signOut, isLoading, error } = useAuth();
@@ -69,17 +71,22 @@ export default function DashboardPage() {
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 py-8">
         {/* Welcome Message */}
-        <div className="mb-8">
+        <FadeIn className="mb-8" duration={400}>
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
             振り返りを始めましょう
           </h2>
           <p className="text-gray-600">
             3分で今週の振り返りを記録し、継続的な成長を実現しましょう。
           </p>
-        </div>
+        </FadeIn>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <SlideIn
+          direction="bottom"
+          delay={100}
+          duration={400}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
+        >
           {/* 新しい振り返り */}
           <Link href="/reflection">
             <Card className="cursor-pointer hover:shadow-md transition-shadow h-full">
@@ -126,9 +133,10 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </Link>
-        </div>
+        </SlideIn>
 
         {/* Getting Started */}
+        <FadeIn delay={200} duration={500}>
         <Card>
           <CardHeader>
             <CardTitle>はじめに</CardTitle>
@@ -173,6 +181,7 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+        </FadeIn>
       </main>
     </div>
   );
