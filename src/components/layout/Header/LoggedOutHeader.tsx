@@ -37,16 +37,17 @@ export default function LoggedOutHeader({
                 <span className="hidden sm:inline text-sm">お問い合わせ</span>
               </a>
             )}
-            <Link href="/auth" aria-label="ログインページへ移動">
-              <Button
-                variant="default"
-                size="sm"
-                className="bg-blue-600 hover:bg-blue-700"
-              >
+            <Button
+              asChild
+              variant="default"
+              size="sm"
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Link href="/auth" aria-label="ログインページへ移動">
                 <LogIn className="w-4 h-4 mr-2" aria-hidden="true" />
                 ログイン
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </nav>
         </div>
       </div>
