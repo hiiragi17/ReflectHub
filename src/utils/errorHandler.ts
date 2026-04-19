@@ -18,6 +18,8 @@ export interface AppError {
   isDev?: boolean;
 }
 
+const SESSION_ID = `session_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
 class ErrorLogger {
   private static instance: ErrorLogger;
   private logs: AppError[] = [];
@@ -54,6 +56,7 @@ class ErrorLogger {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          sessionId: SESSION_ID,
           logs: [
             {
               id: `err_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
@@ -66,7 +69,6 @@ class ErrorLogger {
                 url: typeof window !== 'undefined' ? window.location.href : '',
                 timestamp: error.timestamp,
               },
-              resolved: false,
               createdAt: error.timestamp,
             },
           ],
@@ -219,22 +221,33 @@ export async function retryOperation<T>(
 }
 
 /**
- * Execute an operation once the browser is back online.
- * Resolves immediately if already online; otherwise waits for the 'online' event.
+ * Wait until the browser is online.
+ * Resolves immediately if already online, otherwise waits for the 'online' event.
+ * An optional timeoutMs can be provided to avoid waiting indefinitely.
  */
-export function waitForOnline(): Promise<void> {
+export function waitForOnline(timeoutMs?: number): Promise<void> {
   return new Promise((resolve) => {
     if (typeof window === 'undefined' || window.navigator.onLine) {
       resolve();
       return;
     }
 
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
     const handler = () => {
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
       window.removeEventListener('online', handler);
       resolve();
     };
 
     window.addEventListener('online', handler);
+
+    if (timeoutMs !== undefined && timeoutMs > 0) {
+      timeoutId = setTimeout(() => {
+        window.removeEventListener('online', handler);
+        resolve();
+      }, timeoutMs);
+    }
   });
 }
 

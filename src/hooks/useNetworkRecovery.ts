@@ -32,14 +32,23 @@ export function useNetworkRecovery(options: UseNetworkRecoveryOptions = {}) {
   });
 
   const pendingOps = useRef<Array<() => Promise<unknown>>>([]);
+  const isOnlineRef = useRef(state.isOnline);
+
+  useEffect(() => {
+    isOnlineRef.current = state.isOnline;
+  }, [state.isOnline]);
 
   useEffect(() => {
     const handleOnline = () => {
       setState((prev) => ({ ...prev, isOnline: true }));
 
-      // Flush any pending operations
+      // Flush pending operations individually so one failure doesn't block others
       const ops = pendingOps.current.splice(0);
-      ops.forEach((op) => op());
+      ops.forEach((op) => {
+        op().catch(() => {
+          // Individual operation failures are handled by executeWithRecovery
+        });
+      });
 
       onRecovered?.();
     };
@@ -82,7 +91,7 @@ export function useNetworkRecovery(options: UseNetworkRecoveryOptions = {}) {
 
   const queueWhenOnline = useCallback(
     <T,>(operation: () => Promise<T>): Promise<T | null> => {
-      if (state.isOnline) {
+      if (isOnlineRef.current) {
         return executeWithRecovery(operation);
       }
 
@@ -93,7 +102,7 @@ export function useNetworkRecovery(options: UseNetworkRecoveryOptions = {}) {
         });
       });
     },
-    [state.isOnline, executeWithRecovery]
+    [executeWithRecovery]
   );
 
   return {

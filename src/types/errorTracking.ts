@@ -22,6 +22,7 @@ export interface ErrorTrackingContext {
   url: string;
 }
 
+/** Ingest DTO — sent from the client to the API. */
 export interface ErrorLogEntry {
   id: string;
   userId?: string;
@@ -32,10 +33,14 @@ export interface ErrorLogEntry {
   statusCode?: number;
   severity: ErrorSeverity;
   metadata?: Record<string, unknown>;
+  createdAt: number;
+}
+
+/** Persisted record — returned by the API after storage. */
+export interface PersistedErrorLog extends ErrorLogEntry {
   resolved: boolean;
   resolvedAt?: number;
   resolvedBy?: string;
-  createdAt: number;
 }
 
 export interface ErrorLogBatch {
@@ -57,7 +62,7 @@ export interface ErrorLogApiResponse {
 }
 
 export interface ErrorLogListResponse {
-  logs: ErrorLogEntry[];
+  logs: PersistedErrorLog[];
   total: number;
   page: number;
   perPage: number;

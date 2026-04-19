@@ -37,11 +37,11 @@ describe('ErrorLoggingService', () => {
 
   it('logs an error to the queue', async () => {
     const { errorLoggingService } = await import('./errorLoggingService');
-    const initialLength = errorLoggingService.getQueue().length;
+    errorLoggingService.clearQueue();
 
     errorLoggingService.log('テストエラー', 'network', undefined, { page: '/test' });
 
-    expect(errorLoggingService.getQueue().length).toBeGreaterThanOrEqual(initialLength);
+    expect(errorLoggingService.getQueue()).toHaveLength(1);
   });
 
   it('clears the queue', async () => {

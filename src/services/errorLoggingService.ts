@@ -1,6 +1,3 @@
-import { errorTrackingClient } from '@/lib/errorTracking/client';
-import type { ErrorCategory } from '@/types/errorTracking';
-
 export interface ErrorLog {
   id: string;
   timestamp: number;
@@ -40,10 +37,6 @@ class ErrorLoggingService {
     return ErrorLoggingService.instance;
   }
 
-  setUserId(userId: string | undefined): void {
-    errorTrackingClient.setUserId(userId);
-  }
-
   log(
     message: string,
     type: string,
@@ -70,13 +63,6 @@ class ErrorLoggingService {
     if (this.queue.length >= this.maxQueueSize) {
       this.flush();
     }
-
-    // Also forward to the new tracking client
-    errorTrackingClient.capture(message, type as ErrorCategory, {
-      stack,
-      statusCode,
-      metadata,
-    });
   }
 
   async flush(): Promise<void> {
@@ -89,7 +75,7 @@ class ErrorLoggingService {
       await fetch('/api/logs/errors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ logs: logsToSend }),
+        body: JSON.stringify({ logs: logsToSend, sessionId: this.sessionId }),
       });
     } catch (error) {
       this.queue = [...logsToSend, ...this.queue];
@@ -117,8 +103,13 @@ class ErrorLoggingService {
 
 export const errorLoggingService = ErrorLoggingService.getInstance();
 
+/** Guard to prevent double-registration of global error handlers. */
+const SETUP_KEY = '__reflecthub_error_handling_registered';
+
 export function setupErrorHandling(): void {
   if (typeof window === 'undefined') return;
+  if ((window as Record<string, unknown>)[SETUP_KEY]) return;
+  (window as Record<string, unknown>)[SETUP_KEY] = true;
 
   window.addEventListener('error', (event: ErrorEvent) => {
     errorLoggingService.log(event.message, 'uncaught_error', event.error?.stack, {

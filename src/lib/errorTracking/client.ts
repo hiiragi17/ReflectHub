@@ -41,7 +41,6 @@ class ErrorTrackingClient {
   private sessionId: string = `session_${generateId()}`;
   private userId?: string;
   private flushTimerId: ReturnType<typeof setInterval> | null = null;
-  private lastFlushAt = 0;
   private rateLimitWindowMs = 60_000;
   private rateLimitMax = 30;
   private sentInWindow = 0;
@@ -51,7 +50,7 @@ class ErrorTrackingClient {
     this.loadFromStorage();
     if (typeof window !== 'undefined') {
       this.flushTimerId = setInterval(() => this.flush(), BATCH_INTERVAL_MS);
-      window.addEventListener('beforeunload', () => this.flush());
+      window.addEventListener('beforeunload', () => this.flushSync());
       window.addEventListener('online', () => this.flush());
     }
   }
@@ -93,7 +92,6 @@ class ErrorTrackingClient {
       statusCode: options?.statusCode,
       severity: getSeverity(category, options?.statusCode),
       metadata: options?.metadata,
-      resolved: false,
       createdAt: Date.now(),
     };
 
@@ -138,11 +136,25 @@ class ErrorTrackingClient {
         this.saveToStorage();
       } else {
         this.sentInWindow += batch.length;
-        this.lastFlushAt = Date.now();
       }
     } catch {
       this.queue.unshift(...batch);
       this.saveToStorage();
+    }
+  }
+
+  /** Synchronous send via sendBeacon for use during page unload. */
+  private flushSync(): void {
+    if (this.queue.length === 0 || typeof navigator === 'undefined') return;
+    const batch = this.queue.splice(0, BATCH_SIZE);
+    const payload: ErrorLogBatch = {
+      logs: batch,
+      sessionId: this.sessionId,
+      batchId: generateId(),
+      sentAt: Date.now(),
+    };
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon('/api/logs/errors', JSON.stringify(payload));
     }
   }
 
@@ -194,8 +206,13 @@ class ErrorTrackingClient {
 
 export const errorTrackingClient = ErrorTrackingClient.getInstance();
 
+/** Guard to prevent double-registration of global error handlers. */
+const TRACKING_REGISTERED_KEY = '__reflecthub_error_tracking_registered';
+
 export function setupClientErrorTracking(): void {
   if (typeof window === 'undefined') return;
+  if ((window as Record<string, unknown>)[TRACKING_REGISTERED_KEY]) return;
+  (window as Record<string, unknown>)[TRACKING_REGISTERED_KEY] = true;
 
   window.addEventListener('error', (event: ErrorEvent) => {
     errorTrackingClient.capture(event.message, 'uncaught_error', {

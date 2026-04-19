@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import type { ErrorLogBatch, ErrorLogEntry } from '@/types/errorTracking';
+import type { ErrorLogBatch, ErrorLogEntry, PersistedErrorLog } from '@/types/errorTracking';
 
 const MAX_BATCH_SIZE = 50;
+
+function parsePositiveInt(value: string | null, fallback: number): number {
+  const parsed = Number.parseInt(value ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function safeToISOString(timestamp: number): string | null {
+  const d = new Date(timestamp);
+  return Number.isFinite(d.getTime()) ? d.toISOString() : null;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,11 +29,12 @@ export async function POST(request: NextRequest) {
       data: { session },
     } = await supabase.auth.getSession();
 
-    const userId = session?.user?.id;
+    // Always use the server-verified userId; never trust client-supplied values.
+    const userId = session?.user?.id ?? null;
 
     const rows = logs.map((log) => ({
       id: log.id,
-      user_id: userId ?? log.userId ?? null,
+      user_id: userId,
       error_type: log.errorType,
       message: log.message,
       stack: log.stack ?? null,
@@ -36,13 +47,12 @@ export async function POST(request: NextRequest) {
       session_id: log.context?.sessionId ?? body.sessionId ?? null,
       metadata: log.metadata ?? null,
       resolved: false,
-      created_at: new Date(log.createdAt).toISOString(),
+      created_at: safeToISOString(log.createdAt) ?? new Date().toISOString(),
     }));
 
     const { error } = await supabase.from('error_logs').insert(rows);
 
     if (error) {
-      // Still acknowledge receipt even if DB insert fails (avoid client retry loops)
       console.error('[ErrorLogs] DB insert failed:', error.message);
       return NextResponse.json(
         { success: false, received: 0, message: 'Storage error' },
@@ -70,8 +80,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('user_id') ?? session.user.id;
-    const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
-    const perPage = Math.min(100, Math.max(1, parseInt(searchParams.get('per_page') ?? '20', 10)));
+    const page = parsePositiveInt(searchParams.get('page'), 1);
+    const perPage = Math.min(100, parsePositiveInt(searchParams.get('per_page'), 20));
     const offset = (page - 1) * perPage;
 
     // Users can only access their own logs
@@ -79,7 +89,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { data: logs, error: logsError, count } = await supabase
+    const { data: rows, error: logsError, count } = await supabase
       .from('error_logs')
       .select('*', { count: 'exact' })
       .eq('user_id', userId)
@@ -90,12 +100,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch logs' }, { status: 500 });
     }
 
-    return NextResponse.json({
-      logs: logs ?? [],
-      total: count ?? 0,
-      page,
-      perPage,
-    });
+    const logs: PersistedErrorLog[] = (rows ?? []).map((row) => ({
+      id: row.id,
+      userId: row.user_id ?? undefined,
+      errorType: row.error_type,
+      message: row.message,
+      stack: row.stack ?? undefined,
+      statusCode: row.status_code ?? undefined,
+      severity: row.severity,
+      context: {
+        page: row.page ?? '',
+        action: row.action ?? undefined,
+        userId: row.user_id ?? undefined,
+        sessionId: row.session_id ?? undefined,
+        timestamp: new Date(row.created_at).getTime(),
+        userAgent: row.user_agent ?? undefined,
+        url: row.url ?? '',
+      },
+      metadata: row.metadata ?? undefined,
+      resolved: row.resolved ?? false,
+      resolvedAt: row.resolved_at ? new Date(row.resolved_at).getTime() : undefined,
+      resolvedBy: row.resolved_by ?? undefined,
+      createdAt: new Date(row.created_at).getTime(),
+    }));
+
+    return NextResponse.json({ logs, total: count ?? 0, page, perPage });
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
