@@ -1,13 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { setupErrorHandling } from './errorLoggingService';
 
+const SETUP_KEY = '__reflecthub_error_handling_registered';
+
 describe('setupErrorHandling', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset the idempotency guard so each test starts fresh
+    delete (window as unknown as Record<string, unknown>)[SETUP_KEY];
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    delete (window as unknown as Record<string, unknown>)[SETUP_KEY];
   });
 
   it('does not throw when called in browser context', () => {
