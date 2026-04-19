@@ -157,7 +157,7 @@ export default function HistoryPage() {
         <SlideIn
           direction="bottom"
           duration={400}
-          className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8"
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8"
         >
           <div className="bg-white rounded-lg shadow-sm p-6">
             <p className="text-sm text-gray-600 mb-1">総振り返り数</p>
@@ -200,9 +200,9 @@ export default function HistoryPage() {
             </div>
           </FadeIn>
         ) : (
-          <FadeIn delay={100} duration={400} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <FadeIn delay={100} duration={400} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Calendar - Left side */}
-            <div className="lg:col-span-1">
+            <div className="md:col-span-1 lg:col-span-1">
               <Calendar
                 reflections={reflections}
                 frameworks={frameworks}
@@ -220,7 +220,7 @@ export default function HistoryPage() {
                 }
                 direction="right"
                 duration={300}
-                className="lg:col-span-2 bg-white rounded-lg shadow-sm overflow-hidden flex flex-col"
+                className="md:col-span-1 lg:col-span-2 bg-white rounded-lg shadow-sm overflow-hidden flex flex-col"
               >
                 {/* Panel Header */}
                 <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between flex-shrink-0">
