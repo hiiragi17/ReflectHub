@@ -234,8 +234,8 @@ const TRACKING_REGISTERED_KEY = '__reflecthub_error_tracking_registered';
 
 export function setupClientErrorTracking(): void {
   if (typeof window === 'undefined') return;
-  if ((window as Record<string, unknown>)[TRACKING_REGISTERED_KEY]) return;
-  (window as Record<string, unknown>)[TRACKING_REGISTERED_KEY] = true;
+  if ((window as unknown as Record<string, unknown>)[TRACKING_REGISTERED_KEY]) return;
+  (window as unknown as Record<string, unknown>)[TRACKING_REGISTERED_KEY] = true;
 
   window.addEventListener('error', (event: ErrorEvent) => {
     errorTrackingClient.capture(event.message, 'uncaught_error', {

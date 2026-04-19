@@ -2,6 +2,26 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type { ErrorLogBatch, ErrorLogEntry, PersistedErrorLog } from '@/types/errorTracking';
 
+type DbErrorLogRow = {
+  id: string;
+  user_id: string | null;
+  error_type: string;
+  message: string;
+  stack: string | null;
+  status_code: number | null;
+  severity: string;
+  page: string | null;
+  action: string | null;
+  url: string | null;
+  user_agent: string | null;
+  session_id: string | null;
+  metadata: Record<string, unknown> | null;
+  resolved: boolean | null;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  created_at: string;
+};
+
 const MAX_BATCH_SIZE = 50;
 
 function parsePositiveInt(value: string | null, fallback: number): number {
@@ -124,7 +144,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch logs' }, { status: 500 });
     }
 
-    const logs: PersistedErrorLog[] = (rows ?? []).map((row) => ({
+    const logs: PersistedErrorLog[] = ((rows ?? []) as DbErrorLogRow[]).map((row) => ({
       id: row.id,
       userId: row.user_id ?? undefined,
       errorType: row.error_type,

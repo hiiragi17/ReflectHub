@@ -108,8 +108,8 @@ const SETUP_KEY = '__reflecthub_error_handling_registered';
 
 export function setupErrorHandling(): void {
   if (typeof window === 'undefined') return;
-  if ((window as Record<string, unknown>)[SETUP_KEY]) return;
-  (window as Record<string, unknown>)[SETUP_KEY] = true;
+  if ((window as unknown as Record<string, unknown>)[SETUP_KEY]) return;
+  (window as unknown as Record<string, unknown>)[SETUP_KEY] = true;
 
   window.addEventListener('error', (event: ErrorEvent) => {
     errorLoggingService.log(event.message, 'uncaught_error', event.error?.stack, {
