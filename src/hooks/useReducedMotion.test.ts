@@ -1,6 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useReducedMotion } from './useReducedMotion';
+
+const originalMatchMedia = window.matchMedia;
 
 const createMock = (matches: boolean) => ({
   matches,
@@ -16,6 +18,11 @@ const createMock = (matches: boolean) => ({
 describe('useReducedMotion', () => {
   beforeEach(() => {
     window.matchMedia = vi.fn(() => createMock(false)) as unknown as typeof window.matchMedia;
+  });
+
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia;
+    vi.restoreAllMocks();
   });
 
   it('returns false when prefers-reduced-motion is not set', () => {

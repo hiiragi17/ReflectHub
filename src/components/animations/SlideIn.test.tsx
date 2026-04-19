@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import { SlideIn } from './SlideIn';
 
+const originalMatchMedia = window.matchMedia;
+
 const mockMatchMedia = (matches: boolean) => {
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
     matches,
@@ -22,7 +24,10 @@ describe('SlideIn', () => {
   });
 
   afterEach(() => {
+    vi.runOnlyPendingTimers();
     vi.useRealTimers();
+    window.matchMedia = originalMatchMedia;
+    vi.restoreAllMocks();
   });
 
   it('renders children', () => {
