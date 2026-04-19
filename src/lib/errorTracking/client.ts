@@ -112,9 +112,11 @@ class ErrorTrackingClient {
 
   async flush(): Promise<void> {
     if (this.queue.length === 0) return;
-    if (!this.checkRateLimit()) return;
+    const allowed = this.getRemainingRateLimit();
+    if (allowed <= 0) return;
 
-    const batch: ErrorLogEntry[] = this.queue.splice(0, BATCH_SIZE);
+    const batchSize = Math.min(BATCH_SIZE, allowed);
+    const batch: ErrorLogEntry[] = this.queue.splice(0, batchSize);
     this.saveToStorage();
 
     const payload: ErrorLogBatch = {
@@ -145,26 +147,34 @@ class ErrorTrackingClient {
 
   /** Synchronous send via sendBeacon for use during page unload. */
   private flushSync(): void {
-    if (this.queue.length === 0 || typeof navigator === 'undefined') return;
-    const batch = this.queue.splice(0, BATCH_SIZE);
+    if (
+      this.queue.length === 0 ||
+      typeof navigator === 'undefined' ||
+      !navigator.sendBeacon
+    ) {
+      return;
+    }
+    const batch = this.queue.slice(0, BATCH_SIZE);
     const payload: ErrorLogBatch = {
       logs: batch,
       sessionId: this.sessionId,
       batchId: generateId(),
       sentAt: Date.now(),
     };
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon('/api/logs/errors', JSON.stringify(payload));
+    const sent = navigator.sendBeacon('/api/logs/errors', JSON.stringify(payload));
+    if (sent) {
+      this.queue.splice(0, batch.length);
+      this.saveToStorage();
     }
   }
 
-  private checkRateLimit(): boolean {
+  private getRemainingRateLimit(): number {
     const now = Date.now();
     if (now - this.windowStartAt > this.rateLimitWindowMs) {
       this.sentInWindow = 0;
       this.windowStartAt = now;
     }
-    return this.sentInWindow < this.rateLimitMax;
+    return Math.max(0, this.rateLimitMax - this.sentInWindow);
   }
 
   private saveToStorage(): void {

@@ -15,9 +15,14 @@ function safeToISOString(timestamp: number): string | null {
 }
 
 export async function POST(request: NextRequest) {
+  let body: ErrorLogBatch;
   try {
-    const body = (await request.json()) as ErrorLogBatch;
+    body = (await request.json()) as ErrorLogBatch;
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  }
 
+  try {
     if (!body.logs || !Array.isArray(body.logs)) {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
