@@ -10,8 +10,8 @@ import { reflectionService } from '@/services/reflectionService';
 import type { Reflection } from '@/types/reflection';
 import type { Framework } from '@/types/framework';
 import { X, ChevronRight } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
-import { ja } from 'date-fns/locale';
+import { FadeIn } from '@/components/animations/FadeIn';
+import { SlideIn } from '@/components/animations/SlideIn';
 
 interface ReflectionDetail {
   date: Date;
@@ -154,7 +154,11 @@ export default function HistoryPage() {
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+        <SlideIn
+          direction="bottom"
+          duration={400}
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8"
+        >
           <div className="bg-white rounded-lg shadow-sm p-6">
             <p className="text-sm text-gray-600 mb-1">総振り返り数</p>
             <p className="text-3xl font-bold text-gray-900">{reflections.length}</p>
@@ -180,21 +184,23 @@ export default function HistoryPage() {
               {new Set(reflections.map((r) => r.reflection_date)).size}
             </p>
           </div>
-        </div>
+        </SlideIn>
 
         {/* Calendar and Detail View - Side by side */}
         {reflections.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-            <p className="text-gray-600 mb-4">まだ振り返りがありません</p>
-            <button
-              onClick={() => router.push('/reflection')}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              最初の振り返りを作成
-            </button>
-          </div>
+          <FadeIn duration={400}>
+            <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+              <p className="text-gray-600 mb-4">まだ振り返りがありません</p>
+              <button
+                onClick={() => router.push('/reflection')}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                最初の振り返りを作成
+              </button>
+            </div>
+          </FadeIn>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <FadeIn delay={100} duration={400} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Calendar - Left side */}
             <div className="md:col-span-1 lg:col-span-1">
               <Calendar
@@ -206,7 +212,16 @@ export default function HistoryPage() {
 
             {/* Reflection Detail Panel - Right side */}
             {selectedDetail && (
-              <div className="md:col-span-1 lg:col-span-2 bg-white rounded-lg shadow-sm overflow-hidden flex flex-col">
+              <SlideIn
+                key={
+                  selectedDetail.date instanceof Date && !isNaN(selectedDetail.date.getTime())
+                    ? String(selectedDetail.date.getTime())
+                    : 'detail'
+                }
+                direction="right"
+                duration={300}
+                className="md:col-span-1 lg:col-span-2 bg-white rounded-lg shadow-sm overflow-hidden flex flex-col"
+              >
                 {/* Panel Header */}
                 <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between flex-shrink-0">
                   <h2 className="text-xl font-bold text-gray-900">
@@ -302,9 +317,9 @@ export default function HistoryPage() {
                     );
                   })}
                 </div>
-              </div>
+              </SlideIn>
             )}
-          </div>
+          </FadeIn>
         )}
       </main>
     </div>
