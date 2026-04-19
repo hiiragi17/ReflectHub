@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
         typeof v.errorType === 'string' &&
         typeof v.message === 'string' &&
         typeof v.createdAt === 'number' &&
+        typeof v.severity === 'string' &&
         !!v.context &&
         typeof v.context === 'object'
       );
