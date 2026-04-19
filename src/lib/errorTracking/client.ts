@@ -28,7 +28,11 @@ function getSeverity(category: ErrorCategory, statusCode?: number): ErrorSeverit
 function buildContext(override?: Partial<ErrorTrackingContext>): ErrorTrackingContext {
   return {
     page: typeof window !== 'undefined' ? window.location.pathname : '',
-    url: typeof window !== 'undefined' ? window.location.href : '',
+    // Use origin+pathname to avoid capturing sensitive query params / hash fragments by default.
+    url:
+      typeof window !== 'undefined'
+        ? `${window.location.origin}${window.location.pathname}`
+        : '',
     userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
     timestamp: Date.now(),
     ...override,
@@ -45,6 +49,7 @@ class ErrorTrackingClient {
   private rateLimitMax = 30;
   private sentInWindow = 0;
   private windowStartAt = 0;
+  private isFlushing = false;
 
   private constructor() {
     this.loadFromStorage();
@@ -111,22 +116,28 @@ class ErrorTrackingClient {
   }
 
   async flush(): Promise<void> {
-    if (this.queue.length === 0) return;
-    const allowed = this.getRemainingRateLimit();
-    if (allowed <= 0) return;
-
-    const batchSize = Math.min(BATCH_SIZE, allowed);
-    const batch: ErrorLogEntry[] = this.queue.splice(0, batchSize);
-    this.saveToStorage();
-
-    const payload: ErrorLogBatch = {
-      logs: batch,
-      sessionId: this.sessionId,
-      batchId: generateId(),
-      sentAt: Date.now(),
-    };
-
+    if (this.isFlushing || this.queue.length === 0) return;
+    this.isFlushing = true;
+    let batch: ErrorLogEntry[] = [];
     try {
+      const allowed = this.getRemainingRateLimit();
+      if (allowed <= 0) return;
+
+      const batchSize = Math.min(BATCH_SIZE, allowed, this.queue.length);
+      if (batchSize <= 0) return;
+
+      // Reserve quota before the async boundary so concurrent calls see it.
+      this.sentInWindow += batchSize;
+      batch = this.queue.splice(0, batchSize);
+      this.saveToStorage();
+
+      const payload: ErrorLogBatch = {
+        logs: batch,
+        sessionId: this.sessionId,
+        batchId: generateId(),
+        sentAt: Date.now(),
+      };
+
       const res = await fetch('/api/logs/errors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -134,14 +145,16 @@ class ErrorTrackingClient {
       });
 
       if (!res.ok) {
+        this.sentInWindow = Math.max(0, this.sentInWindow - batch.length);
         this.queue.unshift(...batch);
         this.saveToStorage();
-      } else {
-        this.sentInWindow += batch.length;
       }
     } catch {
+      this.sentInWindow = Math.max(0, this.sentInWindow - batch.length);
       this.queue.unshift(...batch);
       this.saveToStorage();
+    } finally {
+      this.isFlushing = false;
     }
   }
 

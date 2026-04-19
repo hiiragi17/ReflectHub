@@ -27,7 +27,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
 
-    const logs: ErrorLogEntry[] = body.logs.slice(0, MAX_BATCH_SIZE);
+    const candidateLogs = body.logs.slice(0, MAX_BATCH_SIZE);
+
+    const isValidLog = (log: unknown): log is ErrorLogEntry => {
+      if (!log || typeof log !== 'object') return false;
+      const v = log as Partial<ErrorLogEntry>;
+      return (
+        typeof v.id === 'string' &&
+        typeof v.errorType === 'string' &&
+        typeof v.message === 'string' &&
+        typeof v.createdAt === 'number' &&
+        !!v.context &&
+        typeof v.context === 'object'
+      );
+    };
+
+    if (!candidateLogs.every(isValidLog)) {
+      return NextResponse.json({ error: 'Invalid log entry' }, { status: 400 });
+    }
+
+    const logs: ErrorLogEntry[] = candidateLogs;
 
     const supabase = await createClient();
     const {
