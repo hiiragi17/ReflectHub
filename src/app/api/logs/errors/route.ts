@@ -1,15 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import type { ErrorLogBatch, ErrorLogEntry, PersistedErrorLog } from '@/types/errorTracking';
+import type {
+  ErrorCategory,
+  ErrorLogBatch,
+  ErrorLogEntry,
+  ErrorSeverity,
+  PersistedErrorLog,
+} from '@/types/errorTracking';
 
 type DbErrorLogRow = {
   id: string;
   user_id: string | null;
-  error_type: string;
+  error_type: ErrorCategory;
   message: string;
   stack: string | null;
   status_code: number | null;
-  severity: string;
+  severity: ErrorSeverity;
   page: string | null;
   action: string | null;
   url: string | null;
