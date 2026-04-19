@@ -14,10 +14,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { endpoint, p256dh, auth, user_agent, browser } = body;
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
 
-    if (!endpoint || !p256dh || !auth) {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json(
+        { error: 'endpoint, p256dh, auth は必須です。' },
+        { status: 400 },
+      );
+    }
+
+    const { endpoint, p256dh, auth, user_agent, browser } = body as Record<string, unknown>;
+
+    if (
+      typeof endpoint !== 'string' ||
+      typeof p256dh !== 'string' ||
+      typeof auth !== 'string' ||
+      endpoint.trim() === '' ||
+      p256dh.trim() === '' ||
+      auth.trim() === ''
+    ) {
       return NextResponse.json(
         { error: 'endpoint, p256dh, auth は必須です。' },
         { status: 400 },
@@ -37,10 +57,9 @@ export async function POST(request: NextRequest) {
           endpoint,
           p256dh,
           auth,
-          user_agent: user_agent ?? null,
-          browser: browser ?? null,
+          user_agent: typeof user_agent === 'string' ? user_agent : null,
+          browser: typeof browser === 'string' ? browser : null,
           is_active: true,
-          updated_at: new Date().toISOString(),
         },
         { onConflict: 'user_id,endpoint' },
       )

@@ -36,7 +36,6 @@ export const pushService = {
           user_agent: request.user_agent,
           browser: request.browser,
           is_active: true,
-          updated_at: new Date().toISOString(),
         },
         { onConflict: 'user_id,endpoint' },
       )
@@ -59,7 +58,7 @@ export const pushService = {
 
     const { error } = await supabase
       .from('push_subscriptions')
-      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .update({ is_active: false })
       .eq('user_id', userId)
       .eq('endpoint', endpoint);
 

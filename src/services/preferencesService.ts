@@ -13,31 +13,14 @@ const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
 };
 
 export const preferencesService = {
-  async getPreferences(userId: string): Promise<UserPreferences> {
+  async _verifyAuth(userId: string): Promise<void> {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-
     if (authError || !user || user.id !== userId) {
       throw { code: 'AUTH_ERROR', message: '認証されていません。ログインしてください。' };
     }
-
-    const { data, error } = await supabase
-      .from('user_preferences')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        // レコードが存在しない場合はデフォルト値で作成
-        return this.createDefaultPreferences(userId);
-      }
-      throw { code: 'DB_ERROR', message: error.message };
-    }
-
-    return data as UserPreferences;
   },
 
-  async createDefaultPreferences(userId: string): Promise<UserPreferences> {
+  async _createDefaultPreferences(userId: string): Promise<UserPreferences> {
     const { data, error } = await supabase
       .from('user_preferences')
       .insert({
@@ -56,21 +39,37 @@ export const preferencesService = {
     return data as UserPreferences;
   },
 
+  async _fetchOrCreate(userId: string): Promise<UserPreferences> {
+    const { data, error } = await supabase
+      .from('user_preferences')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return this._createDefaultPreferences(userId);
+      }
+      throw { code: 'DB_ERROR', message: error.message };
+    }
+
+    return data as UserPreferences;
+  },
+
+  async getPreferences(userId: string): Promise<UserPreferences> {
+    await this._verifyAuth(userId);
+    return this._fetchOrCreate(userId);
+  },
+
   async updatePreferences(
     userId: string,
     updates: UpdateUserPreferencesRequest,
   ): Promise<UserPreferences> {
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    await this._verifyAuth(userId);
 
-    if (authError || !user || user.id !== userId) {
-      throw { code: 'AUTH_ERROR', message: '認証されていません。ログインしてください。' };
-    }
+    const current = await this._fetchOrCreate(userId);
 
-    const current = await this.getPreferences(userId);
-
-    const merged: Partial<UserPreferences> = {
-      updated_at: new Date().toISOString(),
-    };
+    const merged: Partial<UserPreferences> = {};
 
     if (updates.pwa_install_dismissed !== undefined) {
       merged.pwa_install_dismissed = updates.pwa_install_dismissed;

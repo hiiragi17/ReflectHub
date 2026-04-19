@@ -77,23 +77,46 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { pwa_install_dismissed, timezone, notification_preferences } = body;
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
 
-    // 既存設定を取得
-    const { data: existing } = await supabase
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    }
+
+    const { pwa_install_dismissed, timezone, notification_preferences } =
+      body as Record<string, unknown>;
+
+    // 既存設定を取得（エラーを明示的に処理する）
+    const { data: existing, error: existingError } = await supabase
       .from('user_preferences')
       .select('*')
       .eq('user_id', user.id)
       .single();
 
-    const updates: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    };
+    if (existingError && existingError.code !== 'PGRST116') {
+      return NextResponse.json(
+        { error: 'Failed to fetch preferences' },
+        { status: 500 },
+      );
+    }
+
+    const updates: Record<string, unknown> = {};
 
     if (pwa_install_dismissed !== undefined) {
-      updates.pwa_install_dismissed = Boolean(pwa_install_dismissed);
+      if (typeof pwa_install_dismissed !== 'boolean') {
+        return NextResponse.json(
+          { error: 'pwa_install_dismissed は boolean である必要があります。' },
+          { status: 400 },
+        );
+      }
+      updates.pwa_install_dismissed = pwa_install_dismissed;
     }
+
     if (timezone !== undefined) {
       if (typeof timezone !== 'string' || timezone.trim() === '') {
         return NextResponse.json(
@@ -103,7 +126,18 @@ export async function PUT(request: NextRequest) {
       }
       updates.timezone = timezone.trim();
     }
+
     if (notification_preferences !== undefined) {
+      if (
+        typeof notification_preferences !== 'object' ||
+        notification_preferences === null ||
+        Array.isArray(notification_preferences)
+      ) {
+        return NextResponse.json(
+          { error: 'notification_preferences はオブジェクトである必要があります。' },
+          { status: 400 },
+        );
+      }
       const current =
         existing?.notification_preferences ?? DEFAULT_PREFERENCES.notification_preferences;
       updates.notification_preferences = { ...current, ...notification_preferences };

@@ -139,6 +139,22 @@ describe('pushService', () => {
         code: 'AUTH_ERROR',
       });
     });
+
+    it('throws DB_ERROR when database update fails', async () => {
+      vi.mocked(supabase.auth.getUser).mockResolvedValue({
+        data: { user: { id: USER_ID } },
+        error: null,
+      } as any);
+
+      const eqInner = vi.fn().mockResolvedValue({ error: { message: 'Update failed' } });
+      const eqOuter = vi.fn().mockReturnValue({ eq: eqInner });
+      const update = vi.fn().mockReturnValue({ eq: eqOuter });
+      vi.mocked(supabase.from).mockReturnValue({ update } as any);
+
+      await expect(pushService.unsubscribe(USER_ID, ENDPOINT)).rejects.toMatchObject({
+        code: 'DB_ERROR',
+      });
+    });
   });
 
   describe('getActiveSubscriptions', () => {

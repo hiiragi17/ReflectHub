@@ -162,5 +162,35 @@ describe('preferencesService', () => {
         preferencesService.updatePreferences(USER_ID, { pwa_install_dismissed: true }),
       ).rejects.toMatchObject({ code: 'AUTH_ERROR' });
     });
+
+    it('throws DB_ERROR when update fails', async () => {
+      vi.mocked(supabase.auth.getUser).mockResolvedValue({
+        data: { user: { id: USER_ID } },
+        error: null,
+      } as any);
+
+      const selectChain = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: mockPreferences, error: null }),
+      };
+      const updateChain = {
+        update: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({ data: null, error: { message: 'Update failed' } }),
+            }),
+          }),
+        }),
+      };
+
+      vi.mocked(supabase.from)
+        .mockReturnValueOnce(selectChain as any)
+        .mockReturnValueOnce(updateChain as any);
+
+      await expect(
+        preferencesService.updatePreferences(USER_ID, { pwa_install_dismissed: true }),
+      ).rejects.toMatchObject({ code: 'DB_ERROR' });
+    });
   });
 });

@@ -13,10 +13,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { endpoint } = body;
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
 
-    if (!endpoint || typeof endpoint !== 'string') {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json({ error: 'endpoint は必須です。' }, { status: 400 });
+    }
+
+    const { endpoint } = body as { endpoint?: unknown };
+
+    if (typeof endpoint !== 'string' || endpoint.trim() === '') {
       return NextResponse.json(
         { error: 'endpoint は必須です。' },
         { status: 400 },
@@ -25,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     const { error } = await supabase
       .from('push_subscriptions')
-      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .update({ is_active: false })
       .eq('user_id', user.id)
       .eq('endpoint', endpoint);
 
