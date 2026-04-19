@@ -20,18 +20,22 @@ CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_user_endpoint_idx
 ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
 
 -- ユーザーは自分のサブスクリプションのみ参照・操作可能
+DROP POLICY IF EXISTS "Users can view own push subscriptions" ON push_subscriptions;
 CREATE POLICY "Users can view own push subscriptions"
   ON push_subscriptions FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own push subscriptions" ON push_subscriptions;
 CREATE POLICY "Users can insert own push subscriptions"
   ON push_subscriptions FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own push subscriptions" ON push_subscriptions;
 CREATE POLICY "Users can update own push subscriptions"
   ON push_subscriptions FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own push subscriptions" ON push_subscriptions;
 CREATE POLICY "Users can delete own push subscriptions"
   ON push_subscriptions FOR DELETE
   USING (auth.uid() = user_id);
@@ -70,18 +74,22 @@ CREATE TABLE IF NOT EXISTS user_preferences (
 -- RLS 有効化
 ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own preferences" ON user_preferences;
 CREATE POLICY "Users can view own preferences"
   ON user_preferences FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own preferences" ON user_preferences;
 CREATE POLICY "Users can insert own preferences"
   ON user_preferences FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own preferences" ON user_preferences;
 CREATE POLICY "Users can update own preferences"
   ON user_preferences FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own preferences" ON user_preferences;
 CREATE POLICY "Users can delete own preferences"
   ON user_preferences FOR DELETE
   USING (auth.uid() = user_id);

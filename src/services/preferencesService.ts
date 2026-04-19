@@ -33,6 +33,19 @@ export const preferencesService = {
       .single();
 
     if (error) {
+      // UNIQUE 制約違反 = 別リクエストが先に作成済み → 再フェッチ
+      if (error.code === '23505') {
+        const { data: existing, error: fetchError } = await supabase
+          .from('user_preferences')
+          .select('*')
+          .eq('user_id', userId)
+          .single();
+
+        if (fetchError) {
+          throw { code: 'DB_ERROR', message: fetchError.message };
+        }
+        return existing as UserPreferences;
+      }
       throw { code: 'DB_ERROR', message: error.message };
     }
 

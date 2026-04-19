@@ -59,6 +59,18 @@ describe('pushService', () => {
 
       expect(result).toEqual(mockSubscription);
       expect(supabase.from).toHaveBeenCalledWith('push_subscriptions');
+      expect(mockChain.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_id: USER_ID,
+          endpoint: ENDPOINT,
+          p256dh: P256DH,
+          auth: AUTH,
+          is_active: true,
+        }),
+        { onConflict: 'user_id,endpoint' },
+      );
+      expect(mockChain.select).toHaveBeenCalled();
+      expect(mockChain.single).toHaveBeenCalled();
     });
 
     it('throws AUTH_ERROR when user is not authenticated', async () => {
@@ -127,6 +139,9 @@ describe('pushService', () => {
       vi.mocked(supabase.from).mockReturnValue({ update } as any);
 
       await expect(pushService.unsubscribe(USER_ID, ENDPOINT)).resolves.toBeUndefined();
+      expect(update).toHaveBeenCalledWith({ is_active: false });
+      expect(eqOuter).toHaveBeenCalledWith('user_id', USER_ID);
+      expect(eqInner).toHaveBeenCalledWith('endpoint', ENDPOINT);
     });
 
     it('throws AUTH_ERROR when not authenticated', async () => {
@@ -174,6 +189,8 @@ describe('pushService', () => {
       const result = await pushService.getActiveSubscriptions(USER_ID);
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe('sub-1');
+      expect(mockChain.eq).toHaveBeenCalledWith('is_active', true);
+      expect(mockChain.order).toHaveBeenCalledWith('created_at', { ascending: false });
     });
 
     it('returns empty array when no subscriptions exist', async () => {

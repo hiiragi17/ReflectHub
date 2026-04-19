@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type { NotificationPreferences } from '@/types/push';
+import { validateNotificationPreferences } from '@/lib/push/validation';
 
 const DEFAULT_PREFERENCES = {
   pwa_install_dismissed: false,
@@ -12,6 +13,15 @@ const DEFAULT_PREFERENCES = {
     achievement_alerts: true,
   } as NotificationPreferences,
 };
+
+async function refetchPreferences(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
+  const { data, error } = await supabase
+    .from('user_preferences')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+  return { data, error };
+}
 
 export async function GET() {
   try {
@@ -41,6 +51,14 @@ export async function GET() {
           .single();
 
         if (createError) {
+          // 同時リクエストで先に作成済みの場合は再フェッチ
+          if (createError.code === '23505') {
+            const { data: refetched, error: refetchError } = await refetchPreferences(supabase, user.id);
+            if (refetchError) {
+              return NextResponse.json({ error: 'Failed to fetch preferences' }, { status: 500 });
+            }
+            return NextResponse.json({ preferences: refetched });
+          }
           return NextResponse.json(
             { error: 'Failed to create preferences' },
             { status: 500 },
@@ -138,6 +156,12 @@ export async function PUT(request: NextRequest) {
           { status: 400 },
         );
       }
+      const validationError = validateNotificationPreferences(
+        notification_preferences as Record<string, unknown>,
+      );
+      if (validationError) {
+        return NextResponse.json({ error: validationError }, { status: 400 });
+      }
       const current =
         existing?.notification_preferences ?? DEFAULT_PREFERENCES.notification_preferences;
       updates.notification_preferences = { ...current, ...notification_preferences };
@@ -173,6 +197,20 @@ export async function PUT(request: NextRequest) {
       .single();
 
     if (error) {
+      // 同時リクエストで先に作成済みの場合は更新に切り替え
+      if (error.code === '23505') {
+        const { data: updated, error: updateError } = await supabase
+          .from('user_preferences')
+          .update(updates)
+          .eq('user_id', user.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 });
+        }
+        return NextResponse.json({ preferences: updated });
+      }
       return NextResponse.json(
         { error: 'Failed to create preferences' },
         { status: 500 },
