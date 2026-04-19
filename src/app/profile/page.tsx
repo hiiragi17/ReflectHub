@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { ProfileCard } from '@/components/profile/ProfileCard';
 import Header from '@/components/layout/Header';
 import DashboardLoading from '../dashboard/loading';
+import { FadeIn } from '@/components/animations/FadeIn';
 
 export default function ProfilePage() {
   const { user, signOut, isLoading, error } = useAuth();
@@ -97,11 +98,13 @@ export default function ProfilePage() {
           </div>
         )}
 
-        <ProfileCard
-          user={user}
-          onUpdateProfile={handleUpdateProfile}
-          isUpdating={isUpdating}
-        />
+        <FadeIn duration={400}>
+          <ProfileCard
+            user={user}
+            onUpdateProfile={handleUpdateProfile}
+            isUpdating={isUpdating}
+          />
+        </FadeIn>
       </main>
     </div>
   );
