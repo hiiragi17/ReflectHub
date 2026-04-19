@@ -1,8 +1,3 @@
-/**
- * Error handling utility
- * Provides unified error handling across the application
- */
-
 export enum ErrorType {
   NETWORK = 'NETWORK',
   OFFLINE = 'OFFLINE',
@@ -23,9 +18,6 @@ export interface AppError {
   isDev?: boolean;
 }
 
-/**
- * Error logger for collecting error information
- */
 class ErrorLogger {
   private static instance: ErrorLogger;
   private logs: AppError[] = [];
@@ -43,30 +35,42 @@ class ErrorLogger {
   log(error: AppError): void {
     this.logs.push(error);
 
-    // Keep only the latest logs
     if (this.logs.length > this.maxLogs) {
       this.logs.shift();
     }
 
-    // Log to console in development
     if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       console.error('[AppError]', error);
     }
 
-    // Send to external service in production (optional)
     if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
       this.sendToServer(error);
     }
   }
 
   private sendToServer(error: AppError): void {
-    // TODO: Implement server-side error logging
-    // Example: Send to Sentry, LogRocket, or custom endpoint
     try {
       fetch('/api/logs/errors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(error),
+        body: JSON.stringify({
+          logs: [
+            {
+              id: `err_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+              errorType: error.type.toLowerCase(),
+              message: error.message,
+              statusCode: error.statusCode,
+              severity: error.type === ErrorType.SERVER ? 'critical' : 'error',
+              context: {
+                page: typeof window !== 'undefined' ? window.location.pathname : '',
+                url: typeof window !== 'undefined' ? window.location.href : '',
+                timestamp: error.timestamp,
+              },
+              resolved: false,
+              createdAt: error.timestamp,
+            },
+          ],
+        }),
       }).catch(() => {
         // Silently fail if logging fails
       });
@@ -84,16 +88,11 @@ class ErrorLogger {
   }
 }
 
-/**
- * Classify error type based on error object or status code
- */
 function classifyError(error: unknown, statusCode?: number): ErrorType {
-  // Check for offline
   if (typeof window !== 'undefined' && !window.navigator.onLine) {
     return ErrorType.OFFLINE;
   }
 
-  // Check status code
   if (statusCode) {
     if (statusCode === 401) return ErrorType.AUTHENTICATION;
     if (statusCode === 403) return ErrorType.AUTHORIZATION;
@@ -102,7 +101,6 @@ function classifyError(error: unknown, statusCode?: number): ErrorType {
     if (statusCode >= 400) return ErrorType.VALIDATION;
   }
 
-  // Check error message
   if (error instanceof Error) {
     const message = error.message.toLowerCase();
     if (
@@ -124,9 +122,6 @@ function classifyError(error: unknown, statusCode?: number): ErrorType {
   return ErrorType.UNKNOWN;
 }
 
-/**
- * Get user-friendly error message
- */
 export function getErrorMessage(error: AppError): string {
   switch (error.type) {
     case ErrorType.NETWORK:
@@ -149,9 +144,6 @@ export function getErrorMessage(error: AppError): string {
   }
 }
 
-/**
- * Create an AppError from an unknown error source
- */
 export function createAppError(
   error: unknown,
   statusCode?: number,
@@ -175,15 +167,11 @@ export function createAppError(
     isDev: process.env.NODE_ENV === 'development',
   };
 
-  // Log the error
   ErrorLogger.getInstance().log(appError);
 
   return appError;
 }
 
-/**
- * Handle network request errors
- */
 export async function handleFetchError(
   response: Response,
   customMessage?: string
@@ -205,12 +193,12 @@ export async function handleFetchError(
 }
 
 /**
- * Retry logic for failed operations
+ * Retry with exponential backoff: 1s → 2s → 4s
  */
 export async function retryOperation<T>(
   operation: () => Promise<T>,
   maxRetries: number = 3,
-  delayMs: number = 1000
+  initialDelayMs: number = 1000
 ): Promise<T> {
   let lastError: Error | undefined;
 
@@ -221,8 +209,7 @@ export async function retryOperation<T>(
       lastError = error instanceof Error ? error : new Error(String(error));
 
       if (attempt < maxRetries) {
-        // Exponential backoff
-        const delay = delayMs * Math.pow(2, attempt - 1);
+        const delay = initialDelayMs * Math.pow(2, attempt - 1);
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
@@ -232,6 +219,63 @@ export async function retryOperation<T>(
 }
 
 /**
- * Export error logger instance
+ * Execute an operation once the browser is back online.
+ * Resolves immediately if already online; otherwise waits for the 'online' event.
  */
+export function waitForOnline(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || window.navigator.onLine) {
+      resolve();
+      return;
+    }
+
+    const handler = () => {
+      window.removeEventListener('online', handler);
+      resolve();
+    };
+
+    window.addEventListener('online', handler);
+  });
+}
+
+/**
+ * Retry an operation, automatically waiting for network connectivity if offline.
+ * Uses exponential backoff (1s → 2s → 4s) for network/offline errors.
+ */
+export async function retryWithNetworkRecovery<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  initialDelayMs: number = 1000
+): Promise<T> {
+  let lastError: Error | undefined;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      if (typeof window !== 'undefined' && !window.navigator.onLine) {
+        await waitForOnline();
+      }
+      return await operation();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      const errorType = classifyError(error);
+
+      const isRecoverable =
+        errorType === ErrorType.NETWORK ||
+        errorType === ErrorType.OFFLINE ||
+        errorType === ErrorType.SERVER;
+
+      if (!isRecoverable || attempt >= maxRetries) break;
+
+      if (errorType === ErrorType.OFFLINE) {
+        await waitForOnline();
+      } else {
+        const delay = initialDelayMs * Math.pow(2, attempt - 1);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw lastError || new Error('Operation failed');
+}
+
 export const errorLogger = ErrorLogger.getInstance();
