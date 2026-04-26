@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   calculateBasicStats,
   calculateStreak,
+  calculateWeeklyStreak,
+  buildWeeklyHeatmap,
   calculateFrameworkDistribution,
   calculateTrends,
   calculateGrowthScore,
@@ -144,6 +146,129 @@ describe('analyticsService', () => {
       const result = calculateStreak(reflections, now);
       expect(result.totalActiveDays).toBe(1);
       expect(result.currentStreak).toBe(1);
+    });
+  });
+
+  describe('calculateWeeklyStreak', () => {
+    it('returns zero for empty data', () => {
+      expect(calculateWeeklyStreak([], now)).toEqual({
+        currentStreak: 0,
+        bestStreak: 0,
+        totalActiveWeeks: 0,
+      });
+    });
+
+    it('counts a single week as a 1-week streak', () => {
+      // Current week (Mon 2026-04-13 ~ Sun 2026-04-19)
+      const reflections = [
+        buildReflection({ id: '1', reflection_date: '2026-04-18' }),
+      ];
+      const result = calculateWeeklyStreak(reflections, now);
+      expect(result).toEqual({
+        currentStreak: 1,
+        bestStreak: 1,
+        totalActiveWeeks: 1,
+      });
+    });
+
+    it('groups multiple reflections in the same week as one active week', () => {
+      const reflections = [
+        buildReflection({ id: '1', reflection_date: '2026-04-13' }), // Mon
+        buildReflection({ id: '2', reflection_date: '2026-04-14' }), // Tue
+        buildReflection({ id: '3', reflection_date: '2026-04-19' }), // Sun
+      ];
+      const result = calculateWeeklyStreak(reflections, now);
+      expect(result.totalActiveWeeks).toBe(1);
+      expect(result.currentStreak).toBe(1);
+      expect(result.bestStreak).toBe(1);
+    });
+
+    it('counts consecutive weeks ending in current week', () => {
+      const reflections = [
+        buildReflection({ id: '1', reflection_date: '2026-04-01' }), // week of 03-30
+        buildReflection({ id: '2', reflection_date: '2026-04-08' }), // week of 04-06
+        buildReflection({ id: '3', reflection_date: '2026-04-15' }), // week of 04-13 (current)
+      ];
+      const result = calculateWeeklyStreak(reflections, now);
+      expect(result.currentStreak).toBe(3);
+      expect(result.bestStreak).toBe(3);
+      expect(result.totalActiveWeeks).toBe(3);
+    });
+
+    it('allows current streak that ended last week', () => {
+      // No reflection in current week (Mon 2026-04-13 ~), but two prior weeks active
+      const reflections = [
+        buildReflection({ id: '1', reflection_date: '2026-03-30' }), // week of 03-30
+        buildReflection({ id: '2', reflection_date: '2026-04-06' }), // week of 04-06 (last week)
+      ];
+      const result = calculateWeeklyStreak(reflections, now);
+      expect(result.currentStreak).toBe(2);
+      expect(result.bestStreak).toBe(2);
+    });
+
+    it('returns zero current streak when latest week is older than last week', () => {
+      const reflections = [
+        buildReflection({ id: '1', reflection_date: '2026-03-23' }), // 3 weeks ago
+        buildReflection({ id: '2', reflection_date: '2026-03-30' }), // 2 weeks ago
+      ];
+      const result = calculateWeeklyStreak(reflections, now);
+      expect(result.currentStreak).toBe(0);
+      expect(result.bestStreak).toBe(2);
+      expect(result.totalActiveWeeks).toBe(2);
+    });
+
+    it('tracks best streak across gaps', () => {
+      const reflections = [
+        buildReflection({ id: '1', reflection_date: '2026-01-05' }),
+        buildReflection({ id: '2', reflection_date: '2026-01-12' }),
+        buildReflection({ id: '3', reflection_date: '2026-01-19' }),
+        buildReflection({ id: '4', reflection_date: '2026-01-26' }),
+        buildReflection({ id: '5', reflection_date: '2026-04-15' }), // gap, then current week
+      ];
+      const result = calculateWeeklyStreak(reflections, now);
+      expect(result.bestStreak).toBe(4);
+      expect(result.currentStreak).toBe(1);
+      expect(result.totalActiveWeeks).toBe(5);
+    });
+  });
+
+  describe('buildWeeklyHeatmap', () => {
+    it('returns the requested number of weekly buckets in chronological order', () => {
+      const result = buildWeeklyHeatmap([], 12, now);
+      expect(result).toHaveLength(12);
+      // Last bucket = current week start (Mon 2026-04-13)
+      expect(result[result.length - 1].weekStart).toBe('2026-04-13');
+      // First bucket = 11 weeks earlier
+      expect(result[0].weekStart).toBe('2026-01-26');
+      // Sorted ascending
+      for (let i = 1; i < result.length; i++) {
+        expect(result[i].weekStart > result[i - 1].weekStart).toBe(true);
+      }
+    });
+
+    it('counts reflections within each weekly bucket', () => {
+      const reflections = [
+        buildReflection({ id: '1', reflection_date: '2026-04-13' }),
+        buildReflection({ id: '2', reflection_date: '2026-04-14' }),
+        buildReflection({ id: '3', reflection_date: '2026-04-06' }),
+      ];
+      const result = buildWeeklyHeatmap(reflections, 4, now);
+      expect(result).toHaveLength(4);
+      const current = result[result.length - 1];
+      const last = result[result.length - 2];
+      expect(current.weekStart).toBe('2026-04-13');
+      expect(current.count).toBe(2);
+      expect(last.weekStart).toBe('2026-04-06');
+      expect(last.count).toBe(1);
+    });
+
+    it('ignores reflections outside the window', () => {
+      const reflections = [
+        buildReflection({ id: '1', reflection_date: '2024-01-01' }),
+      ];
+      const result = buildWeeklyHeatmap(reflections, 4, now);
+      const total = result.reduce((s, c) => s + c.count, 0);
+      expect(total).toBe(0);
     });
   });
 

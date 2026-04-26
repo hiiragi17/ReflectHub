@@ -17,6 +17,7 @@ import TrendChart from '@/components/statistics/TrendChart';
 import FrameworkBreakdown from '@/components/statistics/FrameworkBreakdown';
 import PeriodComparison from '@/components/statistics/PeriodComparison';
 import StreakDisplay from '@/components/statistics/StreakDisplay';
+import ActivityHeatmap from '@/components/statistics/ActivityHeatmap';
 import GrowthScore from '@/components/statistics/GrowthScore';
 
 export default function AnalyticsPage() {
@@ -100,12 +101,12 @@ export default function AnalyticsPage() {
                   iconColor="text-emerald-500"
                 />
                 <StatsCard
-                  label="現在の連続日数"
-                  value={summary.streak.currentStreak}
-                  unit="日"
+                  label="連続記録週数"
+                  value={summary.weeklyStreak.currentStreak}
+                  unit="週"
                   icon={Flame}
                   iconColor="text-orange-500"
-                  description={`ベスト: ${summary.streak.bestStreak} 日`}
+                  description={`ベスト: ${summary.weeklyStreak.bestStreak} 週`}
                 />
                 <StatsCard
                   label="平均文字数"
@@ -140,8 +141,14 @@ export default function AnalyticsPage() {
               />
             </section>
 
-            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <StreakDisplay streak={summary.streak} />
+            <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <StreakDisplay streak={summary.weeklyStreak} />
+              <div className="lg:col-span-2">
+                <ActivityHeatmap heatmap={summary.weeklyHeatmap} />
+              </div>
+            </section>
+
+            <section>
               <FrameworkBreakdown distribution={distribution.frameworks} />
             </section>
           </div>

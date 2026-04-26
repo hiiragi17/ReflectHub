@@ -6,10 +6,14 @@ import type {
   AnalyticsDistribution,
   BasicStats,
   StreakStats,
+  WeeklyStreakStats,
+  HeatmapCell,
   PeriodComparison,
   FrameworkDistribution,
   TrendPoint,
 } from '@/types/analytics';
+
+export const DEFAULT_HEATMAP_WEEKS = 12;
 
 const parseDate = (dateStr: string): Date => {
   const [year, month, day] = dateStr.split('-').map(Number);
@@ -174,6 +178,101 @@ export const calculateStreak = (
   return { currentStreak, bestStreak, totalActiveDays };
 };
 
+/**
+ * Weekly streak using ISO-style Monday-start weeks. Each reflection is bucketed
+ * into the week containing its reflection_date; consecutive weeks of activity
+ * form a streak. Mirrors calculateStreak's "today or yesterday" tolerance:
+ * the current week or the previous week may anchor the running streak.
+ */
+export const calculateWeeklyStreak = (
+  reflections: Reflection[],
+  now: Date = new Date(),
+): WeeklyStreakStats => {
+  if (reflections.length === 0) {
+    return { currentStreak: 0, bestStreak: 0, totalActiveWeeks: 0 };
+  }
+
+  const weekSet = new Set<string>();
+  reflections.forEach((r) => {
+    const weekStart = startOfWeek(parseDate(r.reflection_date));
+    weekSet.add(formatDate(weekStart));
+  });
+  const totalActiveWeeks = weekSet.size;
+
+  const sortedWeeks = Array.from(weekSet).sort();
+  let bestStreak = 0;
+  let runningStreak = 0;
+  let previousWeek: Date | null = null;
+
+  sortedWeeks.forEach((weekStr) => {
+    const weekDate = parseDate(weekStr);
+    if (previousWeek) {
+      const diff = Math.round(
+        (weekDate.getTime() - previousWeek.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      if (diff === 7) {
+        runningStreak++;
+      } else {
+        runningStreak = 1;
+      }
+    } else {
+      runningStreak = 1;
+    }
+    if (runningStreak > bestStreak) {
+      bestStreak = runningStreak;
+    }
+    previousWeek = weekDate;
+  });
+
+  const thisWeekStart = startOfWeek(now);
+  const thisWeekStr = formatDate(thisWeekStart);
+  const lastWeekStart = addDays(thisWeekStart, -7);
+  const lastWeekStr = formatDate(lastWeekStart);
+
+  let checkWeek: Date;
+  if (weekSet.has(thisWeekStr)) {
+    checkWeek = thisWeekStart;
+  } else if (weekSet.has(lastWeekStr)) {
+    checkWeek = lastWeekStart;
+  } else {
+    return { currentStreak: 0, bestStreak, totalActiveWeeks };
+  }
+
+  let currentStreak = 0;
+  while (weekSet.has(formatDate(checkWeek))) {
+    currentStreak++;
+    checkWeek = addDays(checkWeek, -7);
+  }
+
+  return { currentStreak, bestStreak, totalActiveWeeks };
+};
+
+export const buildWeeklyHeatmap = (
+  reflections: Reflection[],
+  weeks: number = DEFAULT_HEATMAP_WEEKS,
+  now: Date = new Date(),
+): HeatmapCell[] => {
+  const currentWeekStart = startOfWeek(now);
+  const buckets = new Map<string, HeatmapCell>();
+
+  for (let i = weeks - 1; i >= 0; i--) {
+    const weekStart = addDays(currentWeekStart, -7 * i);
+    const key = formatDate(weekStart);
+    buckets.set(key, { weekStart: key, count: 0 });
+  }
+
+  reflections.forEach((r) => {
+    const weekStart = startOfWeek(parseDate(r.reflection_date));
+    const key = formatDate(weekStart);
+    const cell = buckets.get(key);
+    if (cell) {
+      cell.count++;
+    }
+  });
+
+  return Array.from(buckets.values());
+};
+
 const toComparison = (current: number, previous: number): PeriodComparison => {
   const change = current - previous;
   const changeRate = previous === 0 ? (current > 0 ? 100 : 0) : (change / previous) * 100;
@@ -334,6 +433,8 @@ export const getSummary = (
 ): AnalyticsSummary => {
   const basicStats = calculateBasicStats(reflections, now);
   const streak = calculateStreak(reflections, now);
+  const weeklyStreak = calculateWeeklyStreak(reflections, now);
+  const weeklyHeatmap = buildWeeklyHeatmap(reflections, DEFAULT_HEATMAP_WEEKS, now);
   const monthComparison = calculateMonthComparison(basicStats);
   const weekComparison = calculateWeekComparison(basicStats);
   const growthScore = calculateGrowthScore(reflections, frameworks, now);
@@ -341,6 +442,8 @@ export const getSummary = (
   return {
     basicStats,
     streak,
+    weeklyStreak,
+    weeklyHeatmap,
     monthComparison,
     weekComparison,
     growthScore,
@@ -370,6 +473,8 @@ export const analyticsService = {
   getDistribution,
   calculateBasicStats,
   calculateStreak,
+  calculateWeeklyStreak,
+  buildWeeklyHeatmap,
   calculateMonthComparison,
   calculateWeekComparison,
   calculateFrameworkDistribution,
