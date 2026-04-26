@@ -16,6 +16,17 @@ export interface StreakStats {
   totalActiveDays: number;
 }
 
+export interface WeeklyStreakStats {
+  currentStreak: number;
+  bestStreak: number;
+  totalActiveWeeks: number;
+}
+
+export interface HeatmapCell {
+  weekStart: string;
+  count: number;
+}
+
 export interface PeriodComparison {
   current: number;
   previous: number;
@@ -41,9 +52,10 @@ export interface TrendPoint {
 export interface AnalyticsSummary {
   basicStats: BasicStats;
   streak: StreakStats;
+  weeklyStreak: WeeklyStreakStats;
+  weeklyHeatmap: HeatmapCell[];
   monthComparison: PeriodComparison;
   weekComparison: PeriodComparison;
-  growthScore: number;
 }
 
 export interface AnalyticsTrends {
