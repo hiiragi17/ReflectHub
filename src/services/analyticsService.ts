@@ -394,41 +394,8 @@ export const calculateTrends = (
   };
 };
 
-/**
- * Growth score (0-100): weighted composite of frequency, consistency, variety,
- * and content depth. Intended as a motivational indicator, not a precise metric.
- */
-export const calculateGrowthScore = (
-  reflections: Reflection[],
-  frameworks: Framework[],
-  now: Date = new Date(),
-): number => {
-  if (reflections.length === 0) return 0;
-
-  const basic = calculateBasicStats(reflections, now);
-  const streak = calculateStreak(reflections, now);
-
-  // Frequency (0-30): this month count capped at 15 reflections
-  const frequencyScore = Math.min(basic.thisMonth / 15, 1) * 30;
-
-  // Consistency (0-30): current streak capped at 30 days
-  const consistencyScore = Math.min(streak.currentStreak / 30, 1) * 30;
-
-  // Variety (0-20): distinct frameworks used capped at framework count
-  const usedFrameworks = new Set(reflections.map((r) => r.framework_id)).size;
-  const frameworkCap = Math.max(frameworks.length, 1);
-  const varietyScore = Math.min(usedFrameworks / frameworkCap, 1) * 20;
-
-  // Depth (0-20): average characters per reflection, capped at 500 chars
-  const depthScore = Math.min(basic.averageCharacters / 500, 1) * 20;
-
-  const total = frequencyScore + consistencyScore + varietyScore + depthScore;
-  return Math.round(total);
-};
-
 export const getSummary = (
   reflections: Reflection[],
-  frameworks: Framework[],
   now: Date = new Date(),
 ): AnalyticsSummary => {
   const basicStats = calculateBasicStats(reflections, now);
@@ -437,7 +404,6 @@ export const getSummary = (
   const weeklyHeatmap = buildWeeklyHeatmap(reflections, DEFAULT_HEATMAP_WEEKS, now);
   const monthComparison = calculateMonthComparison(basicStats);
   const weekComparison = calculateWeekComparison(basicStats);
-  const growthScore = calculateGrowthScore(reflections, frameworks, now);
 
   return {
     basicStats,
@@ -446,7 +412,6 @@ export const getSummary = (
     weeklyHeatmap,
     monthComparison,
     weekComparison,
-    growthScore,
   };
 };
 
@@ -479,5 +444,4 @@ export const analyticsService = {
   calculateWeekComparison,
   calculateFrameworkDistribution,
   calculateTrends,
-  calculateGrowthScore,
 };

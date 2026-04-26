@@ -6,7 +6,6 @@ import {
   buildWeeklyHeatmap,
   calculateFrameworkDistribution,
   calculateTrends,
-  calculateGrowthScore,
   getSummary,
   getTrends,
   getDistribution,
@@ -335,41 +334,6 @@ describe('analyticsService', () => {
     });
   });
 
-  describe('calculateGrowthScore', () => {
-    it('returns 0 for empty data', () => {
-      expect(calculateGrowthScore([], FRAMEWORKS, now)).toBe(0);
-    });
-
-    it('returns a value between 0 and 100', () => {
-      const reflections = [
-        buildReflection({ id: '1', reflection_date: '2026-04-18', framework_id: 'ywt' }),
-        buildReflection({ id: '2', reflection_date: '2026-04-17', framework_id: 'kpt' }),
-      ];
-      const score = calculateGrowthScore(reflections, FRAMEWORKS, now);
-      expect(score).toBeGreaterThanOrEqual(0);
-      expect(score).toBeLessThanOrEqual(100);
-    });
-
-    it('scores higher for more active users', () => {
-      const low = [buildReflection({ id: '1', reflection_date: '2026-04-18' })];
-      const high: Reflection[] = [];
-      for (let i = 0; i < 20; i++) {
-        const d = new Date(2026, 3, 18 - i);
-        high.push(
-          buildReflection({
-            id: `h-${i}`,
-            reflection_date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
-            framework_id: i % 2 === 0 ? 'ywt' : 'kpt',
-            content: { a: 'a'.repeat(600) },
-          }),
-        );
-      }
-      const lowScore = calculateGrowthScore(low, FRAMEWORKS, now);
-      const highScore = calculateGrowthScore(high, FRAMEWORKS, now);
-      expect(highScore).toBeGreaterThan(lowScore);
-    });
-  });
-
   describe('getSummary / getTrends / getDistribution', () => {
     it('returns aggregated results', () => {
       const reflections = [
@@ -377,7 +341,7 @@ describe('analyticsService', () => {
         buildReflection({ id: '2', reflection_date: '2026-03-18', framework_id: 'kpt' }),
       ];
 
-      const summary = getSummary(reflections, FRAMEWORKS, now);
+      const summary = getSummary(reflections, now);
       expect(summary.basicStats.total).toBe(2);
       expect(summary.monthComparison.current).toBe(1);
       expect(summary.monthComparison.previous).toBe(1);

@@ -56,7 +56,6 @@ export interface AnalyticsSummary {
   weeklyHeatmap: HeatmapCell[];
   monthComparison: PeriodComparison;
   weekComparison: PeriodComparison;
-  growthScore: number;
 }
 
 export interface AnalyticsTrends {

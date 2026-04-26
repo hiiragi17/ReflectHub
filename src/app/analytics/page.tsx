@@ -18,7 +18,6 @@ import FrameworkBreakdown from '@/components/statistics/FrameworkBreakdown';
 import PeriodComparison from '@/components/statistics/PeriodComparison';
 import StreakDisplay from '@/components/statistics/StreakDisplay';
 import ActivityHeatmap from '@/components/statistics/ActivityHeatmap';
-import GrowthScore from '@/components/statistics/GrowthScore';
 
 export default function AnalyticsPage() {
   const { user, signOut, isLoading: authLoading } = useAuth();
@@ -119,11 +118,8 @@ export default function AnalyticsPage() {
               </div>
             </section>
 
-            <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="lg:col-span-2">
-                <TrendChart trends={trends} />
-              </div>
-              <GrowthScore score={summary.growthScore} />
+            <section>
+              <TrendChart trends={trends} />
             </section>
 
             <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
