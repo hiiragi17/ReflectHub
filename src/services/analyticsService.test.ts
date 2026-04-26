@@ -237,8 +237,6 @@ describe('analyticsService', () => {
       expect(calculateThisWeekStatus([], now)).toEqual({
         recorded: false,
         thisWeekCount: 0,
-        totalActiveWeeks: 0,
-        currentWeeklyStreak: 0,
       });
     });
 
@@ -247,34 +245,21 @@ describe('analyticsService', () => {
         buildReflection({ id: '1', reflection_date: '2026-04-13' }), // current week Mon
         buildReflection({ id: '2', reflection_date: '2026-04-18' }), // current week Sat
       ];
-      const result = calculateThisWeekStatus(reflections, now);
-      expect(result.recorded).toBe(true);
-      expect(result.thisWeekCount).toBe(2);
-      expect(result.totalActiveWeeks).toBe(1);
-      expect(result.currentWeeklyStreak).toBe(1);
+      expect(calculateThisWeekStatus(reflections, now)).toEqual({
+        recorded: true,
+        thisWeekCount: 2,
+      });
     });
 
-    it('preserves currentWeeklyStreak from last week even when this week is unrecorded', () => {
+    it('reports unrecorded when only past weeks have reflections', () => {
       const reflections = [
-        buildReflection({ id: '1', reflection_date: '2026-03-30' }), // 2 weeks ago
-        buildReflection({ id: '2', reflection_date: '2026-04-06' }), // last week
+        buildReflection({ id: '1', reflection_date: '2026-03-30' }),
+        buildReflection({ id: '2', reflection_date: '2026-04-06' }),
       ];
-      const result = calculateThisWeekStatus(reflections, now);
-      expect(result.recorded).toBe(false);
-      expect(result.thisWeekCount).toBe(0);
-      expect(result.totalActiveWeeks).toBe(2);
-      expect(result.currentWeeklyStreak).toBe(2);
-    });
-
-    it('returns zero current streak when latest week is older than last week', () => {
-      const reflections = [
-        buildReflection({ id: '1', reflection_date: '2026-03-23' }),
-      ];
-      const result = calculateThisWeekStatus(reflections, now);
-      expect(result.recorded).toBe(false);
-      expect(result.thisWeekCount).toBe(0);
-      expect(result.totalActiveWeeks).toBe(1);
-      expect(result.currentWeeklyStreak).toBe(0);
+      expect(calculateThisWeekStatus(reflections, now)).toEqual({
+        recorded: false,
+        thisWeekCount: 0,
+      });
     });
   });
 
@@ -396,8 +381,6 @@ describe('analyticsService', () => {
       expect(summary.thisWeekStatus).toEqual({
         recorded: true,
         thisWeekCount: 1,
-        totalActiveWeeks: summary.weeklyStreak.totalActiveWeeks,
-        currentWeeklyStreak: summary.weeklyStreak.currentStreak,
       });
 
       const trends = getTrends(reflections, now);

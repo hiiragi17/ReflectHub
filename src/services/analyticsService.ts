@@ -249,21 +249,18 @@ export const calculateWeeklyStreak = (
 };
 
 /**
- * Snapshot of "how am I doing this week?" for the dashboard widget.
- * Reuses calculateBasicStats for the in-week count and calculateWeeklyStreak
- * for the totals so all weekly numbers stay consistent across the page.
+ * Snapshot of "did I record this week?" for the ThisWeekStatus widget.
+ * Streak/total figures intentionally live in StreakDisplay to avoid
+ * duplicating the same numbers across two cards on the dashboard.
  */
 export const calculateThisWeekStatus = (
   reflections: Reflection[],
   now: Date = new Date(),
 ): ThisWeekStatus => {
   const basicStats = calculateBasicStats(reflections, now);
-  const weeklyStreak = calculateWeeklyStreak(reflections, now);
   return {
     recorded: basicStats.thisWeek > 0,
     thisWeekCount: basicStats.thisWeek,
-    totalActiveWeeks: weeklyStreak.totalActiveWeeks,
-    currentWeeklyStreak: weeklyStreak.currentStreak,
   };
 };
 
@@ -424,8 +421,6 @@ export const getSummary = (
   const thisWeekStatus: ThisWeekStatus = {
     recorded: basicStats.thisWeek > 0,
     thisWeekCount: basicStats.thisWeek,
-    totalActiveWeeks: weeklyStreak.totalActiveWeeks,
-    currentWeeklyStreak: weeklyStreak.currentStreak,
   };
   const weeklyHeatmap = buildWeeklyHeatmap(reflections, DEFAULT_HEATMAP_WEEKS, now);
   const monthComparison = calculateMonthComparison(basicStats);

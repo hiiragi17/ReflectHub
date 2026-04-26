@@ -25,8 +25,6 @@ export interface WeeklyStreakStats {
 export interface ThisWeekStatus {
   recorded: boolean;
   thisWeekCount: number;
-  totalActiveWeeks: number;
-  currentWeeklyStreak: number;
 }
 
 export interface HeatmapCell {
