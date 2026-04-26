@@ -7,6 +7,7 @@ import type {
   BasicStats,
   StreakStats,
   WeeklyStreakStats,
+  ThisWeekStatus,
   HeatmapCell,
   PeriodComparison,
   FrameworkDistribution,
@@ -247,6 +248,25 @@ export const calculateWeeklyStreak = (
   return { currentStreak, bestStreak, totalActiveWeeks };
 };
 
+/**
+ * Snapshot of "how am I doing this week?" for the dashboard widget.
+ * Reuses calculateBasicStats for the in-week count and calculateWeeklyStreak
+ * for the totals so all weekly numbers stay consistent across the page.
+ */
+export const calculateThisWeekStatus = (
+  reflections: Reflection[],
+  now: Date = new Date(),
+): ThisWeekStatus => {
+  const basicStats = calculateBasicStats(reflections, now);
+  const weeklyStreak = calculateWeeklyStreak(reflections, now);
+  return {
+    recorded: basicStats.thisWeek > 0,
+    thisWeekCount: basicStats.thisWeek,
+    totalActiveWeeks: weeklyStreak.totalActiveWeeks,
+    currentWeeklyStreak: weeklyStreak.currentStreak,
+  };
+};
+
 export const buildWeeklyHeatmap = (
   reflections: Reflection[],
   weeks: number = DEFAULT_HEATMAP_WEEKS,
@@ -401,6 +421,12 @@ export const getSummary = (
   const basicStats = calculateBasicStats(reflections, now);
   const streak = calculateStreak(reflections, now);
   const weeklyStreak = calculateWeeklyStreak(reflections, now);
+  const thisWeekStatus: ThisWeekStatus = {
+    recorded: basicStats.thisWeek > 0,
+    thisWeekCount: basicStats.thisWeek,
+    totalActiveWeeks: weeklyStreak.totalActiveWeeks,
+    currentWeeklyStreak: weeklyStreak.currentStreak,
+  };
   const weeklyHeatmap = buildWeeklyHeatmap(reflections, DEFAULT_HEATMAP_WEEKS, now);
   const monthComparison = calculateMonthComparison(basicStats);
   const weekComparison = calculateWeekComparison(basicStats);
@@ -409,6 +435,7 @@ export const getSummary = (
     basicStats,
     streak,
     weeklyStreak,
+    thisWeekStatus,
     weeklyHeatmap,
     monthComparison,
     weekComparison,
@@ -439,6 +466,7 @@ export const analyticsService = {
   calculateBasicStats,
   calculateStreak,
   calculateWeeklyStreak,
+  calculateThisWeekStatus,
   buildWeeklyHeatmap,
   calculateMonthComparison,
   calculateWeekComparison,
