@@ -31,12 +31,12 @@ export default function StreakDisplay({ streak }: StreakDisplayProps) {
   ];
 
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader className="pb-2">
         <CardTitle className="text-lg">ストリーク（週単位）</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+      <CardContent className="flex-1 flex items-center">
+        <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           {items.map(({ label, value, Icon, color }) => (
             <div key={label} className="text-center">
               <Icon className={`w-7 h-7 mx-auto mb-2 ${color}`} />

@@ -32,17 +32,17 @@ export default function ActivityHeatmap({ heatmap }: ActivityHeatmapProps) {
   const activeWeeks = heatmap.filter((c) => c.count > 0).length;
 
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader className="pb-2">
         <CardTitle className="text-lg">アクティビティ（直近{totalWeeks}週）</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 flex flex-col">
         {totalWeeks === 0 ? (
           <p className="text-center text-gray-500 py-12 text-sm">
             データがありません
           </p>
         ) : (
-          <div className="space-y-3">
+          <div className="flex-1 flex flex-col justify-between gap-3">
             <div
               role="list"
               aria-label="週次アクティビティ"
