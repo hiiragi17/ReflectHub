@@ -7,6 +7,7 @@ import type {
   BasicStats,
   StreakStats,
   WeeklyStreakStats,
+  ThisWeekStatus,
   HeatmapCell,
   PeriodComparison,
   FrameworkDistribution,
@@ -247,6 +248,22 @@ export const calculateWeeklyStreak = (
   return { currentStreak, bestStreak, totalActiveWeeks };
 };
 
+/**
+ * Snapshot of "did I record this week?" for the ThisWeekStatus widget.
+ * Streak/total figures intentionally live in StreakDisplay to avoid
+ * duplicating the same numbers across two cards on the dashboard.
+ */
+export const calculateThisWeekStatus = (
+  reflections: Reflection[],
+  now: Date = new Date(),
+): ThisWeekStatus => {
+  const basicStats = calculateBasicStats(reflections, now);
+  return {
+    recorded: basicStats.thisWeek > 0,
+    thisWeekCount: basicStats.thisWeek,
+  };
+};
+
 export const buildWeeklyHeatmap = (
   reflections: Reflection[],
   weeks: number = DEFAULT_HEATMAP_WEEKS,
@@ -401,6 +418,10 @@ export const getSummary = (
   const basicStats = calculateBasicStats(reflections, now);
   const streak = calculateStreak(reflections, now);
   const weeklyStreak = calculateWeeklyStreak(reflections, now);
+  const thisWeekStatus: ThisWeekStatus = {
+    recorded: basicStats.thisWeek > 0,
+    thisWeekCount: basicStats.thisWeek,
+  };
   const weeklyHeatmap = buildWeeklyHeatmap(reflections, DEFAULT_HEATMAP_WEEKS, now);
   const monthComparison = calculateMonthComparison(basicStats);
   const weekComparison = calculateWeekComparison(basicStats);
@@ -409,6 +430,7 @@ export const getSummary = (
     basicStats,
     streak,
     weeklyStreak,
+    thisWeekStatus,
     weeklyHeatmap,
     monthComparison,
     weekComparison,
@@ -439,6 +461,7 @@ export const analyticsService = {
   calculateBasicStats,
   calculateStreak,
   calculateWeeklyStreak,
+  calculateThisWeekStatus,
   buildWeeklyHeatmap,
   calculateMonthComparison,
   calculateWeekComparison,

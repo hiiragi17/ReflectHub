@@ -22,6 +22,11 @@ export interface WeeklyStreakStats {
   totalActiveWeeks: number;
 }
 
+export interface ThisWeekStatus {
+  recorded: boolean;
+  thisWeekCount: number;
+}
+
 export interface HeatmapCell {
   weekStart: string;
   count: number;
@@ -53,6 +58,7 @@ export interface AnalyticsSummary {
   basicStats: BasicStats;
   streak: StreakStats;
   weeklyStreak: WeeklyStreakStats;
+  thisWeekStatus: ThisWeekStatus;
   weeklyHeatmap: HeatmapCell[];
   monthComparison: PeriodComparison;
   weekComparison: PeriodComparison;
