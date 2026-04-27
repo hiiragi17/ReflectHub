@@ -113,6 +113,20 @@ describe('useInstallPrompt', () => {
     expect(result.current.canInstall).toBe(false);
   });
 
+  it('keeps deferredPrompt after dismiss so it can re-show once cooldown expires', () => {
+    // 14 日 + 1 秒前に dismiss されていた = ちょうど cooldown 切れ。
+    const expired = Date.now() - (1000 * 60 * 60 * 24 * 14 + 1000);
+    window.localStorage.setItem(DISMISS_KEY, String(expired));
+
+    const { result } = renderHook(() => useInstallPrompt());
+    act(() => {
+      window.dispatchEvent(createBeforeInstallEvent());
+    });
+    // cooldown は既に切れているので、deferredPrompt が残ってさえいれば
+    // canInstall は true になる。
+    expect(result.current.canInstall).toBe(true);
+  });
+
   it('marks installed when appinstalled fires', () => {
     const { result } = renderHook(() => useInstallPrompt());
     act(() => {

@@ -154,7 +154,9 @@ export function useInstallPrompt(): UseInstallPromptResult {
 
   const dismiss = useCallback(() => {
     setOutcome('dismissed');
-    setDeferredPrompt(null);
+    // `deferredPrompt` は破棄しない。実際に `prompt()` を呼んでいない以上、
+    // ブラウザから受け取った event はまだ有効で、14 日のクールダウンが
+    // 切れたあとに再表示すれば再利用できる。
     const now = Date.now();
     try {
       window.localStorage.setItem(DISMISS_KEY, String(now));
