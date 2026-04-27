@@ -64,12 +64,18 @@ export async function registerServiceWorker(
 
 /**
  * 登録済み Service Worker を解除する (デバッグ・テスト用)。
+ * 例外時は false を返し、Promise<boolean> 契約を保つ。
  */
 export async function unregisterServiceWorker(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
   if (!('serviceWorker' in navigator)) return false;
 
-  const registrations = await navigator.serviceWorker.getRegistrations();
-  const results = await Promise.all(registrations.map((r) => r.unregister()));
-  return results.every(Boolean);
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    const results = await Promise.all(registrations.map((r) => r.unregister()));
+    return results.every(Boolean);
+  } catch (err) {
+    console.warn('[sw] unregister failed', err);
+    return false;
+  }
 }

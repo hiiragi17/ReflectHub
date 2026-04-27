@@ -73,6 +73,36 @@ export function useInstallPrompt(): UseInstallPromptResult {
     isWithinDismissCooldown(),
   );
 
+  // クールダウンが時間経過で切れた / 別タブで dismiss キーがクリアされた場合に
+  // 状態を再評価する。タブを長期間開きっぱなしでも 14 日経過後は再表示できる。
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const recompute = () => setCooldownActive(isWithinDismissCooldown());
+
+    let timer: number | undefined;
+    if (cooldownActive) {
+      const dismissedAt = readDismissedAt();
+      if (dismissedAt === null) {
+        setCooldownActive(false);
+      } else {
+        const remaining = DISMISS_COOLDOWN_MS - (Date.now() - dismissedAt);
+        if (remaining <= 0) {
+          setCooldownActive(false);
+        } else {
+          timer = window.setTimeout(() => setCooldownActive(false), remaining);
+        }
+      }
+    }
+
+    // 別タブで localStorage が更新されたら再評価する。
+    window.addEventListener('storage', recompute);
+    return () => {
+      if (timer !== undefined) window.clearTimeout(timer);
+      window.removeEventListener('storage', recompute);
+    };
+  }, [cooldownActive]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
 

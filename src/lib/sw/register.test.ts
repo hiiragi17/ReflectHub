@@ -64,6 +64,8 @@ describe('registerServiceWorker', () => {
     vi.unstubAllEnvs();
     if (swDescriptor) {
       Object.defineProperty(navigator, 'serviceWorker', swDescriptor);
+    } else {
+      Reflect.deleteProperty(navigator, 'serviceWorker');
     }
   });
 
@@ -148,6 +150,8 @@ describe('unregisterServiceWorker', () => {
   afterEach(() => {
     if (swDescriptor) {
       Object.defineProperty(navigator, 'serviceWorker', swDescriptor);
+    } else {
+      Reflect.deleteProperty(navigator, 'serviceWorker');
     }
   });
 

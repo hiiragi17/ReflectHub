@@ -19,8 +19,10 @@ describe('public/manifest.json', () => {
   });
 
   it('exposes a theme_color and background_color', () => {
-    expect(json.theme_color).toMatch(/^#[0-9a-f]{3,8}$/i);
-    expect(json.background_color).toMatch(/^#[0-9a-f]{3,8}$/i);
+    // CSS で有効な hex 桁数 (3/4/6/8) のみ許可。`#12345` のような不正値は弾く。
+    const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+    expect(json.theme_color).toMatch(HEX);
+    expect(json.background_color).toMatch(HEX);
   });
 
   it('declares 192/512 PNG icons (Lighthouse PWA requirement)', () => {

@@ -13,10 +13,10 @@
  * 削除される。
  */
 
+const CACHE_PREFIX = 'reflecthub-';
 const CACHE_VERSION = 'v1';
-const STATIC_CACHE = `reflecthub-static-${CACHE_VERSION}`;
-const RUNTIME_CACHE = `reflecthub-runtime-${CACHE_VERSION}`;
-const HTML_CACHE = `reflecthub-html-${CACHE_VERSION}`;
+const STATIC_CACHE = `${CACHE_PREFIX}static-${CACHE_VERSION}`;
+const HTML_CACHE = `${CACHE_PREFIX}html-${CACHE_VERSION}`;
 
 // インストール時に確実にプリキャッシュしておきたい最小セット。
 // オフライン時にもアプリシェルが起動できる程度の URL に絞っている。
@@ -53,9 +53,15 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
       const keys = await caches.keys();
-      const expected = new Set([STATIC_CACHE, RUNTIME_CACHE, HTML_CACHE]);
+      const expected = new Set([STATIC_CACHE, HTML_CACHE]);
+      // 自アプリの旧キャッシュ (reflecthub-*) のみ削除対象とし、
+      // 同一オリジン上の他機能キャッシュには触らない。
       await Promise.all(
-        keys.map((key) => (expected.has(key) ? null : caches.delete(key))),
+        keys.map((key) => {
+          if (!key.startsWith(CACHE_PREFIX)) return undefined;
+          if (expected.has(key)) return undefined;
+          return caches.delete(key);
+        }),
       );
       await self.clients.claim();
     })(),
@@ -66,12 +72,27 @@ self.addEventListener('activate', (event) => {
  * Stale-While-Revalidate: キャッシュがあれば即返しつつ、裏でネットワーク取得して
  * キャッシュを更新する。
  */
+function shouldStoreInCache(response) {
+  const cacheControl = response.headers.get('Cache-Control') || '';
+  // no-store / private は機微情報を含む可能性が高いので保存しない。
+  return !/\bno-store\b|\bprivate\b/i.test(cacheControl);
+}
+
+/**
+ * Stale-While-Revalidate: キャッシュがあれば即返しつつ、裏でネットワーク取得して
+ * キャッシュを更新する。
+ */
 async function staleWhileRevalidate(request, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
   const networkPromise = fetch(request)
     .then((response) => {
-      if (response && response.ok && response.type === 'basic') {
+      if (
+        response &&
+        response.ok &&
+        response.type === 'basic' &&
+        shouldStoreInCache(response)
+      ) {
         cache.put(request, response.clone()).catch(() => {});
       }
       return response;
@@ -89,7 +110,12 @@ async function networkFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
   try {
     const response = await fetch(request);
-    if (response && response.ok && response.type === 'basic') {
+    if (
+      response &&
+      response.ok &&
+      response.type === 'basic' &&
+      shouldStoreInCache(response)
+    ) {
       cache.put(request, response.clone()).catch(() => {});
     }
     return response;
@@ -143,8 +169,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // それ以外はランタイムキャッシュで SWR (画像 CDN などのリソース取得用)。
-  event.respondWith(staleWhileRevalidate(request, RUNTIME_CACHE));
+  // 静的アセットでも HTML ナビゲーションでも API でもない GET は
+  // Service Worker では扱わない。Next.js App Router の RSC ペイロード
+  // (`?_rsc=` や RSC ヘッダ付き) は SWR でキャッシュすると古いルート
+  // 情報を返してしまうため、キャッシュ層を通さず直接ブラウザに任せる。
 });
 
 // 新バージョンを即時反映するためのメッセージハンドラ。
