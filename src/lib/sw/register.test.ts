@@ -47,10 +47,34 @@ function setServiceWorker(value: unknown) {
   });
 }
 
+// Navigator.prototype 上の serviceWorker descriptor。
+// 後続テストが汚染されないよう、各 afterEach で復元するために初回起動時に保存。
+const navigatorProto = Object.getPrototypeOf(navigator) as Navigator;
+const swProtoDescriptor = Object.getOwnPropertyDescriptor(
+  navigatorProto,
+  'serviceWorker',
+);
+
 function deleteServiceWorker() {
-  // 'serviceWorker' in navigator が false になるよう削除する。
-  Reflect.deleteProperty(Object.getPrototypeOf(navigator), 'serviceWorker');
+  // 'serviceWorker' in navigator が false になるよう、prototype と instance の
+  // 両方から消す。afterEach で必ず復元する。
+  Reflect.deleteProperty(navigatorProto, 'serviceWorker');
   Reflect.deleteProperty(navigator, 'serviceWorker');
+}
+
+function restoreServiceWorkerDescriptors(
+  swDescriptor: PropertyDescriptor | undefined,
+) {
+  if (swProtoDescriptor) {
+    Object.defineProperty(navigatorProto, 'serviceWorker', swProtoDescriptor);
+  } else {
+    Reflect.deleteProperty(navigatorProto, 'serviceWorker');
+  }
+  if (swDescriptor) {
+    Object.defineProperty(navigator, 'serviceWorker', swDescriptor);
+  } else {
+    Reflect.deleteProperty(navigator, 'serviceWorker');
+  }
 }
 
 describe('registerServiceWorker', () => {
@@ -62,11 +86,7 @@ describe('registerServiceWorker', () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
-    if (swDescriptor) {
-      Object.defineProperty(navigator, 'serviceWorker', swDescriptor);
-    } else {
-      Reflect.deleteProperty(navigator, 'serviceWorker');
-    }
+    restoreServiceWorkerDescriptors(swDescriptor);
   });
 
   it('returns null when serviceWorker is unsupported', async () => {
@@ -148,11 +168,7 @@ describe('unregisterServiceWorker', () => {
   const swDescriptor = Object.getOwnPropertyDescriptor(navigator, 'serviceWorker');
 
   afterEach(() => {
-    if (swDescriptor) {
-      Object.defineProperty(navigator, 'serviceWorker', swDescriptor);
-    } else {
-      Reflect.deleteProperty(navigator, 'serviceWorker');
-    }
+    restoreServiceWorkerDescriptors(swDescriptor);
   });
 
   it('returns false when serviceWorker is unsupported', async () => {

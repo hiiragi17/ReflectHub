@@ -38,12 +38,6 @@ function readDismissedAt(): number | null {
   }
 }
 
-function isWithinDismissCooldown(): boolean {
-  const dismissedAt = readDismissedAt();
-  if (dismissedAt === null) return false;
-  return Date.now() - dismissedAt < DISMISS_COOLDOWN_MS;
-}
-
 export interface UseInstallPromptResult {
   /** インストール候補プロンプトを表示できるか。UI を出すかの判断に使う。 */
   canInstall: boolean;
@@ -69,39 +63,40 @@ export function useInstallPrompt(): UseInstallPromptResult {
   const [installed, setInstalled] = useState<boolean>(() => isStandalone());
   const [isPrompting, setIsPrompting] = useState(false);
   const [outcome, setOutcome] = useState<'accepted' | 'dismissed' | null>(null);
-  const [cooldownActive, setCooldownActive] = useState<boolean>(() =>
-    isWithinDismissCooldown(),
+  const [dismissedAt, setDismissedAt] = useState<number | null>(() =>
+    readDismissedAt(),
   );
 
-  // クールダウンが時間経過で切れた / 別タブで dismiss キーがクリアされた場合に
-  // 状態を再評価する。タブを長期間開きっぱなしでも 14 日経過後は再表示できる。
+  // dismissedAt が更新されるたびに残り時間ぶんの setTimeout を貼り直す。
+  // `cooldownActive` を派生値にすることで、別タブから DISMISS_KEY が更新されて
+  // タイムスタンプだけ変わった場合 (true → true) でも timer を再スケジュール
+  // できる。タブを長期間開きっぱなしでも 14 日経過後は再表示できる。
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const recompute = () => setCooldownActive(isWithinDismissCooldown());
+    const recompute = (e?: StorageEvent) => {
+      // 関係ないキーの storage 更新は無視する。
+      if (e && e.key !== null && e.key !== DISMISS_KEY) return;
+      setDismissedAt(readDismissedAt());
+    };
 
     let timer: number | undefined;
-    if (cooldownActive) {
-      const dismissedAt = readDismissedAt();
-      if (dismissedAt === null) {
-        setCooldownActive(false);
+    if (dismissedAt !== null) {
+      const remaining = DISMISS_COOLDOWN_MS - (Date.now() - dismissedAt);
+      if (remaining <= 0) {
+        // 既に期限切れ → 状態を null に落として cooldownActive を false にする。
+        setDismissedAt(null);
       } else {
-        const remaining = DISMISS_COOLDOWN_MS - (Date.now() - dismissedAt);
-        if (remaining <= 0) {
-          setCooldownActive(false);
-        } else {
-          timer = window.setTimeout(() => setCooldownActive(false), remaining);
-        }
+        timer = window.setTimeout(() => setDismissedAt(null), remaining);
       }
     }
 
-    // 別タブで localStorage が更新されたら再評価する。
     window.addEventListener('storage', recompute);
     return () => {
       if (timer !== undefined) window.clearTimeout(timer);
       window.removeEventListener('storage', recompute);
     };
-  }, [cooldownActive]);
+  }, [dismissedAt]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -143,12 +138,13 @@ export function useInstallPrompt(): UseInstallPromptResult {
       // prompt は一度しか使えないので破棄。
       setDeferredPrompt(null);
       if (choice.outcome === 'dismissed') {
+        const now = Date.now();
         try {
-          window.localStorage.setItem(DISMISS_KEY, String(Date.now()));
+          window.localStorage.setItem(DISMISS_KEY, String(now));
         } catch {
           // localStorage が無効でも致命的ではないので無視。
         }
-        setCooldownActive(true);
+        setDismissedAt(now);
       }
       return choice.outcome;
     } finally {
@@ -159,13 +155,18 @@ export function useInstallPrompt(): UseInstallPromptResult {
   const dismiss = useCallback(() => {
     setOutcome('dismissed');
     setDeferredPrompt(null);
+    const now = Date.now();
     try {
-      window.localStorage.setItem(DISMISS_KEY, String(Date.now()));
+      window.localStorage.setItem(DISMISS_KEY, String(now));
     } catch {
       // ignore
     }
-    setCooldownActive(true);
+    setDismissedAt(now);
   }, []);
+
+  // dismissedAt から派生。タブが長く開いていても render ごとに再評価される。
+  const cooldownActive =
+    dismissedAt !== null && Date.now() - dismissedAt < DISMISS_COOLDOWN_MS;
 
   const canInstall =
     !installed && !cooldownActive && deferredPrompt !== null && !isPrompting;
