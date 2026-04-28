@@ -1,8 +1,13 @@
 #!/usr/bin/env node
 // PWA アイコン生成スクリプト。
-// public/favicon.ico (実体は 1024x1024 PNG) を元画像として、
-// 192/256/384/512 の通常アイコンと 512 maskable を生成する。
-// sharp は Next.js が依存しているのでインストール不要。
+// `public/favicon.ico` (実体は PNG) を元画像にして 192/256/384/512 の通常
+// アイコンと 512 maskable を出力する。sharp は Next.js が依存している
+// ので追加インストール不要。
+//
+// 注: 現状コミットされている maskable アイコン (icon-maskable-512.png) は
+// セーフエリア外もブランドカラーで塗ったデザイナー版。このスクリプトの
+// maskable は `MASKABLE_BG` で外周をベタ塗りする簡易版なので、デザインを
+// 厳密に再現したい場合は手元のソースから上書きすること。
 //
 // 使い方: `node scripts/generate-pwa-icons.mjs`
 
