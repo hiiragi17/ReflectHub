@@ -75,18 +75,6 @@ const frameworkSelectChain = () => ({
   single: vi.fn().mockResolvedValue({ data: null, error: null }),
 });
 
-const updateChain = (data: unknown, error: unknown = null) => ({
-  update: vi.fn().mockReturnThis(),
-  eq: vi.fn().mockReturnThis(),
-  select: vi.fn().mockReturnThis(),
-  single: vi.fn().mockResolvedValue({ data, error }),
-});
-
-const deleteChain = () => ({
-  delete: vi.fn().mockReturnThis(),
-  eq: vi.fn().mockResolvedValue({ data: null, error: null }),
-});
-
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -131,7 +119,7 @@ describe('POST /api/ai/analyze', () => {
   it('maps RPC ownership failure (42501) to 404', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
     mockSupabase.from.mockReturnValueOnce(reflectionSelectChain(mockReflection));
-    mockSupabase.rpc.mockResolvedValue({
+    mockSupabase.rpc.mockResolvedValueOnce({
       data: null,
       error: { code: '42501', message: 'reflection not found or not owned by user' },
     });
@@ -140,12 +128,12 @@ describe('POST /api/ai/analyze', () => {
     expect(res.status).toBe(404);
   });
 
-  it('returns 429 when slot reservation is denied (rate limit)', async () => {
+  it('returns 429 with next_available_at as reset_at when slot reservation is denied', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
     mockSupabase.from.mockReturnValueOnce(reflectionSelectChain(mockReflection));
-    const oldest = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString();
-    mockSupabase.rpc.mockResolvedValue({
-      data: [{ reservation_id: null, used: 3, oldest_in_window: oldest }],
+    const nextAvailable = new Date(Date.now() + 60 * 1000).toISOString();
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: [{ reservation_id: null, used: 3, next_available_at: nextAvailable }],
       error: null,
     });
 
@@ -154,44 +142,50 @@ describe('POST /api/ai/analyze', () => {
     const json = await res.json();
     expect(json.error.code).toBe('RATE_LIMITED');
     expect(json.rate_limit.remaining).toBe(0);
-    // reset_at は oldest + 24h
-    expect(new Date(json.rate_limit.reset_at).getTime()).toBe(
-      new Date(oldest).getTime() + 24 * 60 * 60 * 1000,
-    );
+    // RPC が返す next_available_at がそのまま reset_at に使われる
+    expect(json.rate_limit.reset_at).toBe(nextAvailable);
   });
 
-  it('rolls back reservation and returns 502 when OpenAI fails', async () => {
+  it('rolls back reservation via RPC and returns 502 when OpenAI fails', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
     mockSupabase.from
       .mockReturnValueOnce(reflectionSelectChain(mockReflection))
       .mockReturnValueOnce(frameworkSelectChain());
-    mockSupabase.rpc.mockResolvedValue({
-      data: [{ reservation_id: reservationId, used: 1, oldest_in_window: null }],
-      error: null,
-    });
-
-    const del = deleteChain();
-    mockSupabase.from.mockReturnValueOnce(del);
+    mockSupabase.rpc
+      // reserve_ai_analysis_slot
+      .mockResolvedValueOnce({
+        data: [{ reservation_id: reservationId, used: 1, next_available_at: null }],
+        error: null,
+      })
+      // release_ai_analysis_slot
+      .mockResolvedValueOnce({ data: true, error: null });
 
     mockCallOpenAI.mockRejectedValue({ code: 'OPENAI_ERROR', message: 'boom' });
 
     const res = await POST(makePostRequest({ reflection_id: reflectionId }));
     expect(res.status).toBe(502);
-    expect(del.delete).toHaveBeenCalled();
-    expect(del.eq).toHaveBeenCalledWith('id', reservationId);
+    expect(mockSupabase.rpc).toHaveBeenNthCalledWith(2, 'release_ai_analysis_slot', {
+      p_reservation_id: reservationId,
+    });
   });
 
-  it('reserves slot, calls OpenAI, updates row, and returns 201 on success', async () => {
+  it('reserves, calls OpenAI, completes via RPC, returns 201 on success', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
     mockSupabase.from
       .mockReturnValueOnce(reflectionSelectChain(mockReflection))
-      .mockReturnValueOnce(frameworkSelectChain())
-      .mockReturnValueOnce(updateChain(mockAnalysisRow));
+      .mockReturnValueOnce(frameworkSelectChain());
 
-    mockSupabase.rpc.mockResolvedValue({
-      data: [{ reservation_id: reservationId, used: 2, oldest_in_window: null }],
-      error: null,
-    });
+    const nextAvailable = new Date(Date.now() + 23 * 60 * 60 * 1000).toISOString();
+    mockSupabase.rpc
+      // reserve_ai_analysis_slot
+      .mockResolvedValueOnce({
+        data: [
+          { reservation_id: reservationId, used: 2, next_available_at: nextAvailable },
+        ],
+        error: null,
+      })
+      // complete_ai_analysis
+      .mockResolvedValueOnce({ data: mockAnalysisRow, error: null });
 
     mockCallOpenAI.mockResolvedValue({
       payload: {
@@ -209,28 +203,68 @@ describe('POST /api/ai/analyze', () => {
     expect(res.status).toBe(201);
     const json = await res.json();
     expect(json.analysis.id).toBe(reservationId);
-    // used=2 を返した RPC に対し remaining = 3 - 2 = 1
     expect(json.rate_limit.remaining).toBe(1);
     expect(json.rate_limit.limit).toBe(3);
-    expect(mockSupabase.rpc).toHaveBeenCalledWith('reserve_ai_analysis_slot', {
+    expect(json.rate_limit.reset_at).toBe(nextAvailable);
+
+    expect(mockSupabase.rpc).toHaveBeenNthCalledWith(1, 'reserve_ai_analysis_slot', {
       p_reflection_id: reflectionId,
       p_max_per_window: 3,
       p_window_hours: 24,
       p_lease_seconds: 300,
     });
-    // 完了 UPDATE で expires_at が null にクリアされていることを確認
-    const updateCall = (mockSupabase.from as unknown as {
-      mock: { results: Array<{ value: { update?: ReturnType<typeof vi.fn> } }> };
-    }).mock.results.find((r) => r.value?.update);
-    expect(updateCall?.value.update).toHaveBeenCalledWith(
-      expect.objectContaining({ is_complete: true, expires_at: null }),
+    expect(mockSupabase.rpc).toHaveBeenNthCalledWith(
+      2,
+      'complete_ai_analysis',
+      expect.objectContaining({
+        p_reservation_id: reservationId,
+        p_emotional_trend: 'positive',
+      }),
     );
   });
 
-  it('returns 500 when reservation RPC errors', async () => {
+  it('releases reservation when complete_ai_analysis fails', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
+    mockSupabase.from
+      .mockReturnValueOnce(reflectionSelectChain(mockReflection))
+      .mockReturnValueOnce(frameworkSelectChain());
+
+    mockSupabase.rpc
+      .mockResolvedValueOnce({
+        data: [{ reservation_id: reservationId, used: 1, next_available_at: null }],
+        error: null,
+      })
+      // complete_ai_analysis fails
+      .mockResolvedValueOnce({ data: null, error: { message: 'update boom' } })
+      // release_ai_analysis_slot
+      .mockResolvedValueOnce({ data: true, error: null });
+
+    mockCallOpenAI.mockResolvedValue({
+      payload: {
+        growth_points: [],
+        improvement_suggestions: [],
+        emotional_trend: 'neutral',
+        key_achievements: [],
+        challenges: [],
+        recommendations: { actions: [], focus_areas: [] },
+      },
+      metadata: { tokens_used: 0, model: 'gpt-4o-mini', version: '1.0.0' },
+    });
+
+    const res = await POST(makePostRequest({ reflection_id: reflectionId }));
+    expect(res.status).toBe(500);
+    expect(mockSupabase.rpc).toHaveBeenNthCalledWith(3, 'release_ai_analysis_slot', {
+      p_reservation_id: reservationId,
+    });
+  });
+
+  it('returns 500 when reservation RPC errors with unknown code', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
     mockSupabase.from.mockReturnValueOnce(reflectionSelectChain(mockReflection));
-    mockSupabase.rpc.mockResolvedValue({ data: null, error: { message: 'db down' } });
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'P0001', message: 'db down' },
+    });
 
     const res = await POST(makePostRequest({ reflection_id: reflectionId }));
     expect(res.status).toBe(500);
@@ -272,7 +306,6 @@ describe('GET /api/ai/analyze', () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.analysis.id).toBe(reservationId);
-    // is_complete=true でフィルタしていることを確認
     expect(chain.eq).toHaveBeenCalledWith('is_complete', true);
   });
 });

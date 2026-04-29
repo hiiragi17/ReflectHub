@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { callOpenAI, DAILY_RATE_LIMIT } from '@/services/aiAnalysisService';
 import type { Reflection } from '@/types/reflection';
 import type { Framework } from '@/types/framework';
-import type { AnalysisError, AnalysisResponse } from '@/types/analysis';
+import type { Analysis, AnalysisError, AnalysisResponse } from '@/types/analysis';
 
 interface RawBody {
   reflection_id?: unknown;
@@ -12,11 +12,11 @@ interface RawBody {
 interface ReservationRow {
   reservation_id: string | null;
   used: number;
-  oldest_in_window: string | null;
+  next_available_at: string | null;
 }
 
 const WINDOW_HOURS = 24;
-// 予約のリース秒数。OpenAI 呼び出しが想定タイムアウトより十分長く、
+// 予約のリース秒数。OpenAI 呼び出しの想定タイムアウトより十分長く、
 // かつクラッシュ後に枠を返却できる短さに設定。
 const RESERVATION_LEASE_SECONDS = 300;
 
@@ -24,11 +24,9 @@ function errorResponse(error: AnalysisError, status: number) {
   return NextResponse.json({ error }, { status });
 }
 
-function computeResetAt(oldestInWindow: string | null): string {
-  // ローリング 24h ウィンドウ内で最古のエントリが期限切れになる時刻が、次の解放時刻。
-  // 該当エントリが無ければ「今から 24h 後」をフォールバック値として返す。
-  const base = oldestInWindow ? new Date(oldestInWindow) : new Date();
-  return new Date(base.getTime() + WINDOW_HOURS * 60 * 60 * 1000).toISOString();
+function fallbackResetAt(): string {
+  // 該当エントリが無い場合のフォールバック: 今から WINDOW_HOURS 後
+  return new Date(Date.now() + WINDOW_HOURS * 60 * 60 * 1000).toISOString();
 }
 
 export async function POST(request: NextRequest) {
@@ -72,14 +70,12 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (reflectionError) {
-    // PostgREST の "no rows" エラー → 純粋な 404
     if (reflectionError.code === 'PGRST116') {
       return errorResponse(
         { code: 'NOT_FOUND', message: '対象の振り返りが見つかりません。' },
         404,
       );
     }
-    // 他の DB / RLS / ネットワークエラーは 500 として診断可能性を残す
     return errorResponse(
       { code: 'INTERNAL_ERROR', message: '振り返りの取得に失敗しました。' },
       500,
@@ -95,9 +91,9 @@ export async function POST(request: NextRequest) {
 
   const reflection = reflectionRow as Reflection;
 
-  // 原子的にスロットを予約。pg_advisory_xact_lock + 所有権チェック + count + insert を
-  // 1 トランザクションで行う。p_lease_seconds で予約のリース期限を渡し、
-  // クラッシュ等で取り残された予約行が枠を消費し続けないようにする。
+  // 原子的にスロットを予約（SECURITY DEFINER RPC）。
+  // ai_analyses への書き込みはこの RPC とその仲間 (release / complete) のみが行う。
+  // クライアントは SELECT のみ可能なので、クォータや AI 生成内容の不変条件をバイパスできない。
   const { data: reservationRows, error: reserveError } = await supabase.rpc(
     'reserve_ai_analysis_slot',
     {
@@ -109,7 +105,6 @@ export async function POST(request: NextRequest) {
   );
 
   if (reserveError) {
-    // RPC 内の所有権チェック失敗（エラーコード 42501 = insufficient_privilege）は 404 にマップ
     const code = (reserveError as { code?: string }).code;
     if (code === '42501') {
       return errorResponse(
@@ -135,7 +130,9 @@ export async function POST(request: NextRequest) {
   }
 
   if (!reservation.reservation_id) {
-    const resetAt = computeResetAt(reservation.oldest_in_window);
+    // RPC が返す next_available_at は「次に枠が 1 つ空く時刻」。
+    // 完了行は created_at + 24h、未完了行は expires_at で開放される、その最小値。
+    const resetAt = reservation.next_available_at ?? fallbackResetAt();
     return NextResponse.json(
       {
         error: {
@@ -176,8 +173,10 @@ export async function POST(request: NextRequest) {
     payload = result.payload;
     metadata = result.metadata;
   } catch (err) {
-    // 失敗時は予約行をロールバック（DELETE）してスロットを解放
-    await supabase.from('ai_analyses').delete().eq('id', reservationId);
+    // 失敗時は RPC で予約をロールバックして枠を解放する
+    await supabase.rpc('release_ai_analysis_slot', {
+      p_reservation_id: reservationId,
+    });
 
     const wrapped = err as AnalysisError;
     if (wrapped?.code === 'OPENAI_ERROR') {
@@ -189,39 +188,44 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // 成功: 予約行を分析結果で UPDATE して is_complete=true / expires_at=null にする
-  const { data: updated, error: updateError } = await supabase
-    .from('ai_analyses')
-    .update({
-      growth_points: payload.growth_points,
-      improvement_suggestions: payload.improvement_suggestions,
-      emotional_trend: payload.emotional_trend,
-      key_achievements: payload.key_achievements,
-      challenges: payload.challenges,
-      recommendations: payload.recommendations,
-      metadata,
-      is_complete: true,
-      expires_at: null,
-    })
-    .eq('id', reservationId)
-    .select()
-    .single();
+  // 成功: 予約を完了状態にする RPC を呼ぶ。
+  // クライアントが完了行を直接 UPDATE できない代わりに、こちらが状態遷移を一手に握る。
+  const { data: completedRow, error: completeError } = await supabase.rpc(
+    'complete_ai_analysis',
+    {
+      p_reservation_id: reservationId,
+      p_growth_points: payload.growth_points,
+      p_improvement_suggestions: payload.improvement_suggestions,
+      p_emotional_trend: payload.emotional_trend,
+      p_key_achievements: payload.key_achievements,
+      p_challenges: payload.challenges,
+      p_recommendations: payload.recommendations,
+      p_metadata: metadata,
+    },
+  );
 
-  if (updateError || !updated) {
-    // UPDATE に失敗した場合も予約行を残しておくと永久に枠を消費するので削除
-    await supabase.from('ai_analyses').delete().eq('id', reservationId);
+  if (completeError || !completedRow) {
+    // 完了 UPDATE に失敗したら予約行を解放しておく（永久に枠を消費しないため）
+    await supabase.rpc('release_ai_analysis_slot', {
+      p_reservation_id: reservationId,
+    });
     return errorResponse(
       { code: 'INTERNAL_ERROR', message: '分析結果の保存に失敗しました。' },
       500,
     );
   }
 
+  // SECURITY DEFINER 関数 (RETURNS ai_analyses) は単一行を返す。
+  const completed = (
+    Array.isArray(completedRow) ? completedRow[0] : completedRow
+  ) as Analysis;
+
   const responsePayload: AnalysisResponse = {
-    analysis: updated as AnalysisResponse['analysis'],
+    analysis: completed,
     rate_limit: {
       remaining: Math.max(0, DAILY_RATE_LIMIT - reservation.used),
       limit: DAILY_RATE_LIMIT,
-      reset_at: computeResetAt(reservation.oldest_in_window),
+      reset_at: reservation.next_available_at ?? fallbackResetAt(),
     },
   };
 
