@@ -8,6 +8,7 @@ import { frameworkService } from '@/services/frameworkService';
 import { ReflectionDetail } from '@/components/reflection/ReflectionDetail';
 import { ReflectionEditModal } from '@/components/reflection/ReflectionEditModal';
 import { DeleteConfirmDialog } from '@/components/reflection/DeleteConfirmDialog';
+import { AnalysisPanel } from '@/components/analysis/AnalysisPanel';
 import Header from '@/components/layout/Header';
 import { Loader2 } from 'lucide-react';
 import type { Reflection } from '@/types/reflection';
@@ -201,6 +202,10 @@ export default function ReflectionDetailPage() {
               onDelete={handleShowDeleteConfirm}
               isLoading={isUpdating}
             />
+
+            <div className="mt-6">
+              <AnalysisPanel reflectionId={reflection.id} />
+            </div>
 
             {/* Edit Modal */}
             {showEditModal && (
