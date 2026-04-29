@@ -72,7 +72,7 @@ export function AnalysisPanel({ reflectionId }: AnalysisPanelProps) {
               <p className="font-medium">{error.message}</p>
               {error.code === 'RATE_LIMITED' && (
                 <p className="text-xs mt-1">
-                  時間をおいて再度お試しください（1 日 3 回まで）。
+                  時間をおいて再度お試しください（1 日{rateLimit?.limit ?? 1} 回まで）。
                 </p>
               )}
             </div>

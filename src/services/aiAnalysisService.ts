@@ -13,7 +13,7 @@ import type {
   OpenAIAnalysisPayload,
 } from '@/types/analysis';
 
-export const DAILY_RATE_LIMIT = 3;
+export const DAILY_RATE_LIMIT = 1;
 
 export interface RateLimitStatus {
   remaining: number;

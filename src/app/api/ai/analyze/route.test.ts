@@ -143,7 +143,7 @@ describe('POST /api/ai/analyze', () => {
     mockSupabase.from.mockReturnValueOnce(reflectionSelectChain(mockReflection));
     const nextAvailable = new Date(Date.now() + 60 * 1000).toISOString();
     mockSupabase.rpc.mockResolvedValueOnce({
-      data: [{ reservation_id: null, used: 3, next_available_at: nextAvailable }],
+      data: [{ reservation_id: null, used: 1, next_available_at: nextAvailable }],
       error: null,
     });
 
@@ -190,7 +190,7 @@ describe('POST /api/ai/analyze', () => {
       // reserve_ai_analysis_slot
       .mockResolvedValueOnce({
         data: [
-          { reservation_id: reservationId, used: 2, next_available_at: nextAvailable },
+          { reservation_id: reservationId, used: 1, next_available_at: nextAvailable },
         ],
         error: null,
       })
@@ -213,13 +213,13 @@ describe('POST /api/ai/analyze', () => {
     expect(res.status).toBe(201);
     const json = await res.json();
     expect(json.analysis.id).toBe(reservationId);
-    expect(json.rate_limit.remaining).toBe(1);
-    expect(json.rate_limit.limit).toBe(3);
+    expect(json.rate_limit.remaining).toBe(0);
+    expect(json.rate_limit.limit).toBe(1);
     expect(json.rate_limit.reset_at).toBe(nextAvailable);
 
     expect(mockSupabase.rpc).toHaveBeenNthCalledWith(1, 'reserve_ai_analysis_slot', {
       p_reflection_id: reflectionId,
-      p_max_per_window: 3,
+      p_max_per_window: 1,
       p_window_hours: 24,
       p_lease_seconds: 300,
     });

@@ -37,8 +37,8 @@ describe('getRateLimitWindow', () => {
 });
 
 describe('DAILY_RATE_LIMIT', () => {
-  it('is 3 per spec', () => {
-    expect(DAILY_RATE_LIMIT).toBe(3);
+  it('is 1 per spec', () => {
+    expect(DAILY_RATE_LIMIT).toBe(1);
   });
 });
 
