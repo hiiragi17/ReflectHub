@@ -75,10 +75,14 @@ export function useAIAnalysis(reflectionId: string | null | undefined): UseAIAna
   }, [reflectionId]);
 
   useEffect(() => {
+    // reflectionId が切り替わったら、前の振り返りの分析・残数・エラーを必ずクリアする。
+    // そうしないとフェッチ完了前や失敗時に他の振り返りの結果が表示されてしまう。
+    setAnalysis(null);
+    setRateLimit(null);
+    setError(null);
     if (reflectionId) {
       void fetchExisting();
     } else {
-      setAnalysis(null);
       setIsLoading(false);
     }
   }, [reflectionId, fetchExisting]);
@@ -96,10 +100,12 @@ export function useAIAnalysis(reflectionId: string | null | undefined): UseAIAna
       });
 
       if (!response.ok) {
+        // parseError が body を消費するため、429 用に先にクローンしておく。
+        const rateLimitClone = response.status === 429 ? response.clone() : null;
         const err = await parseError(response);
-        if (response.status === 429) {
+        if (rateLimitClone) {
           try {
-            const json = (await response.clone().json()) as {
+            const json = (await rateLimitClone.json()) as {
               rate_limit?: RateLimitState;
             };
             if (json?.rate_limit && mountedRef.current) {

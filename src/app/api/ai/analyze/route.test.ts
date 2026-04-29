@@ -5,6 +5,7 @@ const { mockSupabase, mockCallOpenAI } = vi.hoisted(() => ({
   mockSupabase: {
     auth: { getUser: vi.fn() },
     from: vi.fn(),
+    rpc: vi.fn(),
   },
   mockCallOpenAI: vi.fn(),
 }));
@@ -27,6 +28,7 @@ import { POST, GET } from './route';
 
 const USER = { id: 'user-1' };
 const reflectionId = '11111111-1111-1111-1111-111111111111';
+const reservationId = '22222222-2222-2222-2222-222222222222';
 
 const mockReflection = {
   id: reflectionId,
@@ -39,7 +41,7 @@ const mockReflection = {
 };
 
 const mockAnalysisRow = {
-  id: 'a1',
+  id: reservationId,
   user_id: USER.id,
   reflection_id: reflectionId,
   growth_points: ['gp'],
@@ -49,6 +51,7 @@ const mockAnalysisRow = {
   challenges: ['ch'],
   recommendations: { actions: ['a'], focus_areas: ['f'] },
   metadata: { tokens_used: 100, model: 'gpt-4o-mini', version: '1.0.0' },
+  is_complete: true,
   created_at: '2026-04-29T01:00:00Z',
   updated_at: '2026-04-29T01:00:00Z',
 };
@@ -59,6 +62,30 @@ const makePostRequest = (body: unknown) =>
     body: JSON.stringify(body),
     headers: { 'Content-Type': 'application/json' },
   });
+
+const reflectionSelectChain = (data: unknown, error: unknown = null) => ({
+  select: vi.fn().mockReturnThis(),
+  eq: vi.fn().mockReturnThis(),
+  single: vi.fn().mockResolvedValue({ data, error }),
+});
+
+const frameworkSelectChain = () => ({
+  select: vi.fn().mockReturnThis(),
+  eq: vi.fn().mockReturnThis(),
+  single: vi.fn().mockResolvedValue({ data: null, error: null }),
+});
+
+const updateChain = (data: unknown, error: unknown = null) => ({
+  update: vi.fn().mockReturnThis(),
+  eq: vi.fn().mockReturnThis(),
+  select: vi.fn().mockReturnThis(),
+  single: vi.fn().mockResolvedValue({ data, error }),
+});
+
+const deleteChain = () => ({
+  delete: vi.fn().mockReturnThis(),
+  eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -77,100 +104,69 @@ describe('POST /api/ai/analyze', () => {
     expect(res.status).toBe(400);
   });
 
-  it('returns 429 when rate limit reached', async () => {
+  it('returns 404 when reflection not found', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
+    mockSupabase.from.mockReturnValueOnce(
+      reflectionSelectChain(null, { code: 'PGRST116' }),
+    );
 
-    const countChain = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      gte: vi.fn().mockResolvedValue({ count: 3, error: null }),
-    };
-    mockSupabase.from.mockReturnValue(countChain);
+    const res = await POST(makePostRequest({ reflection_id: reflectionId }));
+    expect(res.status).toBe(404);
+    expect(mockSupabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('returns 429 when slot reservation is denied (rate limit)', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
+    mockSupabase.from.mockReturnValueOnce(reflectionSelectChain(mockReflection));
+    const oldest = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString();
+    mockSupabase.rpc.mockResolvedValue({
+      data: [{ reservation_id: null, used: 3, oldest_in_window: oldest }],
+      error: null,
+    });
 
     const res = await POST(makePostRequest({ reflection_id: reflectionId }));
     expect(res.status).toBe(429);
     const json = await res.json();
     expect(json.error.code).toBe('RATE_LIMITED');
+    expect(json.rate_limit.remaining).toBe(0);
+    // reset_at は oldest + 24h
+    expect(new Date(json.rate_limit.reset_at).getTime()).toBe(
+      new Date(oldest).getTime() + 24 * 60 * 60 * 1000,
+    );
   });
 
-  it('returns 404 when reflection not found', async () => {
+  it('rolls back reservation and returns 502 when OpenAI fails', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
-
-    const countChain = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      gte: vi.fn().mockResolvedValue({ count: 0, error: null }),
-    };
-    const reflectionChain = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } }),
-    };
     mockSupabase.from
-      .mockReturnValueOnce(countChain)
-      .mockReturnValueOnce(reflectionChain);
+      .mockReturnValueOnce(reflectionSelectChain(mockReflection))
+      .mockReturnValueOnce(frameworkSelectChain());
+    mockSupabase.rpc.mockResolvedValue({
+      data: [{ reservation_id: reservationId, used: 1, oldest_in_window: null }],
+      error: null,
+    });
 
-    const res = await POST(makePostRequest({ reflection_id: reflectionId }));
-    expect(res.status).toBe(404);
-  });
-
-  it('returns 502 when OpenAI fails', async () => {
-    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
-
-    const countChain = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      gte: vi.fn().mockResolvedValue({ count: 0, error: null }),
-    };
-    const reflectionChain = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({ data: mockReflection, error: null }),
-    };
-    const frameworkChain = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({ data: null, error: null }),
-    };
-    mockSupabase.from
-      .mockReturnValueOnce(countChain)
-      .mockReturnValueOnce(reflectionChain)
-      .mockReturnValueOnce(frameworkChain);
+    const del = deleteChain();
+    mockSupabase.from.mockReturnValueOnce(del);
 
     mockCallOpenAI.mockRejectedValue({ code: 'OPENAI_ERROR', message: 'boom' });
 
     const res = await POST(makePostRequest({ reflection_id: reflectionId }));
     expect(res.status).toBe(502);
+    expect(del.delete).toHaveBeenCalled();
+    expect(del.eq).toHaveBeenCalledWith('id', reservationId);
   });
 
-  it('persists analysis and returns 201 on success', async () => {
+  it('reserves slot, calls OpenAI, updates row, and returns 201 on success', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
-
-    const countChain = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      gte: vi.fn().mockResolvedValue({ count: 1, error: null }),
-    };
-    const reflectionChain = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({ data: mockReflection, error: null }),
-    };
-    const frameworkChain = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({ data: null, error: null }),
-    };
-    const insertChain = {
-      insert: vi.fn().mockReturnThis(),
-      select: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({ data: mockAnalysisRow, error: null }),
-    };
     mockSupabase.from
-      .mockReturnValueOnce(countChain)
-      .mockReturnValueOnce(reflectionChain)
-      .mockReturnValueOnce(frameworkChain)
-      .mockReturnValueOnce(insertChain);
+      .mockReturnValueOnce(reflectionSelectChain(mockReflection))
+      .mockReturnValueOnce(frameworkSelectChain())
+      .mockReturnValueOnce(updateChain(mockAnalysisRow));
+
+    mockSupabase.rpc.mockResolvedValue({
+      data: [{ reservation_id: reservationId, used: 2, oldest_in_window: null }],
+      error: null,
+    });
 
     mockCallOpenAI.mockResolvedValue({
       payload: {
@@ -187,9 +183,24 @@ describe('POST /api/ai/analyze', () => {
     const res = await POST(makePostRequest({ reflection_id: reflectionId }));
     expect(res.status).toBe(201);
     const json = await res.json();
-    expect(json.analysis.id).toBe('a1');
+    expect(json.analysis.id).toBe(reservationId);
+    // used=2 を返した RPC に対し remaining = 3 - 2 = 1
     expect(json.rate_limit.remaining).toBe(1);
     expect(json.rate_limit.limit).toBe(3);
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('reserve_ai_analysis_slot', {
+      p_reflection_id: reflectionId,
+      p_max_per_window: 3,
+      p_window_hours: 24,
+    });
+  });
+
+  it('returns 500 when reservation RPC errors', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
+    mockSupabase.from.mockReturnValueOnce(reflectionSelectChain(mockReflection));
+    mockSupabase.rpc.mockResolvedValue({ data: null, error: { message: 'db down' } });
+
+    const res = await POST(makePostRequest({ reflection_id: reflectionId }));
+    expect(res.status).toBe(500);
   });
 });
 
@@ -210,7 +221,7 @@ describe('GET /api/ai/analyze', () => {
     expect(res.status).toBe(400);
   });
 
-  it('returns latest analysis or null', async () => {
+  it('returns latest completed analysis or null', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
     const chain = {
       select: vi.fn().mockReturnThis(),
@@ -227,6 +238,8 @@ describe('GET /api/ai/analyze', () => {
     const res = await GET(req);
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.analysis.id).toBe('a1');
+    expect(json.analysis.id).toBe(reservationId);
+    // is_complete=true でフィルタしていることを確認
+    expect(chain.eq).toHaveBeenCalledWith('is_complete', true);
   });
 });
