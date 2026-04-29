@@ -252,10 +252,14 @@ BEGIN
   WHERE id = p_reservation_id
     AND user_id = v_user_id
     AND is_complete = false
+    -- リース切れの予約は完了させない。古い reservation_id を保持して
+    -- カウントウィンドウから外れるのを待ち、上限超過の分析を作るのを防ぐ。
+    AND expires_at IS NOT NULL
+    AND expires_at > now()
   RETURNING * INTO v_row;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'reservation not found or already completed'
+    RAISE EXCEPTION 'reservation not found, already completed, or lease expired'
       USING ERRCODE = '42501';
   END IF;
 

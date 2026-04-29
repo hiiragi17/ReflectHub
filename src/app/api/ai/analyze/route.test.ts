@@ -27,8 +27,9 @@ vi.mock('@/services/aiAnalysisService', async () => {
 import { POST, GET } from './route';
 
 const USER = { id: 'user-1' };
-const reflectionId = '11111111-1111-1111-1111-111111111111';
-const reservationId = '22222222-2222-2222-2222-222222222222';
+// 有効な UUID v4 形式（version=4, variant=8）
+const reflectionId = '11111111-1111-4111-8111-111111111111';
+const reservationId = '22222222-2222-4222-8222-222222222222';
 
 const mockReflection = {
   id: reflectionId,
@@ -90,6 +91,15 @@ describe('POST /api/ai/analyze', () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
     const res = await POST(makePostRequest({}));
     expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when reflection_id is not a UUID', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
+    const res = await POST(makePostRequest({ reflection_id: 'not-a-uuid' }));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error.code).toBe('INVALID_REQUEST');
+    expect(mockSupabase.from).not.toHaveBeenCalled();
   });
 
   it('returns 404 when reflection not found (PGRST116)', async () => {
@@ -286,6 +296,14 @@ describe('GET /api/ai/analyze', () => {
     const req = new NextRequest('http://localhost/api/ai/analyze');
     const res = await GET(req);
     expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when reflection_id is not a UUID', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
+    const req = new NextRequest('http://localhost/api/ai/analyze?reflection_id=foo');
+    const res = await GET(req);
+    expect(res.status).toBe(400);
+    expect(mockSupabase.from).not.toHaveBeenCalled();
   });
 
   it('returns latest completed analysis or null', async () => {

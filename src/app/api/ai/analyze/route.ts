@@ -20,6 +20,14 @@ const WINDOW_HOURS = 24;
 // かつクラッシュ後に枠を返却できる短さに設定。
 const RESERVATION_LEASE_SECONDS = 300;
 
+// RFC4122 UUID 形式（v1〜v5）。クライアント入力の事前検証に使用する。
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isValidUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
 function errorResponse(error: AnalysisError, status: number) {
   return NextResponse.json({ error }, { status });
 }
@@ -42,9 +50,12 @@ export async function POST(request: NextRequest) {
 
   const reflectionId =
     typeof body?.reflection_id === 'string' ? body.reflection_id.trim() : '';
-  if (!reflectionId) {
+  if (!reflectionId || !isValidUuid(reflectionId)) {
     return errorResponse(
-      { code: 'INVALID_REQUEST', message: 'reflection_id は必須です。' },
+      {
+        code: 'INVALID_REQUEST',
+        message: 'reflection_id は UUID 形式で指定してください。',
+      },
       400,
     );
   }
@@ -244,9 +255,12 @@ export async function GET(request: NextRequest) {
   }
 
   const reflectionId = request.nextUrl.searchParams.get('reflection_id');
-  if (!reflectionId) {
+  if (!reflectionId || !isValidUuid(reflectionId)) {
     return errorResponse(
-      { code: 'INVALID_REQUEST', message: 'reflection_id は必須です。' },
+      {
+        code: 'INVALID_REQUEST',
+        message: 'reflection_id は UUID 形式で指定してください。',
+      },
       400,
     );
   }
