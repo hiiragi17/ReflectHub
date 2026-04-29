@@ -104,7 +104,7 @@ describe('POST /api/ai/analyze', () => {
     expect(res.status).toBe(400);
   });
 
-  it('returns 404 when reflection not found', async () => {
+  it('returns 404 when reflection not found (PGRST116)', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
     mockSupabase.from.mockReturnValueOnce(
       reflectionSelectChain(null, { code: 'PGRST116' }),
@@ -113,6 +113,31 @@ describe('POST /api/ai/analyze', () => {
     const res = await POST(makePostRequest({ reflection_id: reflectionId }));
     expect(res.status).toBe(404);
     expect(mockSupabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when reflection lookup fails with non-404 DB error', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
+    mockSupabase.from.mockReturnValueOnce(
+      reflectionSelectChain(null, { code: 'OTHER', message: 'db boom' }),
+    );
+
+    const res = await POST(makePostRequest({ reflection_id: reflectionId }));
+    expect(res.status).toBe(500);
+    const json = await res.json();
+    expect(json.error.code).toBe('INTERNAL_ERROR');
+    expect(mockSupabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('maps RPC ownership failure (42501) to 404', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
+    mockSupabase.from.mockReturnValueOnce(reflectionSelectChain(mockReflection));
+    mockSupabase.rpc.mockResolvedValue({
+      data: null,
+      error: { code: '42501', message: 'reflection not found or not owned by user' },
+    });
+
+    const res = await POST(makePostRequest({ reflection_id: reflectionId }));
+    expect(res.status).toBe(404);
   });
 
   it('returns 429 when slot reservation is denied (rate limit)', async () => {
@@ -191,7 +216,15 @@ describe('POST /api/ai/analyze', () => {
       p_reflection_id: reflectionId,
       p_max_per_window: 3,
       p_window_hours: 24,
+      p_lease_seconds: 300,
     });
+    // 完了 UPDATE で expires_at が null にクリアされていることを確認
+    const updateCall = (mockSupabase.from as unknown as {
+      mock: { results: Array<{ value: { update?: ReturnType<typeof vi.fn> } }> };
+    }).mock.results.find((r) => r.value?.update);
+    expect(updateCall?.value.update).toHaveBeenCalledWith(
+      expect.objectContaining({ is_complete: true, expires_at: null }),
+    );
   });
 
   it('returns 500 when reservation RPC errors', async () => {

@@ -16,6 +16,9 @@ interface ReservationRow {
 }
 
 const WINDOW_HOURS = 24;
+// 予約のリース秒数。OpenAI 呼び出しが想定タイムアウトより十分長く、
+// かつクラッシュ後に枠を返却できる短さに設定。
+const RESERVATION_LEASE_SECONDS = 300;
 
 function errorResponse(error: AnalysisError, status: number) {
   return NextResponse.json({ error }, { status });
@@ -60,6 +63,7 @@ export async function POST(request: NextRequest) {
 
   // 振り返りを取得（RLS により本人のもののみ）。OpenAI 呼び出し前にここで存在確認することで、
   // 他人の reflection_id ではスロットを予約させない。
+  // RPC 内でも所有権を再チェックしているが、ルートでも先に確認することで RPC を呼ばずに 404 を返せる。
   const { data: reflectionRow, error: reflectionError } = await supabase
     .from('retrospectives')
     .select('*')
@@ -67,7 +71,22 @@ export async function POST(request: NextRequest) {
     .eq('user_id', user.id)
     .single();
 
-  if (reflectionError || !reflectionRow) {
+  if (reflectionError) {
+    // PostgREST の "no rows" エラー → 純粋な 404
+    if (reflectionError.code === 'PGRST116') {
+      return errorResponse(
+        { code: 'NOT_FOUND', message: '対象の振り返りが見つかりません。' },
+        404,
+      );
+    }
+    // 他の DB / RLS / ネットワークエラーは 500 として診断可能性を残す
+    return errorResponse(
+      { code: 'INTERNAL_ERROR', message: '振り返りの取得に失敗しました。' },
+      500,
+    );
+  }
+
+  if (!reflectionRow) {
     return errorResponse(
       { code: 'NOT_FOUND', message: '対象の振り返りが見つかりません。' },
       404,
@@ -76,17 +95,28 @@ export async function POST(request: NextRequest) {
 
   const reflection = reflectionRow as Reflection;
 
-  // 原子的にスロットを予約。pg_advisory_xact_lock + count + insert を 1 トランザクションで行う。
+  // 原子的にスロットを予約。pg_advisory_xact_lock + 所有権チェック + count + insert を
+  // 1 トランザクションで行う。p_lease_seconds で予約のリース期限を渡し、
+  // クラッシュ等で取り残された予約行が枠を消費し続けないようにする。
   const { data: reservationRows, error: reserveError } = await supabase.rpc(
     'reserve_ai_analysis_slot',
     {
       p_reflection_id: reflection.id,
       p_max_per_window: DAILY_RATE_LIMIT,
       p_window_hours: WINDOW_HOURS,
+      p_lease_seconds: RESERVATION_LEASE_SECONDS,
     },
   );
 
   if (reserveError) {
+    // RPC 内の所有権チェック失敗（エラーコード 42501 = insufficient_privilege）は 404 にマップ
+    const code = (reserveError as { code?: string }).code;
+    if (code === '42501') {
+      return errorResponse(
+        { code: 'NOT_FOUND', message: '対象の振り返りが見つかりません。' },
+        404,
+      );
+    }
     return errorResponse(
       { code: 'INTERNAL_ERROR', message: 'レート制限の確認に失敗しました。' },
       500,
@@ -159,7 +189,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // 成功: 予約行を分析結果で UPDATE して is_complete=true にする
+  // 成功: 予約行を分析結果で UPDATE して is_complete=true / expires_at=null にする
   const { data: updated, error: updateError } = await supabase
     .from('ai_analyses')
     .update({
@@ -171,6 +201,7 @@ export async function POST(request: NextRequest) {
       recommendations: payload.recommendations,
       metadata,
       is_complete: true,
+      expires_at: null,
     })
     .eq('id', reservationId)
     .select()
