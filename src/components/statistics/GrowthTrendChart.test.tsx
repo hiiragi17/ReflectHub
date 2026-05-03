@@ -1,9 +1,23 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import GrowthTrendChart from './GrowthTrendChart';
 import type { AnalyticsTrends, TrendPoint } from '@/types/analytics';
 
+let originalClientWidth: PropertyDescriptor | undefined;
+let originalClientHeight: PropertyDescriptor | undefined;
+const originalResizeObserver = globalThis.ResizeObserver;
+let didStubResizeObserver = false;
+
 beforeAll(() => {
+  originalClientWidth = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    'clientWidth',
+  );
+  originalClientHeight = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    'clientHeight',
+  );
+
   // Recharts' ResponsiveContainer relies on these to render in jsdom.
   Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
     configurable: true,
@@ -19,6 +33,23 @@ beforeAll(() => {
       unobserve() {}
       disconnect() {}
     } as typeof ResizeObserver;
+    didStubResizeObserver = true;
+  }
+});
+
+afterAll(() => {
+  if (originalClientWidth) {
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', originalClientWidth);
+  } else {
+    delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientWidth;
+  }
+  if (originalClientHeight) {
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', originalClientHeight);
+  } else {
+    delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientHeight;
+  }
+  if (didStubResizeObserver) {
+    globalThis.ResizeObserver = originalResizeObserver;
   }
 });
 
