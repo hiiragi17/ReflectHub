@@ -58,8 +58,9 @@ describe('GrowthTrendChart', () => {
     render(<GrowthTrendChart trends={trends} />);
 
     // Summary should include only the last 3 months: 1 + 2 + 3 = 6
-    expect(screen.getByText('6')).toBeInTheDocument();
-    expect(screen.getByText(/直近3ヶ月で/)).toBeInTheDocument();
+    expect(
+      screen.getByText((_, node) => node?.textContent === '直近3ヶ月で 6 件'),
+    ).toBeInTheDocument();
   });
 
   it('honours a custom months window', () => {
@@ -73,13 +74,45 @@ describe('GrowthTrendChart', () => {
 
     expect(screen.getByText('2ヶ月の成長')).toBeInTheDocument();
     // 2 + 3 = 5 over the last 2 months
-    expect(screen.getByText('5')).toBeInTheDocument();
+    expect(
+      screen.getByText((_, node) => node?.textContent === '直近2ヶ月で 5 件'),
+    ).toBeInTheDocument();
   });
 
   it('renders without crashing when monthly data is empty', () => {
     const trends = buildTrends([]);
     render(<GrowthTrendChart trends={trends} />);
     expect(screen.getByText('3ヶ月の成長')).toBeInTheDocument();
-    expect(screen.getByText('0')).toBeInTheDocument();
+    expect(
+      screen.getByText((_, node) => node?.textContent === '直近3ヶ月で 0 件'),
+    ).toBeInTheDocument();
+  });
+
+  it('normalises non-positive or non-integer months to the default window', () => {
+    const trends = buildTrends([
+      point('2026-01', 5),
+      point('2026-02', 5),
+      point('2026-03', 1),
+      point('2026-04', 2),
+      point('2026-05', 3),
+    ]);
+
+    // months=0 must NOT produce slice(-0) (which returns the full array).
+    const { rerender } = render(<GrowthTrendChart trends={trends} months={0} />);
+    expect(screen.getByText('3ヶ月の成長')).toBeInTheDocument();
+    expect(
+      screen.getByText((_, node) => node?.textContent === '直近3ヶ月で 6 件'),
+    ).toBeInTheDocument();
+
+    // Negative values fall back to the default too.
+    rerender(<GrowthTrendChart trends={trends} months={-2} />);
+    expect(screen.getByText('3ヶ月の成長')).toBeInTheDocument();
+
+    // Fractional values are floored to the nearest positive integer.
+    rerender(<GrowthTrendChart trends={trends} months={2.7} />);
+    expect(screen.getByText('2ヶ月の成長')).toBeInTheDocument();
+    expect(
+      screen.getByText((_, node) => node?.textContent === '直近2ヶ月で 5 件'),
+    ).toBeInTheDocument();
   });
 });
