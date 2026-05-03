@@ -24,8 +24,11 @@ export default function GrowthTrendChart({
   trends,
   months = DEFAULT_MONTHS,
 }: GrowthTrendChartProps) {
+  const normalizedMonths =
+    Number.isFinite(months) && months > 0 ? Math.floor(months) : DEFAULT_MONTHS;
+
   const data = useMemo(() => {
-    const recent = trends.monthly.slice(-months);
+    const recent = trends.monthly.slice(-normalizedMonths);
     let cumulative = 0;
     return recent.map((point) => {
       cumulative += point.count;
@@ -35,16 +38,16 @@ export default function GrowthTrendChart({
         added: point.count,
       };
     });
-  }, [trends, months]);
+  }, [trends, normalizedMonths]);
 
   const totalAdded = data.reduce((sum, point) => sum + point.added, 0);
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-lg">{months}ヶ月の成長</CardTitle>
+        <CardTitle className="text-lg">{normalizedMonths}ヶ月の成長</CardTitle>
         <p className="text-sm text-gray-500">
-          直近{months}ヶ月で <span className="font-semibold text-gray-900">{totalAdded}</span> 件
+          直近{normalizedMonths}ヶ月で <span className="font-semibold text-gray-900">{totalAdded}</span> 件
         </p>
       </CardHeader>
       <CardContent>
