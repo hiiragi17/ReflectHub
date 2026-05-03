@@ -19,6 +19,7 @@ import PeriodComparison from '@/components/statistics/PeriodComparison';
 import StreakDisplay from '@/components/statistics/StreakDisplay';
 import ActivityHeatmap from '@/components/statistics/ActivityHeatmap';
 import ThisWeekStatus from '@/components/statistics/ThisWeekStatus';
+import GrowthTrendChart from '@/components/statistics/GrowthTrendChart';
 
 export default function AnalyticsPage() {
   const { user, signOut, isLoading: authLoading } = useAuth();
@@ -146,6 +147,10 @@ export default function AnalyticsPage() {
               <div className="lg:col-span-2">
                 <ActivityHeatmap heatmap={summary.weeklyHeatmap} />
               </div>
+            </section>
+
+            <section>
+              <GrowthTrendChart trends={trends} />
             </section>
 
             <section>
