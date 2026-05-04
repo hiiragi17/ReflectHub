@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Analysis, AnalysisError, AnalysisResponse } from '@/types/analysis';
+import type { Summary, SummaryError, SummaryPeriod, SummaryResponse } from '@/types/summary';
 
 interface RateLimitState {
   remaining: number;
@@ -9,18 +9,20 @@ interface RateLimitState {
   reset_at: string;
 }
 
-export interface UseAIAnalysisState {
-  analysis: Analysis | null;
+export interface UseAISummaryState {
+  summary: Summary | null;
   isLoading: boolean;
   isAnalyzing: boolean;
-  error: AnalysisError | null;
+  error: SummaryError | null;
   rateLimit: RateLimitState | null;
+  period: SummaryPeriod;
+  setPeriod: (period: SummaryPeriod) => void;
   analyze: () => Promise<void>;
 }
 
-async function parseError(response: Response): Promise<AnalysisError> {
+async function parseError(response: Response): Promise<SummaryError> {
   try {
-    const json = (await response.json()) as { error?: AnalysisError };
+    const json = (await response.json()) as { error?: SummaryError };
     if (json?.error) return json.error;
   } catch {
     // ignore
@@ -31,11 +33,12 @@ async function parseError(response: Response): Promise<AnalysisError> {
   };
 }
 
-export function useAIAnalysis(reflectionId: string | null | undefined): UseAIAnalysisState {
-  const [analysis, setAnalysis] = useState<Analysis | null>(null);
-  const [isLoading, setIsLoading] = useState(Boolean(reflectionId));
+export function useAISummary(initialPeriod: SummaryPeriod = 'week'): UseAISummaryState {
+  const [period, setPeriodState] = useState<SummaryPeriod>(initialPeriod);
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [error, setError] = useState<AnalysisError | null>(null);
+  const [error, setError] = useState<SummaryError | null>(null);
   const [rateLimit, setRateLimit] = useState<RateLimitState | null>(null);
   const mountedRef = useRef(true);
 
@@ -46,13 +49,12 @@ export function useAIAnalysis(reflectionId: string | null | undefined): UseAIAna
     };
   }, []);
 
-  const fetchExisting = useCallback(async () => {
-    if (!reflectionId) return;
+  const fetchExisting = useCallback(async (target: SummaryPeriod) => {
     setIsLoading(true);
     setError(null);
     try {
       const response = await fetch(
-        `/api/ai/analyze?reflection_id=${encodeURIComponent(reflectionId)}`,
+        `/api/ai/summary?period=${encodeURIComponent(target)}`,
         { credentials: 'include' },
       );
       if (!response.ok) {
@@ -60,9 +62,9 @@ export function useAIAnalysis(reflectionId: string | null | undefined): UseAIAna
         setError(await parseError(response));
         return;
       }
-      const json = (await response.json()) as { analysis: Analysis | null };
+      const json = (await response.json()) as { summary: Summary | null };
       if (!mountedRef.current) return;
-      setAnalysis(json.analysis);
+      setSummary(json.summary);
     } catch (err) {
       if (!mountedRef.current) return;
       setError({
@@ -72,35 +74,32 @@ export function useAIAnalysis(reflectionId: string | null | undefined): UseAIAna
     } finally {
       if (mountedRef.current) setIsLoading(false);
     }
-  }, [reflectionId]);
+  }, []);
 
   useEffect(() => {
-    // reflectionId が切り替わったら、前の振り返りの分析・残数・エラーを必ずクリアする。
-    // そうしないとフェッチ完了前や失敗時に他の振り返りの結果が表示されてしまう。
-    setAnalysis(null);
+    setSummary(null);
     setRateLimit(null);
     setError(null);
-    if (reflectionId) {
-      void fetchExisting();
-    } else {
-      setIsLoading(false);
-    }
-  }, [reflectionId, fetchExisting]);
+    void fetchExisting(period);
+  }, [period, fetchExisting]);
+
+  const setPeriod = useCallback((next: SummaryPeriod) => {
+    setPeriodState(next);
+  }, []);
 
   const analyze = useCallback(async () => {
-    if (!reflectionId || isAnalyzing) return;
+    if (isAnalyzing) return;
     setIsAnalyzing(true);
     setError(null);
     try {
-      const response = await fetch('/api/ai/analyze', {
+      const response = await fetch('/api/ai/summary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ reflection_id: reflectionId }),
+        body: JSON.stringify({ period }),
       });
 
       if (!response.ok) {
-        // parseError が body を消費するため、429 用に先にクローンしておく。
         const rateLimitClone = response.status === 429 ? response.clone() : null;
         const err = await parseError(response);
         if (rateLimitClone) {
@@ -119,9 +118,9 @@ export function useAIAnalysis(reflectionId: string | null | undefined): UseAIAna
         return;
       }
 
-      const json = (await response.json()) as AnalysisResponse;
+      const json = (await response.json()) as SummaryResponse;
       if (!mountedRef.current) return;
-      setAnalysis(json.analysis);
+      setSummary(json.summary);
       setRateLimit(json.rate_limit);
     } catch (err) {
       if (!mountedRef.current) return;
@@ -132,7 +131,16 @@ export function useAIAnalysis(reflectionId: string | null | undefined): UseAIAna
     } finally {
       if (mountedRef.current) setIsAnalyzing(false);
     }
-  }, [reflectionId, isAnalyzing]);
+  }, [isAnalyzing, period]);
 
-  return { analysis, isLoading, isAnalyzing, error, rateLimit, analyze };
+  return {
+    summary,
+    isLoading,
+    isAnalyzing,
+    error,
+    rateLimit,
+    period,
+    setPeriod,
+    analyze,
+  };
 }

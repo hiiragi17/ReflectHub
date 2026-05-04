@@ -19,6 +19,7 @@ import PeriodComparison from '@/components/statistics/PeriodComparison';
 import StreakDisplay from '@/components/statistics/StreakDisplay';
 import ActivityHeatmap from '@/components/statistics/ActivityHeatmap';
 import ThisWeekStatus from '@/components/statistics/ThisWeekStatus';
+import { SummaryPanel } from '@/components/analysis/SummaryPanel';
 
 export default function AnalyticsPage() {
   const { user, signOut, isLoading: authLoading } = useAuth();
@@ -150,6 +151,10 @@ export default function AnalyticsPage() {
 
             <section>
               <FrameworkBreakdown distribution={distribution.frameworks} />
+            </section>
+
+            <section>
+              <SummaryPanel />
             </section>
           </div>
         ) : null}

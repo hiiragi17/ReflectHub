@@ -3,10 +3,10 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Target, Compass } from 'lucide-react';
-import type { AnalysisRecommendations } from '@/types/analysis';
+import type { SummaryRecommendations } from '@/types/summary';
 
 interface RecommendationListProps {
-  recommendations: AnalysisRecommendations;
+  recommendations: SummaryRecommendations;
 }
 
 export function RecommendationList({ recommendations }: RecommendationListProps) {

@@ -1,39 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { callOpenAI, DAILY_RATE_LIMIT } from '@/services/aiAnalysisService';
+import {
+  callOpenAISummary,
+  DAILY_RATE_LIMIT,
+  resolvePeriodRange,
+} from '@/services/aiSummaryService';
 import type { Reflection } from '@/types/reflection';
 import type { Framework } from '@/types/framework';
-import type { Analysis, AnalysisError, AnalysisResponse } from '@/types/analysis';
+import type {
+  Summary,
+  SummaryError,
+  SummaryPeriod,
+  SummaryResponse,
+} from '@/types/summary';
 
 interface RawBody {
-  reflection_id?: unknown;
+  period?: unknown;
 }
 
 interface ReservationRow {
   reservation_id: string | null;
-  used: number;
+  used: number | null;
   next_available_at: string | null;
+  duplicate: boolean | null;
 }
 
 const WINDOW_HOURS = 24;
-// 予約のリース秒数。OpenAI 呼び出しの想定タイムアウトより十分長く、
-// かつクラッシュ後に枠を返却できる短さに設定。
 const RESERVATION_LEASE_SECONDS = 300;
 
-// RFC4122 UUID 形式（v1〜v5）。クライアント入力の事前検証に使用する。
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ALLOWED_PERIODS: SummaryPeriod[] = ['week', 'month', 'quarter'];
 
-function isValidUuid(value: string): boolean {
-  return UUID_RE.test(value);
+function isValidPeriod(value: unknown): value is SummaryPeriod {
+  return typeof value === 'string' && ALLOWED_PERIODS.includes(value as SummaryPeriod);
 }
 
-function errorResponse(error: AnalysisError, status: number) {
+function errorResponse(error: SummaryError, status: number) {
   return NextResponse.json({ error }, { status });
 }
 
 function fallbackResetAt(): string {
-  // 該当エントリが無い場合のフォールバック: 今から WINDOW_HOURS 後
   return new Date(Date.now() + WINDOW_HOURS * 60 * 60 * 1000).toISOString();
 }
 
@@ -48,17 +53,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const reflectionId =
-    typeof body?.reflection_id === 'string' ? body.reflection_id.trim() : '';
-  if (!reflectionId || !isValidUuid(reflectionId)) {
+  if (!isValidPeriod(body?.period)) {
     return errorResponse(
       {
         code: 'INVALID_REQUEST',
-        message: 'reflection_id は UUID 形式で指定してください。',
+        message: 'period は week / month / quarter のいずれかを指定してください。',
       },
       400,
     );
   }
+  const period: SummaryPeriod = body.period;
 
   const supabase = await createClient();
   const {
@@ -70,45 +74,43 @@ export async function POST(request: NextRequest) {
     return errorResponse({ code: 'UNAUTHORIZED', message: '認証が必要です。' }, 401);
   }
 
-  // 振り返りを取得（RLS により本人のもののみ）。OpenAI 呼び出し前にここで存在確認することで、
-  // 他人の reflection_id ではスロットを予約させない。
-  // RPC 内でも所有権を再チェックしているが、ルートでも先に確認することで RPC を呼ばずに 404 を返せる。
-  const { data: reflectionRow, error: reflectionError } = await supabase
+  const range = resolvePeriodRange(period);
+
+  // 期間内の振り返りを取得（RLS で本人のもののみ）
+  const { data: reflectionRows, error: reflectionError } = await supabase
     .from('retrospectives')
     .select('*')
-    .eq('id', reflectionId)
     .eq('user_id', user.id)
-    .single();
+    .gte('reflection_date', range.start)
+    .lte('reflection_date', range.end)
+    .order('reflection_date', { ascending: true });
 
   if (reflectionError) {
-    if (reflectionError.code === 'PGRST116') {
-      return errorResponse(
-        { code: 'NOT_FOUND', message: '対象の振り返りが見つかりません。' },
-        404,
-      );
-    }
     return errorResponse(
       { code: 'INTERNAL_ERROR', message: '振り返りの取得に失敗しました。' },
       500,
     );
   }
 
-  if (!reflectionRow) {
+  const reflections = (reflectionRows ?? []) as Reflection[];
+
+  if (reflections.length === 0) {
     return errorResponse(
-      { code: 'NOT_FOUND', message: '対象の振り返りが見つかりません。' },
+      {
+        code: 'NO_REFLECTIONS',
+        message: '対象期間に振り返りがありません。先に振り返りを記録してください。',
+      },
       404,
     );
   }
 
-  const reflection = reflectionRow as Reflection;
-
-  // 原子的にスロットを予約（SECURITY DEFINER RPC）。
-  // ai_analyses への書き込みはこの RPC とその仲間 (release / complete) のみが行う。
-  // クライアントは SELECT のみ可能なので、クォータや AI 生成内容の不変条件をバイパスできない。
+  // スロット予約 RPC（24h ローリング + 同一期間連続生成の禁止）
   const { data: reservationRows, error: reserveError } = await supabase.rpc(
-    'reserve_ai_analysis_slot',
+    'reserve_ai_summary_slot',
     {
-      p_reflection_id: reflection.id,
+      p_period: period,
+      p_period_start: range.start,
+      p_period_end: range.end,
       p_max_per_window: DAILY_RATE_LIMIT,
       p_window_hours: WINDOW_HOURS,
       p_lease_seconds: RESERVATION_LEASE_SECONDS,
@@ -116,13 +118,6 @@ export async function POST(request: NextRequest) {
   );
 
   if (reserveError) {
-    const code = (reserveError as { code?: string }).code;
-    if (code === '42501') {
-      return errorResponse(
-        { code: 'NOT_FOUND', message: '対象の振り返りが見つかりません。' },
-        404,
-      );
-    }
     return errorResponse(
       { code: 'INTERNAL_ERROR', message: 'レート制限の確認に失敗しました。' },
       500,
@@ -140,20 +135,28 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (reservation.duplicate) {
+    return errorResponse(
+      {
+        code: 'DUPLICATE_PERIOD',
+        message: '同じ期間のサマリーを直前に生成しています。少し時間をおいてください。',
+      },
+      409,
+    );
+  }
+
   if (!reservation.reservation_id) {
-    // RPC が返す next_available_at は「次に枠が 1 つ空く時刻」。
-    // 完了行は created_at + 24h、未完了行は expires_at で開放される、その最小値。
     const resetAt = reservation.next_available_at ?? fallbackResetAt();
     return NextResponse.json(
       {
         error: {
           code: 'RATE_LIMITED',
-          message: `1 日に分析できる上限 (${DAILY_RATE_LIMIT} 回) に達しました。`,
+          message: `1 日に生成できる上限 (${DAILY_RATE_LIMIT} 回) に達しました。`,
           retry_after: Math.max(
             0,
             Math.floor((new Date(resetAt).getTime() - Date.now()) / 1000),
           ),
-        } satisfies AnalysisError,
+        } satisfies SummaryError,
         rate_limit: {
           remaining: 0,
           limit: DAILY_RATE_LIMIT,
@@ -166,30 +169,37 @@ export async function POST(request: NextRequest) {
 
   const reservationId = reservation.reservation_id;
 
-  // フレームワーク情報を取得（プロンプトの精度向上のため）
-  let framework: Framework | undefined;
-  if (reflection.framework_id) {
-    const { data: frameworkRow } = await supabase
+  // プロンプトに使うフレームワーク情報をまとめて取得
+  const frameworkIds = Array.from(
+    new Set(reflections.map((r) => r.framework_id).filter(Boolean)),
+  );
+  const frameworksById: Record<string, Framework | undefined> = {};
+  if (frameworkIds.length > 0) {
+    const { data: frameworkRows } = await supabase
       .from('frameworks')
       .select('*')
-      .eq('id', reflection.framework_id)
-      .single();
-    framework = (frameworkRow as Framework | null) ?? undefined;
+      .in('id', frameworkIds);
+    for (const row of (frameworkRows ?? []) as Framework[]) {
+      frameworksById[row.id] = row;
+    }
   }
 
-  // OpenAI 呼び出し
   let payload, metadata;
   try {
-    const result = await callOpenAI(reflection, framework);
+    const result = await callOpenAISummary({
+      period,
+      periodStart: range.start,
+      periodEnd: range.end,
+      reflections,
+      frameworksById,
+    });
     payload = result.payload;
     metadata = result.metadata;
   } catch (err) {
-    // 失敗時は RPC で予約をロールバックして枠を解放する
-    await supabase.rpc('release_ai_analysis_slot', {
+    await supabase.rpc('release_ai_summary_slot', {
       p_reservation_id: reservationId,
     });
-
-    const wrapped = err as AnalysisError;
+    const wrapped = err as SummaryError;
     if (wrapped?.code === 'OPENAI_ERROR') {
       return errorResponse(wrapped, 502);
     }
@@ -199,25 +209,23 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // 成功: 予約を完了状態にする RPC を呼ぶ。
-  // クライアントが完了行を直接 UPDATE できない代わりに、こちらが状態遷移を一手に握る。
   const { data: completedRow, error: completeError } = await supabase.rpc(
-    'complete_ai_analysis',
+    'complete_ai_summary',
     {
       p_reservation_id: reservationId,
-      p_growth_points: payload.growth_points,
-      p_improvement_suggestions: payload.improvement_suggestions,
-      p_emotional_trend: payload.emotional_trend,
-      p_key_achievements: payload.key_achievements,
-      p_challenges: payload.challenges,
+      p_reflection_count: reflections.length,
+      p_recurring_themes: payload.recurring_themes,
+      p_sustained_practices: payload.sustained_practices,
+      p_emerging_challenges: payload.emerging_challenges,
+      p_growth_summary: payload.growth_summary,
+      p_mood_trend: payload.mood_trend,
       p_recommendations: payload.recommendations,
       p_metadata: metadata,
     },
   );
 
   if (completeError || !completedRow) {
-    // 完了 UPDATE に失敗したら予約行を解放しておく（永久に枠を消費しないため）
-    await supabase.rpc('release_ai_analysis_slot', {
+    await supabase.rpc('release_ai_summary_slot', {
       p_reservation_id: reservationId,
     });
     return errorResponse(
@@ -226,15 +234,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // SECURITY DEFINER 関数 (RETURNS ai_analyses) は単一行を返す。
   const completed = (
     Array.isArray(completedRow) ? completedRow[0] : completedRow
-  ) as Analysis;
+  ) as Summary;
 
-  const responsePayload: AnalysisResponse = {
-    analysis: completed,
+  const used = reservation.used ?? 1;
+  const responsePayload: SummaryResponse = {
+    summary: completed,
     rate_limit: {
-      remaining: Math.max(0, DAILY_RATE_LIMIT - reservation.used),
+      remaining: Math.max(0, DAILY_RATE_LIMIT - used),
       limit: DAILY_RATE_LIMIT,
       reset_at: reservation.next_available_at ?? fallbackResetAt(),
     },
@@ -254,23 +262,25 @@ export async function GET(request: NextRequest) {
     return errorResponse({ code: 'UNAUTHORIZED', message: '認証が必要です。' }, 401);
   }
 
-  const reflectionId = request.nextUrl.searchParams.get('reflection_id');
-  if (!reflectionId || !isValidUuid(reflectionId)) {
+  const periodParam = request.nextUrl.searchParams.get('period');
+  if (!isValidPeriod(periodParam)) {
     return errorResponse(
       {
         code: 'INVALID_REQUEST',
-        message: 'reflection_id は UUID 形式で指定してください。',
+        message: 'period は week / month / quarter のいずれかを指定してください。',
       },
       400,
     );
   }
+  const period: SummaryPeriod = periodParam;
+  const range = resolvePeriodRange(period);
 
-  // 完了済みの分析のみ返す（予約中／失敗残留の行は除外）
   const { data, error } = await supabase
-    .from('ai_analyses')
+    .from('ai_summaries')
     .select('*')
     .eq('user_id', user.id)
-    .eq('reflection_id', reflectionId)
+    .eq('period', period)
+    .eq('period_start', range.start)
     .eq('is_complete', true)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -283,5 +293,5 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({ analysis: data ?? null });
+  return NextResponse.json({ summary: data ?? null });
 }
