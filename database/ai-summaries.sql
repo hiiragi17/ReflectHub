@@ -119,14 +119,17 @@ BEGIN
 
   PERFORM pg_advisory_xact_lock(hashtext(v_user_id::text));
 
-  -- 同一 (period, period_start) を直近 5 分以内に生成しているなら重複扱い
+  -- 同一 (period, period_start) を直近 5 分以内に「完了」しているなら重複扱い。
+  -- created_at は予約時刻、updated_at は完了 UPDATE 時のトリガで上書きされるため、
+  -- 完了直後の再生成を弾くには updated_at（= 完了時刻）を見る必要がある。
+  -- 進行中（リース有効）の予約も重複扱いする。
   SELECT EXISTS (
     SELECT 1 FROM public.ai_summaries
     WHERE user_id = v_user_id
       AND period = p_period
       AND period_start = p_period_start
       AND (
-        is_complete = true AND created_at > now() - INTERVAL '5 minutes'
+        is_complete = true AND updated_at > now() - INTERVAL '5 minutes'
         OR (is_complete = false AND expires_at IS NOT NULL AND expires_at > now())
       )
   ) INTO v_duplicate;

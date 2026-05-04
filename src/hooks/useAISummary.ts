@@ -41,6 +41,10 @@ export function useAISummary(initialPeriod: SummaryPeriod = 'week'): UseAISummar
   const [error, setError] = useState<SummaryError | null>(null);
   const [rateLimit, setRateLimit] = useState<RateLimitState | null>(null);
   const mountedRef = useRef(true);
+  // fetchExisting は period 切替で連続発火するため、最後に開始したリクエスト ID
+  // と一致するレスポンスのみ state に反映する。先に始まった古い period の
+  // レスポンスが後から返ってきて現在の tab を上書きするのを防ぐ。
+  const latestFetchIdRef = useRef(0);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -50,6 +54,7 @@ export function useAISummary(initialPeriod: SummaryPeriod = 'week'): UseAISummar
   }, []);
 
   const fetchExisting = useCallback(async (target: SummaryPeriod) => {
+    const fetchId = ++latestFetchIdRef.current;
     setIsLoading(true);
     setError(null);
     try {
@@ -57,22 +62,25 @@ export function useAISummary(initialPeriod: SummaryPeriod = 'week'): UseAISummar
         `/api/ai/summary?period=${encodeURIComponent(target)}`,
         { credentials: 'include' },
       );
+      if (fetchId !== latestFetchIdRef.current) return;
       if (!response.ok) {
         if (!mountedRef.current) return;
         setError(await parseError(response));
         return;
       }
       const json = (await response.json()) as { summary: Summary | null };
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || fetchId !== latestFetchIdRef.current) return;
       setSummary(json.summary);
     } catch (err) {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || fetchId !== latestFetchIdRef.current) return;
       setError({
         code: 'INTERNAL_ERROR',
         message: err instanceof Error ? err.message : '分析結果の取得に失敗しました',
       });
     } finally {
-      if (mountedRef.current) setIsLoading(false);
+      if (mountedRef.current && fetchId === latestFetchIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
