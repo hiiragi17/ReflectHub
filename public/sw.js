@@ -44,14 +44,14 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      const destination = new URL(targetUrl, self.location.origin).href;
       for (const client of clientList) {
-        if ('focus' in client) {
-          client.navigate(targetUrl).catch(() => undefined);
+        if (client.url === destination && 'focus' in client) {
           return client.focus();
         }
       }
       if (self.clients.openWindow) {
-        return self.clients.openWindow(targetUrl);
+        return self.clients.openWindow(destination);
       }
       return undefined;
     }),

@@ -17,6 +17,12 @@ vi.mock('@/lib/push/encryption', () => ({
   validatePushSubscriptionFields: vi.fn().mockReturnValue(null),
 }));
 
+vi.mock('@/utils/csrfToken', () => ({
+  CSRF_COOKIE_NAME: 'reflecthub-csrf',
+  CSRF_HEADER_NAME: 'x-csrf-token',
+  verifyCSRF: vi.fn().mockReturnValue({ ok: true }),
+}));
+
 import { POST } from './route';
 import { validatePushSubscriptionFields } from '@/lib/push/encryption';
 
@@ -38,6 +44,14 @@ describe('POST /api/push/subscribe', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(validatePushSubscriptionFields).mockReturnValue(null);
+  });
+
+  it('returns 403 when CSRF verification fails', async () => {
+    const csrf = await import('@/utils/csrfToken');
+    vi.mocked(csrf.verifyCSRF).mockReturnValueOnce({ ok: false, reason: 'mismatch' });
+    const res = await POST(makeRequest(VALID_BODY));
+    expect(res.status).toBe(403);
+    vi.mocked(csrf.verifyCSRF).mockReturnValue({ ok: true });
   });
 
   it('returns 401 when not authenticated', async () => {

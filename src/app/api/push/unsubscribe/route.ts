@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, verifyCSRF } from '@/utils/csrfToken';
 
 export async function POST(request: NextRequest) {
   try {
+    const csrf = verifyCSRF(
+      request.headers.get(CSRF_HEADER_NAME),
+      request.cookies.get(CSRF_COOKIE_NAME)?.value ?? null,
+    );
+    if (!csrf.ok) {
+      return NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 });
+    }
+
     const supabase = await createClient();
     const {
       data: { user },

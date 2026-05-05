@@ -13,6 +13,12 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn().mockResolvedValue(mockSupabase),
 }));
 
+vi.mock('@/utils/csrfToken', () => ({
+  CSRF_COOKIE_NAME: 'reflecthub-csrf',
+  CSRF_HEADER_NAME: 'x-csrf-token',
+  verifyCSRF: vi.fn().mockReturnValue({ ok: true }),
+}));
+
 import { POST } from './route';
 
 const USER = { id: 'user-1' };

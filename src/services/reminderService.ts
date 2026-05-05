@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 import type { NotificationPreferences, PushSubscription } from '@/types/push';
 
 /**
@@ -87,19 +87,24 @@ interface UserPreferenceRow {
 
 /**
  * 配信対象のユーザーと subscription を返す。
- * Supabase service-role クライアントが必要なため、呼び出し側でサーバー文脈であることを保証する。
+ * RLS をバイパスする必要があるため service-role クライアントを使う。
+ * Cron など信頼できるサーバー文脈からのみ呼び出すこと。
  */
 export async function getReminderTargets(
   now: Date = new Date(),
   toleranceMinutes = 5,
 ): Promise<ReminderTarget[]> {
-  const supabase = await createClient();
+  const supabase = createServiceRoleClient();
 
   const { data: prefs, error: prefsError } = await supabase
     .from('user_preferences')
     .select('user_id, timezone, notification_preferences');
 
-  if (prefsError || !prefs) return [];
+  if (prefsError) {
+    console.error('[getReminderTargets] failed to fetch user_preferences:', prefsError);
+    throw new Error(`Failed to fetch user_preferences: ${prefsError.message}`);
+  }
+  if (!prefs) return [];
 
   const candidates = (prefs as UserPreferenceRow[]).filter((row) => {
     const np = row.notification_preferences;
@@ -118,7 +123,11 @@ export async function getReminderTargets(
     .in('user_id', userIds)
     .eq('is_active', true);
 
-  if (subsError || !subs) return [];
+  if (subsError) {
+    console.error('[getReminderTargets] failed to fetch push_subscriptions:', subsError);
+    throw new Error(`Failed to fetch push_subscriptions: ${subsError.message}`);
+  }
+  if (!subs) return [];
 
   const byUser = new Map<string, PushSubscription[]>();
   for (const sub of subs as PushSubscription[]) {
