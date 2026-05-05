@@ -26,6 +26,25 @@ function isStandalone(): boolean {
   return navAny.standalone === true;
 }
 
+/**
+ * iOS デバイス上で動作しているかを判定する。
+ *
+ * iOS の Safari/Chrome/Firefox はいずれも WebKit ベースで `beforeinstallprompt`
+ * を発火しない。代わりにユーザーが手動で「共有 → ホーム画面に追加」する必要が
+ * あるので、その案内 UI を出すために iOS かどうかだけを見ればよい。
+ *
+ * iPadOS 13+ は UA が "Macintosh" を含むので、`maxTouchPoints` でタッチデバイス
+ * かを併せて判定する。
+ */
+function isIOSDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  const ua = window.navigator.userAgent;
+  if (/iPad|iPhone|iPod/.test(ua)) return true;
+  const isMacLike = /Macintosh/.test(ua);
+  const touchPoints = window.navigator.maxTouchPoints ?? 0;
+  return isMacLike && touchPoints > 1;
+}
+
 function readDismissedAt(): number | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -41,6 +60,12 @@ function readDismissedAt(): number | null {
 export interface UseInstallPromptResult {
   /** インストール候補プロンプトを表示できるか。UI を出すかの判断に使う。 */
   canInstall: boolean;
+  /**
+   * iOS Safari など `beforeinstallprompt` が来ない環境で、ユーザーに手動の
+   * 「共有 → ホーム画面に追加」を案内する UI を出すべきか。
+   * 既にインストール済み or クールダウン中なら false。
+   */
+  showIOSInstructions: boolean;
   /** すでに standalone (インストール済み) として動いているか。 */
   isInstalled: boolean;
   /** インストール処理中フラグ。 */
@@ -66,6 +91,12 @@ export function useInstallPrompt(): UseInstallPromptResult {
   const [dismissedAt, setDismissedAt] = useState<number | null>(() =>
     readDismissedAt(),
   );
+  const [isIOS, setIsIOS] = useState(false);
+
+  // UA 判定は SSR 中には走らせず、マウント後に評価する。
+  useEffect(() => {
+    setIsIOS(isIOSDevice());
+  }, []);
 
   // dismissedAt が更新されるたびに残り時間ぶんの setTimeout を貼り直す。
   // `cooldownActive` を派生値にすることで、別タブから DISMISS_KEY が更新されて
@@ -173,8 +204,14 @@ export function useInstallPrompt(): UseInstallPromptResult {
   const canInstall =
     !installed && !cooldownActive && deferredPrompt !== null && !isPrompting;
 
+  // iOS は beforeinstallprompt が来ないので、デバイスが iOS かつ未インストール
+  // かつクールダウン中でなければ手動案内を出す。Chromium 系では出さない
+  // (canInstall 側のネイティブ UI が走るため)。
+  const showIOSInstructions = isIOS && !installed && !cooldownActive;
+
   return {
     canInstall,
+    showIOSInstructions,
     isInstalled: installed,
     isPrompting,
     outcome,

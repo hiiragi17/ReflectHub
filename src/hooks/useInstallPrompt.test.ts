@@ -35,17 +35,27 @@ function createBeforeInstallEvent(
 
 describe('useInstallPrompt', () => {
   const originalMatchMedia = window.matchMedia;
+  const originalUserAgent = window.navigator.userAgent;
   const DISMISS_KEY = 'reflecthub:install-prompt:dismissed-at';
+
+  function setUserAgent(ua: string) {
+    Object.defineProperty(window.navigator, 'userAgent', {
+      value: ua,
+      configurable: true,
+    });
+  }
 
   beforeEach(() => {
     window.localStorage.clear();
     window.matchMedia = vi
       .fn()
       .mockImplementation(() => createMockMatchMedia(false)) as unknown as typeof window.matchMedia;
+    setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36');
   });
 
   afterEach(() => {
     window.matchMedia = originalMatchMedia;
+    setUserAgent(originalUserAgent);
     vi.restoreAllMocks();
   });
 
@@ -143,5 +153,41 @@ describe('useInstallPrompt', () => {
       outcome = await result.current.promptInstall();
     });
     expect(outcome).toBe('unavailable');
+  });
+
+  it('exposes showIOSInstructions=true on iPhone UA', () => {
+    setUserAgent(
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
+    );
+    const { result } = renderHook(() => useInstallPrompt());
+    expect(result.current.showIOSInstructions).toBe(true);
+    expect(result.current.canInstall).toBe(false);
+  });
+
+  it('exposes showIOSInstructions=true on iPhone Chrome (CriOS) UA', () => {
+    // iOS Chrome は中身が WebKit なので beforeinstallprompt が来ない。
+    // CriOS でもデバイス側の Share → ホーム画面追加が使えるので案内を出す。
+    setUserAgent(
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/124.0 Mobile/15E148 Safari/604.1',
+    );
+    const { result } = renderHook(() => useInstallPrompt());
+    expect(result.current.showIOSInstructions).toBe(true);
+  });
+
+  it('keeps showIOSInstructions=false on desktop Chrome', () => {
+    setUserAgent(
+      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+    );
+    const { result } = renderHook(() => useInstallPrompt());
+    expect(result.current.showIOSInstructions).toBe(false);
+  });
+
+  it('suppresses showIOSInstructions during cooldown', () => {
+    setUserAgent(
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
+    );
+    window.localStorage.setItem(DISMISS_KEY, String(Date.now()));
+    const { result } = renderHook(() => useInstallPrompt());
+    expect(result.current.showIOSInstructions).toBe(false);
   });
 });
