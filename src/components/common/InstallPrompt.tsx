@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, Plus, Share, X } from 'lucide-react';
+import { Check, Download, Plus, Share, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 
@@ -105,24 +105,35 @@ export function InstallPrompt({ disabled = false }: InstallPromptProps) {
             >
               アプリのように起動できます。下記の手順で追加してください。
             </p>
-            <ol className="space-y-1 pt-2 text-sm text-muted-foreground">
-              <li className="flex items-center gap-2">
-                <span>1.</span>
+            <ol className="space-y-1.5 pt-2 text-sm text-muted-foreground">
+              <li className="flex items-start gap-2">
+                <span className="shrink-0">1.</span>
                 <Share
-                  className="h-4 w-4 text-foreground"
+                  className="mt-0.5 h-4 w-4 shrink-0 text-foreground"
                   aria-hidden="true"
                 />
-                <span>画面下の「共有」ボタンをタップ</span>
+                <span>アドレスバーまたはツールバーの「共有」ボタンをタップ</span>
               </li>
-              <li className="flex items-center gap-2">
-                <span>2.</span>
+              <li className="flex items-start gap-2">
+                <span className="shrink-0">2.</span>
                 <Plus
-                  className="h-4 w-4 text-foreground"
+                  className="mt-0.5 h-4 w-4 shrink-0 text-foreground"
                   aria-hidden="true"
                 />
-                <span>「ホーム画面に追加」を選択</span>
+                <span>メニューを下にスクロールし「ホーム画面に追加」を選択</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="shrink-0">3.</span>
+                <Check
+                  className="mt-0.5 h-4 w-4 shrink-0 text-foreground"
+                  aria-hidden="true"
+                />
+                <span>右上の「追加」をタップして完了</span>
               </li>
             </ol>
+            <p className="pt-2 text-xs text-muted-foreground">
+              ※ うまくいかない場合は Safari で開いてからお試しください。
+            </p>
           </div>
           <button
             type="button"
