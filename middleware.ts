@@ -1,7 +1,10 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/utils/csrfToken';
-import { verifyCSRFAsync } from '@/utils/csrfTokenEdge';
+import {
+  CSRF_COOKIE_NAME,
+  CSRF_HEADER_NAME,
+  verifyCSRFAsync,
+} from '@/utils/csrfTokenEdge';
 
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -10,11 +13,15 @@ const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
  * - `/api/csrf`: トークン発行エンドポイント (GET のみだが念のため)
  * - `/api/auth/callback`: OAuth プロバイダからのコールバック (CSRF と無関係)
  * - `/api/cron/*`: Vercel Cron からの呼び出し。`Authorization: Bearer ${CRON_SECRET}` で別途認証
+ * - `/api/logs/errors`: クライアント側エラーロギング。`navigator.sendBeacon` から
+ *   呼ばれるとカスタムヘッダを付与できないため CSRF 強制は外す。サーバ側で
+ *   `user_id` をセッションから決定し、ボディの値を信用しない実装になっている。
  */
 const CSRF_EXEMPT_PATHS: ReadonlyArray<string> = [
   '/api/csrf',
   '/api/auth/callback',
   '/api/cron/',
+  '/api/logs/errors',
 ];
 
 function isCSRFExempt(pathname: string): boolean {

@@ -7,11 +7,12 @@ describe('apiFetch', () => {
   beforeEach(() => {
     _resetCSRFCacheForTest();
     fetchMock = vi.fn();
-    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
+    vi.stubGlobal('fetch', fetchMock);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   function csrfResponse(token: string) {

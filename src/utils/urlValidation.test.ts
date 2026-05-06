@@ -45,6 +45,11 @@ describe('isValidUrl', () => {
       'http://[::1]/',
       'http://[fe80::1]/',
       'http://[fc00::1]/',
+      // IPv4-mapped IPv6 — URL は `::ffff:7f00:1` 等に正規化する
+      'http://[::ffff:127.0.0.1]/',
+      'http://[::ffff:169.254.169.254]/',
+      'http://[::ffff:10.0.0.1]/',
+      'http://[0:0:0:0:0:ffff:127.0.0.1]/',
     ])('rejects %s', (url) => {
       expect(isValidUrl(url)).toBe(false);
     });

@@ -2,12 +2,38 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type {
   ErrorCategory,
-  ErrorLogEntry,
   ErrorSeverity,
   PersistedErrorLog,
 } from '@/types/errorTracking';
-import { ErrorLogsBatchSchema } from '@/lib/validation/schemas';
+import { ErrorLogsBatchSchema, type ErrorLogsBatchInput } from '@/lib/validation/schemas';
 import { parseJsonBody } from '@/lib/validation/parse';
+
+/**
+ * zod スキーマ (`ErrorLogEntrySchema`) は `passthrough()` で柔軟に受けるため
+ * `ErrorLogEntry` 型と完全には一致しない。本ハンドラ内で必要な DB 行への
+ * 詰め替えに必要な最小フィールドだけを取り出す型として定義する。
+ */
+type ParsedLog = ErrorLogsBatchInput['logs'][number];
+
+function rowFromLog(log: ParsedLog, userId: string | null, fallbackSessionId: string | undefined) {
+  return {
+    id: log.id,
+    user_id: userId,
+    error_type: log.errorType as ErrorCategory,
+    message: log.message,
+    stack: log.stack ?? null,
+    status_code: log.statusCode ?? null,
+    severity: log.severity as ErrorSeverity,
+    page: log.context?.page ?? null,
+    action: log.context?.action ?? null,
+    url: log.context?.url ?? null,
+    user_agent: log.context?.userAgent ?? null,
+    session_id: log.context?.sessionId ?? fallbackSessionId ?? null,
+    metadata: (log as { metadata?: Record<string, unknown> }).metadata ?? null,
+    resolved: false,
+    created_at: safeToISOString(log.createdAt) ?? new Date().toISOString(),
+  };
+}
 
 type DbErrorLogRow = {
   id: string;
@@ -47,7 +73,7 @@ export async function POST(request: NextRequest) {
   const body = parsed.data;
 
   try {
-    const logs = body.logs.slice(0, MAX_BATCH_SIZE) as unknown as ErrorLogEntry[];
+    const logs = body.logs.slice(0, MAX_BATCH_SIZE);
 
     const supabase = await createClient();
     const {
@@ -57,23 +83,7 @@ export async function POST(request: NextRequest) {
     // Always use the server-verified userId; never trust client-supplied values.
     const userId = session?.user?.id ?? null;
 
-    const rows = logs.map((log) => ({
-      id: log.id,
-      user_id: userId,
-      error_type: log.errorType,
-      message: log.message,
-      stack: log.stack ?? null,
-      status_code: log.statusCode ?? null,
-      severity: log.severity,
-      page: log.context?.page ?? null,
-      action: log.context?.action ?? null,
-      url: log.context?.url ?? null,
-      user_agent: log.context?.userAgent ?? null,
-      session_id: log.context?.sessionId ?? body.sessionId ?? null,
-      metadata: log.metadata ?? null,
-      resolved: false,
-      created_at: safeToISOString(log.createdAt) ?? new Date().toISOString(),
-    }));
+    const rows = logs.map((log) => rowFromLog(log, userId, body.sessionId));
 
     const { error } = await supabase.from('error_logs').insert(rows);
 

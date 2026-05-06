@@ -13,17 +13,25 @@ vi.mock('@supabase/ssr', () => ({
 import { generateCSRFToken, CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/utils/csrfToken';
 import { middleware } from './middleware';
 
-const ORIGINAL_SECRET = process.env.CSRF_SECRET;
+const MUTATED_ENV_KEYS = [
+  'CSRF_SECRET',
+  'NEXT_PUBLIC_SUPABASE_URL',
+  'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+] as const;
+const ORIGINAL_ENV: Record<string, string | undefined> = {};
 
 beforeAll(() => {
+  for (const k of MUTATED_ENV_KEYS) ORIGINAL_ENV[k] = process.env[k];
   process.env.CSRF_SECRET = 'test-secret-for-middleware-1234567890';
   process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://supabase.test';
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon';
 });
 
 afterAll(() => {
-  if (ORIGINAL_SECRET === undefined) delete process.env.CSRF_SECRET;
-  else process.env.CSRF_SECRET = ORIGINAL_SECRET;
+  for (const k of MUTATED_ENV_KEYS) {
+    if (ORIGINAL_ENV[k] === undefined) delete process.env[k];
+    else process.env[k] = ORIGINAL_ENV[k];
+  }
 });
 
 beforeEach(() => {

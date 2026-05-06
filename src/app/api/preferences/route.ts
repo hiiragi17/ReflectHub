@@ -132,6 +132,10 @@ export async function PUT(request: NextRequest) {
     }
 
     if (existing) {
+      // 空の patch (`{}`) でも安全にパスするように、既存値をそのまま返す。
+      if (Object.keys(updates).length === 0) {
+        return NextResponse.json({ preferences: existing });
+      }
       const { data, error } = await supabase
         .from('user_preferences')
         .update(updates)

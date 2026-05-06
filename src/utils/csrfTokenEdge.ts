@@ -7,10 +7,18 @@
  * トークン形式・署名アルゴリズム (HMAC-SHA256) は `csrfToken.ts` と互換。
  *
  * トークン生成は引き続き `csrfToken.ts` の `generateCSRFToken` を使う想定で、
- * ここでは検証 (verify) のみを提供する。
+ * ここでは検証 (verify) と Edge から参照される定数のみを提供する。
  */
 
-import type { CSRFValidationResult } from './csrfToken';
+// Cookie / ヘッダ名の定数は Edge runtime からも参照されるため本ファイルに置く。
+// Node 側 (`csrfToken.ts`) も Edge 経由で同じ値を再エクスポートする。
+export const CSRF_COOKIE_NAME = 'reflecthub-csrf';
+export const CSRF_HEADER_NAME = 'x-csrf-token';
+
+export interface CSRFValidationResult {
+  ok: boolean;
+  reason?: 'missing_header' | 'missing_cookie' | 'mismatch' | 'invalid_signature';
+}
 
 const encoder = new TextEncoder();
 
@@ -71,11 +79,7 @@ async function verifySignature(random: string, signatureHex: string): Promise<bo
   const sigBytes = hexToBytes(signatureHex);
   if (!sigBytes) return false;
   const key = await getHmacKey(secret);
-  // crypto.subtle.verify は BufferSource を要求する。Uint8Array.buffer の型差を避けるため
-  // 一度新しい ArrayBuffer に転写する。
-  const sigBuffer = sigBytes.slice().buffer;
-  const dataBuffer = encoder.encode(random).slice().buffer;
-  return crypto.subtle.verify('HMAC', key, sigBuffer, dataBuffer);
+  return crypto.subtle.verify('HMAC', key, sigBytes as BufferSource, encoder.encode(random));
 }
 
 /**

@@ -16,9 +16,8 @@ const ALLOWED_PROTOCOLS = ['http:', 'https:', 'mailto:'] as const;
 const PRIVATE_HOSTNAMES = new Set([
   'localhost',
   'localhost.localdomain',
-  // IPv6 loopback の代表
+  // IPv6 loopback。URL.hostname は `[]` を外して返すのでブラケット無しで持つ。
   '::1',
-  '[::1]',
   // IPv4 unspecified
   '0.0.0.0',
 ]);
@@ -51,10 +50,22 @@ function isPrivateIPv4(host: string): boolean {
 }
 
 function isPrivateIPv6(host: string): boolean {
-  // URL.hostname は IPv6 を `[...]` で囲んで返す。両形式に対応。
+  // URL.hostname は IPv6 を `[...]` で囲んで返す場合と返さない場合があるので両対応。
   const stripped = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
   const lower = stripped.toLowerCase();
   if (lower === '::1' || lower === '::') return true;
+
+  // IPv4-mapped IPv6 (::ffff:0:0/96)。WHATWG URL は埋め込み IPv4 を 2 つの 16bit
+  // hex グループに正規化する (例: `::ffff:7f00:1`)。SSRF を防ぐため hex グループを
+  // 復元して IPv4 の private 判定に委譲する。
+  const mapped = lower.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  if (mapped) {
+    const high = parseInt(mapped[1], 16);
+    const low = parseInt(mapped[2], 16);
+    const ipv4 = `${(high >> 8) & 0xff}.${high & 0xff}.${(low >> 8) & 0xff}.${low & 0xff}`;
+    return isPrivateIPv4(ipv4);
+  }
+
   // fc00::/7 (Unique Local) — `fc` または `fd` で始まる
   if (/^fc[0-9a-f]{2}:/.test(lower) || /^fd[0-9a-f]{2}:/.test(lower)) return true;
   // fe80::/10 (Link-local)
@@ -101,10 +112,7 @@ export function isValidUrl(url: string): boolean {
  * なっており、それ以外への SSRF を防ぐため `https://` を強制する。
  */
 export function isValidPushEndpoint(endpoint: string): boolean {
+  // isValidUrl が既に new URL の例外を吸収しているので、ここで再 try は不要。
   if (!isValidUrl(endpoint)) return false;
-  try {
-    return new URL(endpoint).protocol === 'https:';
-  } catch {
-    return false;
-  }
+  return new URL(endpoint).protocol === 'https:';
 }

@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
+import { apiFetch } from '@/lib/api/apiClient';
 
 export default function AuthCallback() {
   const router = useRouter();
@@ -34,7 +35,7 @@ export default function AuthCallback() {
           // サーバー側のセッションを設定
           if (sessionData.session) {
             try {
-              const response = await fetch('/api/auth/session', {
+              const response = await apiFetch('/api/auth/session', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
