@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { supabase } from "@/lib/supabase/client";
+import { apiFetch } from "@/lib/api/apiClient";
 import type {
   User,
   AuthState,
@@ -58,7 +59,7 @@ export const useAuthStore = create<AuthStore>()(
         try {
           // サーバー側のセッションもクリア
           try {
-            await fetch('/api/auth/logout', {
+            await apiFetch('/api/auth/logout', {
               method: 'POST',
               credentials: 'include',
             });

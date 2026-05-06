@@ -13,18 +13,7 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn().mockResolvedValue(mockSupabase),
 }));
 
-vi.mock('@/lib/push/encryption', () => ({
-  validatePushSubscriptionFields: vi.fn().mockReturnValue(null),
-}));
-
-vi.mock('@/utils/csrfToken', () => ({
-  CSRF_COOKIE_NAME: 'reflecthub-csrf',
-  CSRF_HEADER_NAME: 'x-csrf-token',
-  verifyCSRF: vi.fn().mockReturnValue({ ok: true }),
-}));
-
 import { POST } from './route';
-import { validatePushSubscriptionFields } from '@/lib/push/encryption';
 
 const USER = { id: 'user-1' };
 const VALID_BODY = {
@@ -40,18 +29,11 @@ const makeRequest = (body: unknown) =>
     headers: { 'Content-Type': 'application/json' },
   });
 
+// Note: CSRF 検証は middleware に移ったため本ファイルでは検証しない。
+// middleware の単体テスト (`middleware.test.ts`) で個別にカバーしている。
 describe('POST /api/push/subscribe', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(validatePushSubscriptionFields).mockReturnValue(null);
-  });
-
-  it('returns 403 when CSRF verification fails', async () => {
-    const csrf = await import('@/utils/csrfToken');
-    vi.mocked(csrf.verifyCSRF).mockReturnValueOnce({ ok: false, reason: 'mismatch' });
-    const res = await POST(makeRequest(VALID_BODY));
-    expect(res.status).toBe(403);
-    vi.mocked(csrf.verifyCSRF).mockReturnValue({ ok: true });
   });
 
   it('returns 401 when not authenticated', async () => {
@@ -68,11 +50,24 @@ describe('POST /api/push/subscribe', () => {
     expect(res.status).toBe(400);
   });
 
-  it('returns 400 when validation fails', async () => {
-    vi.mocked(validatePushSubscriptionFields).mockReturnValue('endpoint は有効な HTTPS URL である必要があります。');
+  it('returns 400 when endpoint is not https', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
 
-    const res = await POST(makeRequest(VALID_BODY));
+    const res = await POST(makeRequest({ ...VALID_BODY, endpoint: 'http://example.com/x' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when endpoint targets a private host', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
+
+    const res = await POST(makeRequest({ ...VALID_BODY, endpoint: 'https://localhost/x' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when auth is not base64url', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
+
+    const res = await POST(makeRequest({ ...VALID_BODY, auth: 'has spaces!' }));
     expect(res.status).toBe(400);
   });
 

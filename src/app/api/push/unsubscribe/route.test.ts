@@ -13,11 +13,7 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn().mockResolvedValue(mockSupabase),
 }));
 
-vi.mock('@/utils/csrfToken', () => ({
-  CSRF_COOKIE_NAME: 'reflecthub-csrf',
-  CSRF_HEADER_NAME: 'x-csrf-token',
-  verifyCSRF: vi.fn().mockReturnValue({ ok: true }),
-}));
+// CSRF は middleware で検証する設計に変更したため、route 単体テストでは検証しない。
 
 import { POST } from './route';
 
@@ -47,6 +43,13 @@ describe('POST /api/push/unsubscribe', () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
 
     const res = await POST(makeRequest({}));
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when endpoint targets a private host', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
+
+    const res = await POST(makeRequest({ endpoint: 'https://localhost/abc' }));
     expect(res.status).toBe(400);
   });
 

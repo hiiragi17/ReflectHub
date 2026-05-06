@@ -1,14 +1,20 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 
 /**
- * CSRF トークン生成・検証
+ * CSRF トークン生成・検証 (Node ランタイム用)
  *
  * Double Submit Cookie 戦略 + HMAC 署名を採用。
  * トークンは `<random>.<hmac>` の形で発行され、Cookie とリクエストヘッダの一致を検証する。
+ *
+ * 定数 / 型は Edge ランタイムからも参照するため `csrfTokenEdge.ts` で定義し、
+ * 本モジュールでは re-export している。
  */
 
-export const CSRF_COOKIE_NAME = 'reflecthub-csrf';
-export const CSRF_HEADER_NAME = 'x-csrf-token';
+export {
+  CSRF_COOKIE_NAME,
+  CSRF_HEADER_NAME,
+  type CSRFValidationResult,
+} from './csrfTokenEdge';
 
 const TOKEN_BYTE_LENGTH = 32;
 
@@ -58,10 +64,7 @@ export function tokensMatch(headerToken: string | null, cookieToken: string | nu
   return timingSafeEqual(a, b);
 }
 
-export interface CSRFValidationResult {
-  ok: boolean;
-  reason?: 'missing_header' | 'missing_cookie' | 'mismatch' | 'invalid_signature';
-}
+import type { CSRFValidationResult } from './csrfTokenEdge';
 
 export function verifyCSRF(
   headerToken: string | null,
