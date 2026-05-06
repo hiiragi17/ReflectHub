@@ -54,7 +54,7 @@ describe('POST /api/logs/errors', () => {
     const res = await POST(req);
     expect(res.status).toBe(400);
     const data = await res.json();
-    expect(data.error).toBe('Invalid request body');
+    expect(data.error).toBeDefined();
   });
 
   it('returns 200 and received count on success', async () => {

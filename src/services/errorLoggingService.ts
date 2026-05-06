@@ -1,3 +1,5 @@
+import { apiFetch } from '@/lib/api/apiClient';
+
 export interface ErrorLog {
   id: string;
   timestamp: number;
@@ -72,7 +74,7 @@ class ErrorLoggingService {
     this.queue = [];
 
     try {
-      await fetch('/api/logs/errors', {
+      await apiFetch('/api/logs/errors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ logs: logsToSend, sessionId: this.sessionId }),

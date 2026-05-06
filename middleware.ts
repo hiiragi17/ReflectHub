@@ -1,7 +1,49 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/utils/csrfToken';
+import { verifyCSRFAsync } from '@/utils/csrfTokenEdge';
+
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+/**
+ * CSRF 検証を免除するパス。
+ * - `/api/csrf`: トークン発行エンドポイント (GET のみだが念のため)
+ * - `/api/auth/callback`: OAuth プロバイダからのコールバック (CSRF と無関係)
+ * - `/api/cron/*`: Vercel Cron からの呼び出し。`Authorization: Bearer ${CRON_SECRET}` で別途認証
+ */
+const CSRF_EXEMPT_PATHS: ReadonlyArray<string> = [
+  '/api/csrf',
+  '/api/auth/callback',
+  '/api/cron/',
+];
+
+function isCSRFExempt(pathname: string): boolean {
+  return CSRF_EXEMPT_PATHS.some((p) =>
+    p.endsWith('/') ? pathname.startsWith(p) : pathname === p,
+  );
+}
 
 export async function middleware(request: NextRequest) {
+  // /api/* かつ mutation メソッドの場合は CSRF を先に検証する。
+  // Supabase セッション初期化より前に走らせて、未認証でも同じ 403 で弾く。
+  const pathname = request.nextUrl.pathname;
+  if (
+    pathname.startsWith('/api/') &&
+    MUTATING_METHODS.has(request.method) &&
+    !isCSRFExempt(pathname)
+  ) {
+    const result = await verifyCSRFAsync(
+      request.headers.get(CSRF_HEADER_NAME),
+      request.cookies.get(CSRF_COOKIE_NAME)?.value ?? null,
+    );
+    if (!result.ok) {
+      return NextResponse.json(
+        { error: 'CSRF validation failed', reason: result.reason },
+        { status: 403 },
+      );
+    }
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -10,7 +52,7 @@ export async function middleware(request: NextRequest) {
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  
+
   if (!supabaseUrl || !supabaseAnonKey) {
     console.error('Missing Supabase environment variables in middleware');
     return response;

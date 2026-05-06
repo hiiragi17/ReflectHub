@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { SessionCreateSchema } from '@/lib/validation/schemas';
+import { parseJsonBody } from '@/lib/validation/parse';
+import { sanitizePlainText } from '@/utils/sanitize';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { access_token, refresh_token } = body;
-
-    if (!access_token || !refresh_token) {
-      return NextResponse.json(
-        { error: 'Missing tokens' },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseJsonBody(request, SessionCreateSchema);
+    if (!parsed.ok) return parsed.response;
+    const { access_token, refresh_token } = parsed.data;
 
     const response = NextResponse.json({ success: true });
     const cookieStore = await cookies();
@@ -66,9 +63,12 @@ export async function POST(request: NextRequest) {
           .eq('id', data.session.user.id)
           .single();
 
-        const googleName = data.session.user.user_metadata?.full_name ||
+        // OAuth プロバイダ由来の表示名にもサニタイズを適用 (HTML タグ・制御文字除去)。
+        const rawGoogleName = data.session.user.user_metadata?.full_name ||
                           data.session.user.user_metadata?.name ||
-                          data.session.user.email?.split('@')[0];
+                          data.session.user.email?.split('@')[0] ||
+                          '';
+        const googleName = sanitizePlainText(rawGoogleName).slice(0, 100);
 
         if (profileError && profileError.code === 'PGRST116') {
           // プロフィールが存在しない場合は新規作成

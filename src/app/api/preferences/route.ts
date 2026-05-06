@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type { NotificationPreferences } from '@/types/push';
-import { validateNotificationPreferences } from '@/lib/push/validation';
+import { PreferencesUpdateSchema } from '@/lib/validation/schemas';
+import { parseJsonBody } from '@/lib/validation/parse';
 
 const DEFAULT_PREFERENCES = {
   pwa_install_dismissed: false,
@@ -95,19 +96,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
-    }
-
-    if (!body || typeof body !== 'object' || Array.isArray(body)) {
-      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
-    }
-
-    const { pwa_install_dismissed, timezone, notification_preferences } =
-      body as Record<string, unknown>;
+    const parsed = await parseJsonBody(request, PreferencesUpdateSchema);
+    if (!parsed.ok) return parsed.response;
+    const { pwa_install_dismissed, timezone, notification_preferences } = parsed.data;
 
     // 既存設定を取得（エラーを明示的に処理する）
     const { data: existing, error: existingError } = await supabase
@@ -126,44 +117,17 @@ export async function PUT(request: NextRequest) {
     const updates: Record<string, unknown> = {};
 
     if (pwa_install_dismissed !== undefined) {
-      if (typeof pwa_install_dismissed !== 'boolean') {
-        return NextResponse.json(
-          { error: 'pwa_install_dismissed は boolean である必要があります。' },
-          { status: 400 },
-        );
-      }
       updates.pwa_install_dismissed = pwa_install_dismissed;
     }
 
     if (timezone !== undefined) {
-      if (typeof timezone !== 'string' || timezone.trim() === '') {
-        return NextResponse.json(
-          { error: 'timezone は有効な文字列である必要があります。' },
-          { status: 400 },
-        );
-      }
-      updates.timezone = timezone.trim();
+      updates.timezone = timezone;
     }
 
     if (notification_preferences !== undefined) {
-      if (
-        typeof notification_preferences !== 'object' ||
-        notification_preferences === null ||
-        Array.isArray(notification_preferences)
-      ) {
-        return NextResponse.json(
-          { error: 'notification_preferences はオブジェクトである必要があります。' },
-          { status: 400 },
-        );
-      }
-      const validationError = validateNotificationPreferences(
-        notification_preferences as Record<string, unknown>,
-      );
-      if (validationError) {
-        return NextResponse.json({ error: validationError }, { status: 400 });
-      }
       const current =
-        existing?.notification_preferences ?? DEFAULT_PREFERENCES.notification_preferences;
+        (existing?.notification_preferences as NotificationPreferences | undefined) ??
+        DEFAULT_PREFERENCES.notification_preferences;
       updates.notification_preferences = { ...current, ...notification_preferences };
     }
 

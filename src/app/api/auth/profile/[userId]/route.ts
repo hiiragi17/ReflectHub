@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { ProfileUpdateSchema } from '@/lib/validation/schemas';
+import { parseJsonBody } from '@/lib/validation/parse';
+import { sanitizePlainText } from '@/utils/sanitize';
 
 export async function GET(
   request: NextRequest,
@@ -156,20 +159,17 @@ export async function PATCH(
       );
     }
 
-    const body = await request.json();
-    const { name } = body;
-
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Name is required' },
-        { status: 400 }
-      );
+    const parsed = await parseJsonBody(request, ProfileUpdateSchema);
+    if (!parsed.ok) return parsed.response;
+    const safeName = sanitizePlainText(parsed.data.name);
+    if (safeName.length === 0) {
+      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
     }
 
     const { data: updatedProfile, error: updateError } = await supabase
       .from('profiles')
       .update({
-        name: name.trim(),
+        name: safeName,
         updated_at: new Date().toISOString(),
       })
       .eq('id', userId)

@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type {
   ErrorCategory,
-  ErrorLogBatch,
   ErrorLogEntry,
   ErrorSeverity,
   PersistedErrorLog,
 } from '@/types/errorTracking';
+import { ErrorLogsBatchSchema } from '@/lib/validation/schemas';
+import { parseJsonBody } from '@/lib/validation/parse';
 
 type DbErrorLogRow = {
   id: string;
@@ -41,39 +42,12 @@ function safeToISOString(timestamp: number): string | null {
 }
 
 export async function POST(request: NextRequest) {
-  let body: ErrorLogBatch;
-  try {
-    body = (await request.json()) as ErrorLogBatch;
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
-  }
+  const parsed = await parseJsonBody(request, ErrorLogsBatchSchema);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
 
   try {
-    if (!body.logs || !Array.isArray(body.logs)) {
-      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
-    }
-
-    const candidateLogs = body.logs.slice(0, MAX_BATCH_SIZE);
-
-    const isValidLog = (log: unknown): log is ErrorLogEntry => {
-      if (!log || typeof log !== 'object') return false;
-      const v = log as Partial<ErrorLogEntry>;
-      return (
-        typeof v.id === 'string' &&
-        typeof v.errorType === 'string' &&
-        typeof v.message === 'string' &&
-        typeof v.createdAt === 'number' &&
-        typeof v.severity === 'string' &&
-        !!v.context &&
-        typeof v.context === 'object'
-      );
-    };
-
-    if (!candidateLogs.every(isValidLog)) {
-      return NextResponse.json({ error: 'Invalid log entry' }, { status: 400 });
-    }
-
-    const logs: ErrorLogEntry[] = candidateLogs;
+    const logs = body.logs.slice(0, MAX_BATCH_SIZE) as unknown as ErrorLogEntry[];
 
     const supabase = await createClient();
     const {
