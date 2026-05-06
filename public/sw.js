@@ -8,6 +8,8 @@
  *   フォールバック。これにより SSR や認証保護ページの不整合を避ける。
  * - API (`/api/*`) と Supabase などの外部 POST は常にネットワーク経由
  *   (オプトインしないとキャッシュしない) としている。
+ * - Web Push 通知 (`push` / `notificationclick`) を受信し、
+ *   日次リマインダー等のペイロードをユーザーに表示する。
  *
  * バージョン更新時は `CACHE_VERSION` を上げる。古いキャッシュは activate で
  * 削除される。
@@ -17,6 +19,11 @@ const CACHE_PREFIX = 'reflecthub-';
 const CACHE_VERSION = 'v1';
 const STATIC_CACHE = `${CACHE_PREFIX}static-${CACHE_VERSION}`;
 const HTML_CACHE = `${CACHE_PREFIX}html-${CACHE_VERSION}`;
+
+// Web Push 通知のデフォルト表示内容
+const DEFAULT_TITLE = 'ReflectHub';
+const DEFAULT_BODY = '今日の振り返りを記録しましょう。';
+const DEFAULT_ICON = '/favicon.ico';
 
 // インストール時に確実にプリキャッシュしておきたい最小セット。
 // オフライン時にもアプリシェルが起動できる程度の URL に絞っている。
@@ -180,4 +187,51 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+});
+
+// Web Push 通知の受信。サーバから配信された JSON ペイロードを表示する。
+self.addEventListener('push', (event) => {
+  let payload = {};
+  if (event.data) {
+    try {
+      payload = event.data.json();
+    } catch {
+      payload = { title: DEFAULT_TITLE, body: event.data.text() };
+    }
+  }
+
+  const title = payload.title || DEFAULT_TITLE;
+  const options = {
+    body: payload.body || DEFAULT_BODY,
+    icon: payload.icon || DEFAULT_ICON,
+    badge: payload.badge || DEFAULT_ICON,
+    data: {
+      url: payload.url || '/dashboard',
+    },
+    tag: payload.tag || 'reflecthub-reminder',
+    renotify: false,
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// 通知クリックで該当 URL を開く (既に開いていればフォーカス)。
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/dashboard';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      const destination = new URL(targetUrl, self.location.origin).href;
+      for (const client of clientList) {
+        if (client.url === destination && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(destination);
+      }
+      return undefined;
+    }),
+  );
 });
