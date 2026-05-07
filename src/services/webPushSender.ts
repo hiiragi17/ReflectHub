@@ -75,7 +75,10 @@ export async function sendPush(
     };
   } catch (err) {
     const statusCode = err instanceof WebPushError ? err.statusCode : undefined;
-    const expired = statusCode === 404 || statusCode === 410 || statusCode === 401;
+    // RFC 8030: 404 (Not Found) / 410 (Gone) のみが「subscription 失効」を意味する。
+    // 401 はサーバー側 VAPID/JWT の問題なので、subscription 自体を無効化してはいけない
+    // (VAPID 鍵ミスで全件 401 を返したとき、全 subscription が無効化されるリスクを避ける)。
+    const expired = statusCode === 404 || statusCode === 410;
     const message = err instanceof Error ? err.message : String(err);
     return {
       subscriptionId: subscription.id,

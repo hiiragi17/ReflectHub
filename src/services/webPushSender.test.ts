@@ -96,10 +96,12 @@ describe('webPushSender', () => {
       expect(r.expired).toBe(true);
     });
 
-    it('marks expired=true on HTTP 401', async () => {
+    it('does NOT mark expired on HTTP 401 (auth issue, not subscription expiry per RFC 8030)', async () => {
       sendNotification.mockRejectedValueOnce(makeWebPushError('Unauthorized', 401));
       const r = await sendPush(sub(), { x: 1 });
-      expect(r.expired).toBe(true);
+      expect(r.success).toBe(false);
+      expect(r.expired).toBe(false);
+      expect(r.statusCode).toBe(401);
     });
 
     it('does not mark expired for transient 500', async () => {

@@ -13,7 +13,8 @@ import { sendPushBatch } from '@/services/webPushSender';
  * Vercel Cron から定期的に呼び出されるエンドポイント。
  * - Authorization: Bearer ${CRON_SECRET} で認証
  * - 配信対象ユーザーを抽出 → ユーザーごとに並列で Web Push 送信
- * - 失効サブスクリプション (HTTP 401/404/410) は is_active=false に更新
+ * - 失効サブスクリプション (HTTP 404/410) は is_active=false に更新
+ *   (401 はサーバー側 VAPID/JWT の問題なので無効化対象に含めない)
  * - 同日中の重複通知を防ぐため、配信成功時に user_preferences.last_notified_at を更新
  */
 export async function GET(request: NextRequest) {
@@ -86,15 +87,21 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      ok: true,
+    const totalSubscriptions = targets.reduce((acc, t) => acc + t.subscriptions.length, 0);
+    // 配信対象が存在したのに 1 件も成功しなかった場合は systemic failure (VAPID 設定ミス等)
+    // とみなして 500 を返し、Vercel Cron / 監視がジョブ失敗として検知できるようにする。
+    const systemicFailure = totalSubscriptions > 0 && sent === 0 && failed > 0;
+    const body = {
+      ok: !systemicFailure,
       targets: targets.length,
-      subscriptions: targets.reduce((acc, t) => acc + t.subscriptions.length, 0),
+      subscriptions: totalSubscriptions,
       sent,
       failed,
       skipped,
       deactivated: expiredSubscriptionIds.length,
-    });
+      ...(systemicFailure ? { error: 'all push deliveries failed' } : {}),
+    };
+    return NextResponse.json(body, { status: systemicFailure ? 500 : 200 });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'cron job failed';
     console.error('[daily-reminder] cron failed', err);
