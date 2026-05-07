@@ -1,15 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { buildReminderPayload, getReminderTargets } from '@/services/reminderService';
+import {
+  buildReminderPayload,
+  deactivateSubscriptions,
+  getReminderTargets,
+  markUserNotified,
+} from '@/services/reminderService';
+import { sendPushBatch } from '@/services/webPushSender';
 
 /**
  * GET /api/cron/daily-reminder
  *
- * Vercel Cron から定期的（例: 5 分間隔）に呼び出されるエンドポイント。
+ * Vercel Cron から定期的に呼び出されるエンドポイント。
  * - Authorization: Bearer ${CRON_SECRET} で認証
- * - 配信対象ユーザーを抽出し、push subscription ごとにペイロードを生成
- *
- * 実際の Web Push 送信（VAPID 署名付き HTTP リクエスト）は web-push ライブラリ等を使う想定だが、
- * 依存追加を伴うためこのエンドポイントは「対象抽出 + ペイロード組み立て」までを担当する。
+ * - 配信対象ユーザーを抽出 → ユーザーごとに並列で Web Push 送信
+ * - 失効サブスクリプション (HTTP 401/404/410) は is_active=false に更新
+ * - 同日中の重複通知を防ぐため、配信成功時に user_preferences.last_notified_at を更新
  */
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -19,17 +24,80 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const targets = await getReminderTargets(new Date());
+    const now = new Date();
+    const { targets, skippedAlreadyNotified } = await getReminderTargets(now);
     const payload = buildReminderPayload();
+
+    let sent = 0;
+    let failed = 0;
+    const skipped = skippedAlreadyNotified;
+    const expiredSubscriptionIds: string[] = [];
+
+    const perUserResults = await Promise.allSettled(
+      targets.map(async (target) => {
+        const results = await sendPushBatch(target.subscriptions, payload);
+
+        let userSent = 0;
+        let userFailed = 0;
+        for (const r of results) {
+          if (r.success) {
+            userSent += 1;
+          } else {
+            userFailed += 1;
+            if (r.expired) expiredSubscriptionIds.push(r.subscriptionId);
+            console.error('[daily-reminder] push failed', {
+              subscriptionId: r.subscriptionId,
+              statusCode: r.statusCode,
+              error: r.error,
+            });
+          }
+        }
+
+        if (userSent > 0) {
+          try {
+            await markUserNotified(target.userId, now);
+          } catch (e) {
+            console.error('[daily-reminder] markUserNotified failed', {
+              userId: target.userId,
+              error: e instanceof Error ? e.message : String(e),
+            });
+          }
+        }
+
+        return { userSent, userFailed };
+      }),
+    );
+
+    for (const r of perUserResults) {
+      if (r.status === 'fulfilled') {
+        sent += r.value.userSent;
+        failed += r.value.userFailed;
+      } else {
+        failed += 1;
+        console.error('[daily-reminder] target processing failed', r.reason);
+      }
+    }
+
+    if (expiredSubscriptionIds.length > 0) {
+      try {
+        await deactivateSubscriptions(expiredSubscriptionIds);
+      } catch (e) {
+        console.error('[daily-reminder] deactivateSubscriptions failed', e);
+      }
+    }
 
     return NextResponse.json({
       ok: true,
       targets: targets.length,
       subscriptions: targets.reduce((acc, t) => acc + t.subscriptions.length, 0),
-      payload,
+      sent,
+      failed,
+      skipped,
+      deactivated: expiredSubscriptionIds.length,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'cron job failed';
+    console.error('[daily-reminder] cron failed', err);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

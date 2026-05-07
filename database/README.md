@@ -1,5 +1,23 @@
 # データベースマイグレーション
 
+## Phase 3: Web Push 重複通知防止 (idempotency)
+
+`add-last-notified-at.sql` を Supabase SQL Editor で実行する。
+
+- `user_preferences.last_notified_at TIMESTAMPTZ` を追加
+- 同日中の重複通知を防ぐため、cron 実行時に参照・更新する
+- 既存データには影響しない (NULL = 未通知扱い)
+
+実行後、Vercel に以下の環境変数を設定する:
+
+- `NEXT_PUBLIC_VAPID_PUBLIC_KEY`
+- `VAPID_PRIVATE_KEY`
+- `VAPID_SUBJECT` (任意。デフォルト `mailto:noreply@reflecthub.app`)
+
+VAPID キーペアは `npx web-push generate-vapid-keys` で生成する。
+
+
+
 ## Phase 2: フレームワーク拡張（2個 → 7個）
 
 ### 実行手順（2段階）
