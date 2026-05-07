@@ -110,4 +110,27 @@ describe('callOpenAISummary', () => {
       code: 'OPENAI_ERROR',
     });
   });
+
+  it('応答に API キー形式の機密が含まれていたら破棄する', async () => {
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              recurring_themes: ['leaked sk-abcdefghijklmnopqrstuvwxyz'],
+              sustained_practices: [],
+              emerging_challenges: [],
+              growth_summary: '',
+              mood_trend: 'stable',
+              recommendations: { actions: [], focus_areas: [] },
+            }),
+          },
+        },
+      ],
+    });
+    await expect(callOpenAISummary(baseInput)).rejects.toMatchObject({
+      code: 'OPENAI_ERROR',
+      message: expect.stringContaining('破棄'),
+    });
+  });
 });
