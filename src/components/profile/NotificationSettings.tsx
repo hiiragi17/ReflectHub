@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bell, BellOff, Clock, Globe, Check } from 'lucide-react';
+import { Bell, BellOff, Clock, Globe, Check, Smartphone } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -29,6 +29,7 @@ import {
   unsubscribeFromPush,
 } from '@/lib/push/client';
 import type { NotificationPreferences, UserPreferences } from '@/types/push';
+import { isMobileUserAgent } from '@/utils/userAgent';
 
 export type ReminderFrequency = 'off' | 'weekly';
 
@@ -103,6 +104,10 @@ export function NotificationSettings({ vapidPublicKey }: NotificationSettingsPro
     () => (typeof window === 'undefined' ? true : isPushSupported()),
     [],
   );
+  const isMobile = useMemo(
+    () => (typeof navigator === 'undefined' ? true : isMobileUserAgent(navigator.userAgent)),
+    [],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -146,6 +151,13 @@ export function NotificationSettings({ vapidPublicKey }: NotificationSettingsPro
   }, []);
 
   const ensurePushSubscription = useCallback(async (): Promise<boolean> => {
+    if (!isMobile) {
+      showToast(
+        'プッシュ通知はスマートフォンのみ有効化できます。スマホからアクセスしてください。',
+        'warning',
+      );
+      return false;
+    }
     if (!pushSupported) {
       showToast('このブラウザはプッシュ通知に対応していません。', 'warning');
       return false;
@@ -175,7 +187,7 @@ export function NotificationSettings({ vapidPublicKey }: NotificationSettingsPro
       throw new Error(body.error || 'プッシュ通知の登録に失敗しました。');
     }
     return true;
-  }, [pushSupported, resolvedVapidKey, showToast]);
+  }, [isMobile, pushSupported, resolvedVapidKey, showToast]);
 
   const removePushSubscription = useCallback(async (): Promise<void> => {
     const endpoint = await unsubscribeFromPush();
@@ -274,7 +286,7 @@ export function NotificationSettings({ vapidPublicKey }: NotificationSettingsPro
           <div>
             <CardTitle>通知設定</CardTitle>
             <CardDescription>
-              週次リマインダーの ON/OFF・時刻・タイムゾーンを設定できます
+              スマホ向け週次リマインダーの ON/OFF・時刻・タイムゾーンを設定できます
             </CardDescription>
           </div>
         </div>
@@ -289,7 +301,21 @@ export function NotificationSettings({ vapidPublicKey }: NotificationSettingsPro
           </div>
         )}
 
-        {!pushSupported && (
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800 flex items-start gap-2">
+          <Smartphone className="w-4 h-4 mt-0.5 shrink-0" />
+          <p>
+            プッシュ通知は<strong>スマートフォンのみ</strong>に配信されます。
+            PC からは通知が届かないため、設定もスマホブラウザから行ってください。
+          </p>
+        </div>
+
+        {!isMobile && (
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-sm text-amber-800">
+            現在 PC からアクセスしているため、通知の有効化はできません。スマホからアクセスして設定してください。
+          </div>
+        )}
+
+        {isMobile && !pushSupported && (
           <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-sm text-amber-800">
             このブラウザはプッシュ通知に対応していません。設定の保存はできますが通知は届きません。
           </div>
@@ -300,7 +326,7 @@ export function NotificationSettings({ vapidPublicKey }: NotificationSettingsPro
           <Select
             value={frequency}
             onValueChange={(v) => setFrequency(v as ReminderFrequency)}
-            disabled={loading || saving}
+            disabled={loading || saving || !isMobile}
           >
             <SelectTrigger id="reminder-frequency" className="w-full">
               <SelectValue placeholder="頻度を選択" />

@@ -25,6 +25,13 @@ vi.mock('@/lib/push/client', () => ({
   unsubscribeFromPush: (...args: unknown[]) => unsubscribeFromPush(...args),
 }));
 
+// jsdom のデフォルトは PC UA なので、テストではモバイル UA を被せる。
+Object.defineProperty(window.navigator, 'userAgent', {
+  configurable: true,
+  value:
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148',
+});
+
 const basePrefs = {
   id: 'p1',
   user_id: 'u1',
@@ -63,6 +70,40 @@ describe('NotificationSettings', () => {
     expect(screen.getByLabelText('通知頻度')).toBeInTheDocument();
     expect(screen.getByLabelText('通知時刻')).toBeInTheDocument();
     expect(screen.getByLabelText('タイムゾーン')).toBeInTheDocument();
+  });
+
+  it('always shows the mobile-only notice', async () => {
+    mockGet();
+    render(<NotificationSettings vapidPublicKey="dummy" />);
+    await waitFor(() => expect(apiFetch).toHaveBeenCalled());
+    expect(
+      screen.getByText(/プッシュ通知は/),
+    ).toBeInTheDocument();
+    expect(screen.getByText('スマートフォンのみ')).toBeInTheDocument();
+  });
+
+  it('disables frequency selector and shows warning on PC', async () => {
+    Object.defineProperty(window.navigator, 'userAgent', {
+      configurable: true,
+      value:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 Version/17.5 Safari/605.1.15',
+    });
+
+    mockGet();
+    render(<NotificationSettings vapidPublicKey="dummy" />);
+    await waitFor(() => expect(apiFetch).toHaveBeenCalled());
+
+    expect(screen.getByLabelText('通知頻度')).toBeDisabled();
+    expect(
+      screen.getByText(/PC からアクセスしているため/),
+    ).toBeInTheDocument();
+
+    // Restore mobile UA for subsequent tests
+    Object.defineProperty(window.navigator, 'userAgent', {
+      configurable: true,
+      value:
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148',
+    });
   });
 
   it('shows error message when load fails', async () => {

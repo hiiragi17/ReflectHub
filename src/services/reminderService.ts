@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import type { NotificationPreferences, PushSubscription } from '@/types/push';
+import { isMobileUserAgent } from '@/utils/userAgent';
 
 /**
  * 日次リマインダーのスケジューリング・配信対象決定ロジック。
@@ -168,6 +169,9 @@ export async function getReminderTargets(
 
   const byUser = new Map<string, PushSubscription[]>();
   for (const sub of subs as PushSubscription[]) {
+    // プッシュ通知はスマホ限定。subscribe 時にも UA で弾いているが、
+    // 古い subscription や UA 偽装に備えて配信時にも再フィルタする。
+    if (!isMobileUserAgent(sub.user_agent ?? null)) continue;
     const list = byUser.get(sub.user_id) ?? [];
     list.push(sub);
     byUser.set(sub.user_id, list);
@@ -234,6 +238,7 @@ export async function getWeeklyReminderTargets(
 
   const byUser = new Map<string, PushSubscription[]>();
   for (const sub of subs as PushSubscription[]) {
+    if (!isMobileUserAgent(sub.user_agent ?? null)) continue;
     const list = byUser.get(sub.user_id) ?? [];
     list.push(sub);
     byUser.set(sub.user_id, list);
