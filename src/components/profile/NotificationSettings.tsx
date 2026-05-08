@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Bell, BellOff, Clock, Globe, Check, Smartphone } from 'lucide-react';
 import {
   Card,
@@ -100,14 +100,13 @@ export function NotificationSettings({ vapidPublicKey }: NotificationSettingsPro
     timezone: string;
   } | null>(null);
 
-  const pushSupported = useMemo(
-    () => (typeof window === 'undefined' ? true : isPushSupported()),
-    [],
-  );
-  const isMobile = useMemo(
-    () => (typeof navigator === 'undefined' ? true : isMobileUserAgent(navigator.userAgent)),
-    [],
-  );
+  const [pushSupported, setPushSupported] = useState(true);
+  const [isMobile, setIsMobile] = useState(true);
+
+  useEffect(() => {
+    setPushSupported(isPushSupported());
+    setIsMobile(isMobileUserAgent(navigator.userAgent));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
