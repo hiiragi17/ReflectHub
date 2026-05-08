@@ -102,7 +102,7 @@ describe('NotificationSettings', () => {
     await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1));
 
     await user.click(screen.getByLabelText('通知頻度'));
-    await user.click(await screen.findByRole('option', { name: '毎日' }));
+    await user.click(await screen.findByRole('option', { name: /週 1 回/ }));
 
     await user.click(screen.getByRole('button', { name: /保存/ }));
 
@@ -125,7 +125,7 @@ describe('NotificationSettings', () => {
       ...basePrefs,
       notification_preferences: {
         ...basePrefs.notification_preferences,
-        daily_reminder: true,
+        weekly_summary: true,
       },
     });
 

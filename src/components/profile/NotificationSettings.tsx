@@ -30,7 +30,7 @@ import {
 } from '@/lib/push/client';
 import type { NotificationPreferences, UserPreferences } from '@/types/push';
 
-export type ReminderFrequency = 'off' | 'daily' | 'weekly';
+export type ReminderFrequency = 'off' | 'weekly';
 
 interface NotificationSettingsProps {
   /**
@@ -65,7 +65,6 @@ function isValidTimezone(tz: string): boolean {
 }
 
 function frequencyFromPreferences(np: NotificationPreferences): ReminderFrequency {
-  if (np.daily_reminder) return 'daily';
   if (np.weekly_summary) return 'weekly';
   return 'off';
 }
@@ -75,7 +74,7 @@ function preferencesFromFrequency(freq: ReminderFrequency): {
   weekly_summary: boolean;
 } {
   return {
-    daily_reminder: freq === 'daily',
+    daily_reminder: false,
     weekly_summary: freq === 'weekly',
   };
 }
@@ -275,7 +274,7 @@ export function NotificationSettings({ vapidPublicKey }: NotificationSettingsPro
           <div>
             <CardTitle>通知設定</CardTitle>
             <CardDescription>
-              リマインダーの頻度・時刻・タイムゾーンを設定できます
+              週次リマインダーの ON/OFF・時刻・タイムゾーンを設定できます
             </CardDescription>
           </div>
         </div>
@@ -307,7 +306,6 @@ export function NotificationSettings({ vapidPublicKey }: NotificationSettingsPro
               <SelectValue placeholder="頻度を選択" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="daily">毎日</SelectItem>
               <SelectItem value="weekly">週 1 回 (日曜)</SelectItem>
               <SelectItem value="off">OFF</SelectItem>
             </SelectContent>
