@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildReminderPayload,
+  buildWeeklyReminderPayload,
+  getLocalDayOfWeek,
   getLocalHHMM,
   parseHHMM,
   shouldFireReminder,
@@ -72,6 +74,41 @@ describe('reminderService', () => {
       expect(p.url).toBe('/dashboard');
       expect(p.title).toBe('X');
       expect(p.body.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('buildWeeklyReminderPayload', () => {
+    it('returns weekly defaults distinct from daily', () => {
+      const weekly = buildWeeklyReminderPayload();
+      const daily = buildReminderPayload();
+      expect(weekly.tag).not.toBe(daily.tag);
+      expect(weekly.title).toContain('ReflectHub');
+      expect(weekly.url).toBe('/reflection');
+    });
+
+    it('allows overriding fields', () => {
+      const p = buildWeeklyReminderPayload({ title: 'Weekly!' });
+      expect(p.title).toBe('Weekly!');
+    });
+  });
+
+  describe('getLocalDayOfWeek', () => {
+    it('returns Sunday=0 for a known UTC Sunday', () => {
+      // 2026-01-04 is a Sunday in UTC
+      const sun = new Date(Date.UTC(2026, 0, 4, 12, 0, 0));
+      expect(getLocalDayOfWeek(sun, 'UTC')).toBe(0);
+    });
+
+    it('handles timezone wrap to next day', () => {
+      // 2026-01-04 22:00 UTC = 2026-01-05 07:00 in Asia/Tokyo (Monday)
+      const d = new Date(Date.UTC(2026, 0, 4, 22, 0, 0));
+      expect(getLocalDayOfWeek(d, 'UTC')).toBe(0);
+      expect(getLocalDayOfWeek(d, 'Asia/Tokyo')).toBe(1);
+    });
+
+    it('falls back to UTC day on invalid timezone', () => {
+      const d = new Date(Date.UTC(2026, 0, 4, 12, 0, 0));
+      expect(getLocalDayOfWeek(d, 'Not/AZone')).toBe(0);
     });
   });
 });
