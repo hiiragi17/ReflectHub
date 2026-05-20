@@ -293,20 +293,62 @@ describe('GET /api/ai/summary', () => {
     expect(res.status).toBe(400);
   });
 
-  it('該当期間のサマリーを返す', async () => {
+  it('該当期間のサマリーと現在の振り返り件数を返す', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
-    const chain = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      order: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({ data: completedSummary, error: null }),
-    };
-    mockSupabase.from.mockReturnValue(chain);
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'ai_summaries') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          order: vi.fn().mockReturnThis(),
+          limit: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: completedSummary, error: null }),
+        };
+      }
+      if (table === 'retrospectives') {
+        // count + head のチェーン (select で count を要求し、最終的に Promise を返す)
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          gte: vi.fn().mockReturnThis(),
+          lte: vi.fn().mockResolvedValue({ count: 5, error: null }),
+        };
+      }
+      throw new Error(`unexpected table: ${table}`);
+    });
 
     const res = await GET(makeGetRequest('week'));
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.summary.id).toBe('sum-1');
+    expect(json.reflection_count).toBe(5);
+    expect(json.min_required).toBe(4);
+  });
+
+  it('振り返り件数取得が失敗したら 500', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'ai_summaries') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          order: vi.fn().mockReturnThis(),
+          limit: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        };
+      }
+      if (table === 'retrospectives') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          gte: vi.fn().mockReturnThis(),
+          lte: vi.fn().mockResolvedValue({ count: null, error: { message: 'boom' } }),
+        };
+      }
+      throw new Error(`unexpected table: ${table}`);
+    });
+
+    const res = await GET(makeGetRequest('week'));
+    expect(res.status).toBe(500);
   });
 });
