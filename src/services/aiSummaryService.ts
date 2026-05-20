@@ -14,6 +14,7 @@ import {
   parseSummaryPayload,
   type BuildSummaryPromptInput,
 } from '@/lib/openai/summaryPrompt';
+import { validateOutputForLeaks } from '@/lib/openai/security';
 import type {
   OpenAISummaryPayload,
   SummaryError,
@@ -65,7 +66,16 @@ export async function callOpenAISummary(
   input: BuildSummaryPromptInput,
 ): Promise<{ payload: OpenAISummaryPayload; metadata: SummaryMetadata }> {
   const client = getOpenAIClient();
-  const userPrompt = buildSummaryUserPrompt(input);
+  const { prompt: userPrompt, detectedInjections } = buildSummaryUserPrompt(input);
+
+  if (detectedInjections.length > 0) {
+    // 検知した jailbreak/インジェクションパターンは観測のためログに残す。
+    // ブロックは行わない（誤検知時の UX 影響を避けるため、サニタイズ済みで送信する）。
+    console.warn(
+      '[ai-summary] potential prompt injection patterns detected in user input:',
+      detectedInjections.join(', '),
+    );
+  }
 
   let response;
   try {
@@ -90,6 +100,20 @@ export async function callOpenAISummary(
     throw {
       code: 'OPENAI_ERROR',
       message: 'AI から空のレスポンスが返却されました。',
+    } satisfies SummaryError;
+  }
+
+  // 出力検証: 機密情報や system プロンプトの漏洩を検出した場合は
+  // クライアントへ生応答を返さず、エラーで打ち切る。
+  const validation = validateOutputForLeaks(content, SUMMARY_SYSTEM_PROMPT);
+  if (!validation.ok) {
+    console.warn(
+      '[ai-summary] output validation rejected response:',
+      validation.risks.join(', '),
+    );
+    throw {
+      code: 'OPENAI_ERROR',
+      message: 'AI 応答に不適切な情報が含まれていたため破棄しました。',
     } satisfies SummaryError;
   }
 
