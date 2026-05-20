@@ -65,6 +65,17 @@ export interface SanitizeResult {
  * 完全ブロックは行わない（誤検知時のユーザー体験を損なうため）。
  * 検出ログは `detected` 配列で呼び出し側に返却する。
  */
+/**
+ * 元の RegExp に `g` フラグを追加した複製を返す。
+ * INJECTION_PATTERNS は `g` 無しで定義されており、そのまま `replace` すると
+ * 最初の 1 件しか置換されない (同じフィールドに jailbreak 句を 2 回書かれると
+ * 2 件目以降が素通りする)。各 match を全件 redact するため必要。
+ */
+function withGlobalFlag(pattern: RegExp): RegExp {
+  const flags = pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`;
+  return new RegExp(pattern.source, flags);
+}
+
 export function sanitizeUserInput(value: string): SanitizeResult {
   if (typeof value !== 'string') {
     return { sanitized: '', detected: [], modified: false };
@@ -84,8 +95,10 @@ export function sanitizeUserInput(value: string): SanitizeResult {
   }
 
   for (const { name, pattern } of INJECTION_PATTERNS) {
-    if (pattern.test(working)) {
-      working = working.replace(pattern, '[REDACTED_INSTRUCTION]');
+    const globalPattern = withGlobalFlag(pattern);
+    if (globalPattern.test(working)) {
+      // 同じパターンが複数回出現していても全件 redact する。
+      working = working.replace(withGlobalFlag(pattern), '[REDACTED_INSTRUCTION]');
       detectedSet.add(name);
     }
   }
