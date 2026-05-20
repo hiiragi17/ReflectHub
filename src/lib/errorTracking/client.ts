@@ -5,6 +5,7 @@ import type {
   ErrorSeverity,
   ErrorTrackingContext,
 } from '@/types/errorTracking';
+import { apiFetch } from '@/lib/api/apiClient';
 
 const BATCH_SIZE = 10;
 const BATCH_INTERVAL_MS = 30_000;
@@ -138,7 +139,7 @@ class ErrorTrackingClient {
         sentAt: Date.now(),
       };
 
-      const res = await fetch('/api/logs/errors', {
+      const res = await apiFetch('/api/logs/errors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

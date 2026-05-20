@@ -7,6 +7,7 @@ import { ProfileCard } from '@/components/profile/ProfileCard';
 import Header from '@/components/layout/Header';
 import DashboardLoading from '../dashboard/loading';
 import { FadeIn } from '@/components/animations/FadeIn';
+import { apiFetch } from '@/lib/api/apiClient';
 
 export default function ProfilePage() {
   const { user, signOut, isLoading, error } = useAuth();
@@ -32,7 +33,7 @@ export default function ProfilePage() {
     setUpdateError(null);
 
     try {
-      const response = await fetch(`/api/auth/profile/${user.id}`, {
+      const response = await apiFetch(`/api/auth/profile/${user.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

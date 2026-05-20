@@ -4,6 +4,7 @@ import { useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/authStore";
+import { apiFetch } from "@/lib/api/apiClient";
 
 export function useSessionManager() {
   const router = useRouter();
@@ -30,7 +31,7 @@ export function useSessionManager() {
           // セッションが存在する場合、サーバー側にもセッションを確立
           if (session) {
             try {
-              const response = await fetch('/api/auth/session', {
+              const response = await apiFetch('/api/auth/session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
