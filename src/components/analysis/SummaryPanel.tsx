@@ -116,7 +116,12 @@ export function SummaryPanel() {
         {error && (
           <div
             role="alert"
-            className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+            className={cn(
+              'flex items-start gap-2 rounded-md border p-3 text-sm',
+              error.code === 'INSUFFICIENT_REFLECTIONS' || error.code === 'NO_REFLECTIONS'
+                ? 'border-amber-200 bg-amber-50 text-amber-800'
+                : 'border-red-200 bg-red-50 text-red-700',
+            )}
           >
             <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
             <div>
@@ -124,6 +129,11 @@ export function SummaryPanel() {
               {error.code === 'RATE_LIMITED' && (
                 <p className="text-xs mt-1">
                   時間をおいて再度お試しください（1 日{rateLimit?.limit ?? 2} 回まで）。
+                </p>
+              )}
+              {error.code === 'INSUFFICIENT_REFLECTIONS' && (
+                <p className="text-xs mt-1">
+                  期間サマリーは複数件の比較・推移から気づきを抽出するため、ある程度件数が必要です。
                 </p>
               )}
             </div>

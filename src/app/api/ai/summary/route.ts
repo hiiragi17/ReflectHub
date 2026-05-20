@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import {
   callOpenAISummary,
   DAILY_RATE_LIMIT,
+  MIN_REFLECTIONS_FOR_SUMMARY,
   resolvePeriodRange,
 } from '@/services/aiSummaryService';
 import type { Reflection } from '@/types/reflection';
@@ -101,6 +102,18 @@ export async function POST(request: NextRequest) {
         message: '対象期間に振り返りがありません。先に振り返りを記録してください。',
       },
       404,
+    );
+  }
+
+  if (reflections.length < MIN_REFLECTIONS_FOR_SUMMARY) {
+    return errorResponse(
+      {
+        code: 'INSUFFICIENT_REFLECTIONS',
+        message: `期間サマリー分析には ${MIN_REFLECTIONS_FOR_SUMMARY} 件以上の振り返りが必要です（現在 ${reflections.length} 件）。あと ${MIN_REFLECTIONS_FOR_SUMMARY - reflections.length} 件記録すると分析できます。`,
+        required: MIN_REFLECTIONS_FOR_SUMMARY,
+        current: reflections.length,
+      },
+      422,
     );
   }
 

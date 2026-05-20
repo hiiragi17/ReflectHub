@@ -24,6 +24,11 @@ import type {
 // 期間サマリーは投入トークンが大きく頻度が低いため、24h ローリングで 2 回までを推奨。
 export const DAILY_RATE_LIMIT = 2;
 
+// 期間サマリーは複数件の比較・推移から気づきを抽出するため、
+// 件数が少なすぎると「1 件の言い換え」になりトークンコストに見合わない。
+// 4 件未満の場合は分析を実行せず、ユーザーへ案内を返す。
+export const MIN_REFLECTIONS_FOR_SUMMARY = 4;
+
 export interface PeriodRange {
   start: string; // YYYY-MM-DD
   end: string; // YYYY-MM-DD

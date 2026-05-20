@@ -42,6 +42,14 @@ const reflection = {
   updated_at: '',
 };
 
+// 期間サマリーは MIN_REFLECTIONS_FOR_SUMMARY (4) 件以上で実行される。
+// レート制限・成功系のテストは下限を満たす必要があるので 4 件用意する。
+const fourReflections = Array.from({ length: 4 }, (_, i) => ({
+  ...reflection,
+  id: `1111111${i}-1111-4111-8111-111111111111`,
+  reflection_date: `2026-04-${String(13 + i).padStart(2, '0')}`,
+}));
+
 const completedSummary = {
   id: 'sum-1',
   user_id: USER.id,
@@ -116,9 +124,27 @@ describe('POST /api/ai/summary', () => {
     expect(json.error.code).toBe('NO_REFLECTIONS');
   });
 
+  it('振り返りが 4 件未満なら INSUFFICIENT_REFLECTIONS (422)', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
+    // 3 件 (=4 未満)
+    mockSupabase.from.mockImplementation(() =>
+      setupReflectionsQuery(fourReflections.slice(0, 3)),
+    );
+    const res = await POST(makePostRequest({ period: 'week' }));
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.error.code).toBe('INSUFFICIENT_REFLECTIONS');
+    expect(json.error.required).toBe(4);
+    expect(json.error.current).toBe(3);
+    // 不足時は OpenAI を絶対に呼ばない
+    expect(callOpenAISummaryMock).not.toHaveBeenCalled();
+    // 予約 RPC も呼ばない (コスト 0)
+    expect(mockSupabase.rpc).not.toHaveBeenCalled();
+  });
+
   it('レート制限に達していたら 429', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
-    mockSupabase.from.mockImplementation(() => setupReflectionsQuery([reflection]));
+    mockSupabase.from.mockImplementation(() => setupReflectionsQuery(fourReflections));
     mockSupabase.rpc.mockResolvedValueOnce({
       data: [
         {
@@ -140,7 +166,7 @@ describe('POST /api/ai/summary', () => {
 
   it('同一期間の連続生成は 409 DUPLICATE_PERIOD', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
-    mockSupabase.from.mockImplementation(() => setupReflectionsQuery([reflection]));
+    mockSupabase.from.mockImplementation(() => setupReflectionsQuery(fourReflections));
     mockSupabase.rpc.mockResolvedValueOnce({
       data: [
         {
@@ -165,7 +191,7 @@ describe('POST /api/ai/summary', () => {
     let fromCalls = 0;
     mockSupabase.from.mockImplementation((table: string) => {
       fromCalls += 1;
-      if (table === 'retrospectives') return setupReflectionsQuery([reflection]);
+      if (table === 'retrospectives') return setupReflectionsQuery(fourReflections);
       if (table === 'frameworks') {
         return {
           select: vi.fn().mockReturnThis(),
@@ -218,7 +244,7 @@ describe('POST /api/ai/summary', () => {
 
   it('OpenAI 失敗時は予約を解放して 502', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: USER }, error: null });
-    mockSupabase.from.mockImplementation(() => setupReflectionsQuery([reflection]));
+    mockSupabase.from.mockImplementation(() => setupReflectionsQuery(fourReflections));
 
     const releaseSpy = vi.fn().mockResolvedValue({ data: true, error: null });
     mockSupabase.rpc.mockImplementation((fn: string) => {
