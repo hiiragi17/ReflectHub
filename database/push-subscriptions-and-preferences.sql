@@ -54,6 +54,13 @@ CREATE TRIGGER push_subscriptions_updated_at
   BEFORE UPDATE ON push_subscriptions
   FOR EACH ROW EXECUTE FUNCTION update_push_subscriptions_updated_at();
 
+-- Data API ロールへの権限付与
+-- 2026-05-30 以降の新規 Supabase プロジェクトでは public スキーマが Data API に
+-- 自動公開されなくなるため、明示的に GRANT が必要。RLS だけでは到達できない。
+-- 既存プロジェクトも 2026-10-30 までに同様の挙動になる。
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.push_subscriptions TO authenticated;
+GRANT ALL ON public.push_subscriptions TO service_role;
+
 
 -- User Preferences テーブル
 CREATE TABLE IF NOT EXISTS user_preferences (
@@ -107,3 +114,7 @@ DROP TRIGGER IF EXISTS user_preferences_updated_at ON user_preferences;
 CREATE TRIGGER user_preferences_updated_at
   BEFORE UPDATE ON user_preferences
   FOR EACH ROW EXECUTE FUNCTION update_user_preferences_updated_at();
+
+-- Data API ロールへの権限付与（同上の理由）
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_preferences TO authenticated;
+GRANT ALL ON public.user_preferences TO service_role;
