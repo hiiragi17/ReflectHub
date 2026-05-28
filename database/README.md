@@ -1,5 +1,35 @@
 # データベースマイグレーション
 
+## Data API 公開ポリシー（必読）
+
+2026-05-30 以降の新規 Supabase プロジェクトでは、`public` スキーマのテーブルは
+PostgREST / GraphQL / supabase-js から**自動公開されなくなる**。
+ReflectHub のような既存プロジェクトも 2026-10-30 までに同じ挙動になる予定。
+
+**新しいテーブルを作る migration を追加するときは、必ず明示的な `GRANT` を併記すること。**
+RLS ポリシーがあってもロールにベース権限が無ければ到達できない。
+
+書き方の例:
+
+```sql
+-- ブラウザクライアントから直接 CRUD するテーブル
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.<table> TO authenticated;
+GRANT ALL ON public.<table> TO service_role;
+
+-- 書き込みを RPC 経由に閉じたいテーブル
+GRANT SELECT ON public.<table> TO authenticated;
+
+-- 未認証ユーザーからも書き込みを受け付けるテーブル（例: error_logs）
+GRANT INSERT ON public.<table> TO anon;
+```
+
+既存テーブルへ一括で同等の権限を付与したい場合は
+[`data-api-grants.sql`](./data-api-grants.sql) を流す（ベキ等）。
+
+参考: https://github.com/orgs/supabase/discussions/45329
+
+---
+
 ## Phase 2: フレームワーク拡張（2個 → 7個）
 
 ### 実行手順（2段階）
