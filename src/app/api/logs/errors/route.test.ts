@@ -11,14 +11,14 @@ import { createClient } from '@/lib/supabase/server';
 const mockUserId = 'user-test-123';
 
 function makeSupabaseMock(overrides: Record<string, unknown> = {}) {
-  const mockInsert = vi.fn().mockResolvedValue({ error: null });
+  const mockUpsert = vi.fn().mockResolvedValue({ error: null });
   const mockSelect = vi.fn().mockReturnThis();
   const mockEq = vi.fn().mockReturnThis();
   const mockOrder = vi.fn().mockReturnThis();
   const mockRange = vi.fn().mockResolvedValue({ data: [], error: null, count: 0 });
 
   const fromMock = vi.fn().mockReturnValue({
-    insert: mockInsert,
+    upsert: mockUpsert,
     select: mockSelect,
     eq: mockEq,
     order: mockOrder,
@@ -86,10 +86,40 @@ describe('POST /api/logs/errors', () => {
     expect(data.received).toBe(1);
   });
 
+  it('uses upsert with ignoreDuplicates so retried logs do not 500', async () => {
+    const supabase = makeSupabaseMock();
+    const upsertMock = vi.fn().mockResolvedValue({ error: null });
+    supabase.from.mockReturnValue({ upsert: upsertMock });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (createClient as any).mockResolvedValue(supabase);
+
+    const logs = [
+      {
+        id: 'log-retry',
+        errorType: 'network',
+        message: 'retry',
+        context: { page: '/', url: 'http://localhost/', timestamp: Date.now() },
+        severity: 'error',
+        resolved: false,
+        createdAt: Date.now(),
+      },
+    ];
+    const req = new NextRequest('http://localhost/api/logs/errors', {
+      method: 'POST',
+      body: JSON.stringify({ logs, sessionId: 'sess_1', batchId: 'b3', sentAt: Date.now() }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    expect(upsertMock).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({ onConflict: 'id', ignoreDuplicates: true }),
+    );
+  });
+
   it('returns 500 when DB insert fails', async () => {
     const supabase = makeSupabaseMock();
     supabase.from.mockReturnValue({
-      insert: vi.fn().mockResolvedValue({ error: { message: 'DB error' } }),
+      upsert: vi.fn().mockResolvedValue({ error: { message: 'DB error' } }),
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (createClient as any).mockResolvedValue(supabase);
