@@ -10,6 +10,8 @@
 CREATE TABLE IF NOT EXISTS error_logs (
   -- クライアント側で生成される ID (UUID 文字列)。
   -- 同一エラーの重複送信を防ぐ目的で primary key として扱う。
+  -- 重複が発生したリトライは API 側 (route.ts) で
+  -- upsert + ignoreDuplicates により 200 を返すよう吸収する。
   id TEXT PRIMARY KEY,
 
   -- 未認証ユーザーからのエラーも受け付けるため nullable。
