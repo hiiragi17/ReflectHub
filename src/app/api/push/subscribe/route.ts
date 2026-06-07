@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { PushSubscribeSchema } from '@/lib/validation/schemas';
 import { parseJsonBody } from '@/lib/validation/parse';
+import { isMobileUserAgent } from '@/utils/userAgent';
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,6 +20,16 @@ export async function POST(request: NextRequest) {
     const parsed = await parseJsonBody(request, PushSubscribeSchema);
     if (!parsed.ok) return parsed.response;
     const { endpoint, p256dh, auth, user_agent, browser } = parsed.data;
+
+    // プッシュ通知はスマートフォンのみ対応。クライアントから送られた user_agent を
+    // 信頼せず、Request の User-Agent ヘッダも併せて確認する。
+    const headerUA = request.headers.get('user-agent');
+    if (!isMobileUserAgent(user_agent) && !isMobileUserAgent(headerUA)) {
+      return NextResponse.json(
+        { error: 'Push notifications are only supported on mobile devices.' },
+        { status: 400 },
+      );
+    }
 
     const { data, error } = await supabase
       .from('push_subscriptions')

@@ -23,6 +23,10 @@ vi.mock('@/components/profile/ProfileCard', () => ({
   ),
 }));
 
+vi.mock('@/components/profile/NotificationSettings', () => ({
+  NotificationSettings: () => <div data-testid="notification-settings" />,
+}));
+
 // Mock Header component
 vi.mock('@/components/layout/Header', () => ({
   default: ({ title }: { title: string }) => <div data-testid="header">{title}</div>,

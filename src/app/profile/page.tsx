@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { ProfileCard } from '@/components/profile/ProfileCard';
+import { NotificationSettings } from '@/components/profile/NotificationSettings';
 import Header from '@/components/layout/Header';
 import DashboardLoading from '../dashboard/loading';
 import { FadeIn } from '@/components/animations/FadeIn';
@@ -100,11 +101,14 @@ export default function ProfilePage() {
         )}
 
         <FadeIn duration={400}>
-          <ProfileCard
-            user={user}
-            onUpdateProfile={handleUpdateProfile}
-            isUpdating={isUpdating}
-          />
+          <div className="space-y-6">
+            <ProfileCard
+              user={user}
+              onUpdateProfile={handleUpdateProfile}
+              isUpdating={isUpdating}
+            />
+            <NotificationSettings />
+          </div>
         </FadeIn>
       </main>
     </div>
