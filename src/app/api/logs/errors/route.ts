@@ -85,7 +85,13 @@ export async function POST(request: NextRequest) {
 
     const rows = logs.map((log) => rowFromLog(log, userId, body.sessionId));
 
-    const { error } = await supabase.from('error_logs').insert(rows);
+    // `id` (クライアント生成 UUID) を PK にしているため、リトライで
+    // 同じバッチが再送されると INSERT が duplicate key で失敗する
+    // (`src/lib/errorTracking/client.ts` は !res.ok で queue.unshift して
+    //  再送する仕組み)。upsert + ignoreDuplicates で idempotent にする。
+    const { error } = await supabase
+      .from('error_logs')
+      .upsert(rows, { onConflict: 'id', ignoreDuplicates: true });
 
     if (error) {
       console.error('[ErrorLogs] DB insert failed:', error.message);
