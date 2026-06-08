@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   buildReminderPayload,
   getLocalHHMM,
+  isAlreadyNotifiedToday,
   parseHHMM,
   shouldFireReminder,
 } from './reminderService';
@@ -56,6 +57,38 @@ describe('reminderService', () => {
     it('falls back to UTC for invalid timezone', () => {
       const d = new Date(Date.UTC(2026, 0, 1, 5, 30, 0));
       expect(getLocalHHMM(d, 'Not/AZone')).toBe('05:30');
+    });
+  });
+
+  describe('isAlreadyNotifiedToday', () => {
+    it('returns false when never notified', () => {
+      const now = new Date('2026-05-07T11:00:00Z');
+      expect(isAlreadyNotifiedToday(now, 'UTC', null)).toBe(false);
+    });
+
+    it('returns true when last notification is on the same local day', () => {
+      const now = new Date('2026-05-07T11:00:00Z');
+      const last = new Date('2026-05-07T03:00:00Z').toISOString();
+      expect(isAlreadyNotifiedToday(now, 'UTC', last)).toBe(true);
+    });
+
+    it('returns false when last notification is on a different local day', () => {
+      const now = new Date('2026-05-07T11:00:00Z');
+      const yesterday = new Date('2026-05-06T11:00:00Z').toISOString();
+      expect(isAlreadyNotifiedToday(now, 'UTC', yesterday)).toBe(false);
+    });
+
+    it('respects timezone for local-day boundary', () => {
+      // 2026-05-07T15:00Z is 2026-05-08 00:00 in Asia/Tokyo
+      // 2026-05-07T14:00Z is 2026-05-07 23:00 in Asia/Tokyo
+      const now = new Date('2026-05-07T15:00:00Z');
+      const earlierSameUtcDay = new Date('2026-05-07T14:00:00Z').toISOString();
+      expect(isAlreadyNotifiedToday(now, 'Asia/Tokyo', earlierSameUtcDay)).toBe(false);
+    });
+
+    it('returns false for invalid timestamp', () => {
+      const now = new Date('2026-05-07T11:00:00Z');
+      expect(isAlreadyNotifiedToday(now, 'UTC', 'not-a-date')).toBe(false);
     });
   });
 
