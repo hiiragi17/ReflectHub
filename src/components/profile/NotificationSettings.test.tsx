@@ -70,9 +70,7 @@ describe('NotificationSettings', () => {
     mockPreferencesApi(null);
     render(<NotificationSettings />);
     await waitFor(() => expect(getSelect()).toBeInTheDocument());
-    expect(
-      await screen.findByText('📱 通知を受け取るにはインストールが必要です'),
-    ).toBeInTheDocument();
+    expect(await screen.findByTestId('install-guidance')).toBeInTheDocument();
   });
 
   it('hides the install guidance when already installed', async () => {
@@ -80,17 +78,28 @@ describe('NotificationSettings', () => {
     mockPreferencesApi(2);
     render(<NotificationSettings />);
     await waitFor(() => expect(getSelect()).toBeInTheDocument());
-    expect(
-      screen.queryByText('📱 通知を受け取るにはインストールが必要です'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('install-guidance')).not.toBeInTheDocument();
   });
 
-  it('shows iOS home-screen steps when not installed on iOS without an install prompt', async () => {
+  it('frames install as required on iOS (not installed)', async () => {
     pwa.isIOSDevice.mockReturnValue(true);
     installState.canInstall = false;
     mockPreferencesApi(null);
     render(<NotificationSettings />);
-    expect(await screen.findByText('「ホーム画面に追加」を選択')).toBeInTheDocument();
+    expect(
+      await screen.findByText('📱 通知を受け取るにはインストールが必要です'),
+    ).toBeInTheDocument();
+    // iOS かつ prompt 不可 → ホーム画面追加の手順を表示
+    expect(screen.getByText('「ホーム画面に追加」を選択')).toBeInTheDocument();
+  });
+
+  it('frames install as optional on non-iOS (notifications work without it)', async () => {
+    pwa.isIOSDevice.mockReturnValue(false);
+    mockPreferencesApi(null);
+    render(<NotificationSettings />);
+    expect(
+      await screen.findByText('📱 アプリをインストールすると、より確実に通知を受け取れます'),
+    ).toBeInTheDocument();
   });
 
   it('triggers the install prompt when the install button is clicked', async () => {

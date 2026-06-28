@@ -174,14 +174,32 @@ export function NotificationSettings() {
         毎週、選択した曜日の朝 11:00（日本時間）に振り返りのリマインダーをお送りします。
       </p>
 
-      {/* すでにホーム画面に追加 (standalone) 済みなら案内は出さない。 */}
+      {/* すでにホーム画面に追加 (standalone) 済みなら案内は出さない。
+          iOS はインストール必須なので amber で強調、それ以外は任意なので gray で案内。 */}
       {mounted && !isInstalled && (
-        <div className="mt-3 rounded-md bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
-          <p className="font-medium">📱 通知を受け取るにはインストールが必要です</p>
-          <p className="mt-1">
-            ReflectHub をホーム画面に追加（インストール）したアプリから通知を受け取れます。
-            {isIOS && ' iPhone / iPad では、Safari のタブからは通知を受け取れません。'}
-          </p>
+        <div
+          data-testid="install-guidance"
+          className={
+            isIOS
+              ? 'mt-3 rounded-md bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800'
+              : 'mt-3 rounded-md bg-gray-50 border border-gray-200 p-3 text-xs text-gray-600'
+          }
+        >
+          {isIOS ? (
+            <>
+              <p className="font-medium">📱 通知を受け取るにはインストールが必要です</p>
+              <p className="mt-1">
+                iPhone / iPad では、ホーム画面に追加したアプリでのみ通知を受け取れます（Safari のタブでは受け取れません）。
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-medium text-gray-700">📱 アプリをインストールすると、より確実に通知を受け取れます</p>
+              <p className="mt-1">
+                ホーム画面に追加するとアプリのように起動でき、通知も安定します。インストールしなくても通知は利用できます。
+              </p>
+            </>
+          )}
           {canInstall ? (
             <div className="mt-2">
               <Button size="sm" onClick={handleInstall} disabled={isPrompting}>
