@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
-const { mockApiFetch, mockShowToast, pushClient } = vi.hoisted(() => ({
+const { mockApiFetch, mockShowToast, pushClient, pwa } = vi.hoisted(() => ({
   mockApiFetch: vi.fn(),
   mockShowToast: vi.fn(),
   pushClient: {
@@ -14,11 +14,16 @@ const { mockApiFetch, mockShowToast, pushClient } = vi.hoisted(() => ({
     })),
     unsubscribeFromPush: vi.fn(async () => 'https://push.example/abc'),
   },
+  pwa: {
+    isIOSDevice: vi.fn(() => false),
+    isStandaloneDisplay: vi.fn(() => false),
+  },
 }));
 
 vi.mock('@/lib/api/apiClient', () => ({ apiFetch: mockApiFetch }));
 vi.mock('@/hooks/useToast', () => ({ useToast: () => ({ showToast: mockShowToast }) }));
 vi.mock('@/lib/push/client', () => pushClient);
+vi.mock('@/lib/pwa/standalone', () => pwa);
 
 import { NotificationSettings } from './NotificationSettings';
 
@@ -47,6 +52,32 @@ describe('NotificationSettings', () => {
     pushClient.isPushSupported.mockReturnValue(true);
     pushClient.requestPushPermission.mockResolvedValue('granted');
     pushClient.unsubscribeFromPush.mockResolvedValue('https://push.example/abc');
+    pwa.isIOSDevice.mockReturnValue(false);
+    pwa.isStandaloneDisplay.mockReturnValue(false);
+  });
+
+  it('always shows the install requirement note', async () => {
+    mockPreferencesApi(null);
+    render(<NotificationSettings />);
+    await waitFor(() => expect(getSelect()).toBeInTheDocument());
+    expect(screen.getByText('📱 プッシュ通知を受け取るには')).toBeInTheDocument();
+  });
+
+  it('warns iOS users who have not installed the app to the home screen', async () => {
+    pwa.isIOSDevice.mockReturnValue(true);
+    pwa.isStandaloneDisplay.mockReturnValue(false);
+    mockPreferencesApi(null);
+    render(<NotificationSettings />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('ホーム画面に追加');
+  });
+
+  it('does not warn when running as an installed PWA on iOS', async () => {
+    pwa.isIOSDevice.mockReturnValue(true);
+    pwa.isStandaloneDisplay.mockReturnValue(true);
+    mockPreferencesApi(2);
+    render(<NotificationSettings />);
+    await waitFor(() => expect(getSelect()).toBeInTheDocument());
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('loads and shows the current reminder weekday', async () => {

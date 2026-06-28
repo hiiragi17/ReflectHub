@@ -10,6 +10,7 @@ import {
   subscribeToPush,
   unsubscribeFromPush,
 } from '@/lib/push/client';
+import { isIOSDevice, isStandaloneDisplay } from '@/lib/pwa/standalone';
 import type { NotificationPreferences } from '@/types/push';
 
 /** OFF を表す select の値 (空文字)。曜日は '0'〜'6'。 */
@@ -49,6 +50,13 @@ export function NotificationSettings() {
   const [saving, setSaving] = useState(false);
   const [weekday, setWeekday] = useState<string>(OFF_VALUE);
   const [savedWeekday, setSavedWeekday] = useState<string>(OFF_VALUE);
+  // ホーム画面に追加した PWA でないと通知を受け取れない (特に iOS)。
+  // UA/standalone 判定は SSR では走らせず、マウント後に評価する。
+  const [needsInstallForIOS, setNeedsInstallForIOS] = useState(false);
+
+  useEffect(() => {
+    setNeedsInstallForIOS(isIOSDevice() && !isStandaloneDisplay());
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,6 +162,21 @@ export function NotificationSettings() {
       <p className="mt-1 text-sm text-gray-600">
         毎週、選択した曜日の朝 11:00（日本時間）に振り返りのリマインダーをお送りします。
       </p>
+
+      <div className="mt-3 rounded-md bg-gray-50 border border-gray-200 p-3 text-xs text-gray-600">
+        <p className="font-medium text-gray-700">📱 プッシュ通知を受け取るには</p>
+        <p className="mt-1">
+          ReflectHub を<strong>ホーム画面に追加（インストール）</strong>したアプリから通知を受け取れます。
+          特に iPhone / iPad では、ホーム画面に追加したアプリでのみ通知が有効で、Safari のタブからは受け取れません。
+        </p>
+      </div>
+
+      {needsInstallForIOS && (
+        <div className="mt-3 rounded-md bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800" role="alert">
+          お使いの端末ではまだホーム画面に追加されていないようです。
+          共有メニューから「ホーム画面に追加」でインストールしてから通知を有効にしてください。
+        </div>
+      )}
 
       {loading ? (
         <p className="mt-4 text-sm text-gray-500">読み込み中...</p>
