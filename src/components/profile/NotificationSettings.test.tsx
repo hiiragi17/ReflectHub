@@ -1,29 +1,36 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
-const { mockApiFetch, mockShowToast, pushClient, pwa } = vi.hoisted(() => ({
-  mockApiFetch: vi.fn(),
-  mockShowToast: vi.fn(),
-  pushClient: {
-    isPushSupported: vi.fn(() => true),
-    requestPushPermission: vi.fn(async () => 'granted'),
-    subscribeToPush: vi.fn(async () => ({
-      endpoint: 'https://push.example/abc',
-      p256dh: 'p256',
-      auth: 'authkey',
-    })),
-    unsubscribeFromPush: vi.fn(async () => 'https://push.example/abc'),
-  },
-  pwa: {
-    isIOSDevice: vi.fn(() => false),
-    isStandaloneDisplay: vi.fn(() => false),
-  },
-}));
+const { mockApiFetch, mockShowToast, pushClient, pwa, installState, mockPromptInstall } =
+  vi.hoisted(() => ({
+    mockApiFetch: vi.fn(),
+    mockShowToast: vi.fn(),
+    mockPromptInstall: vi.fn(async () => 'accepted' as const),
+    pushClient: {
+      isPushSupported: vi.fn(() => true),
+      requestPushPermission: vi.fn(async () => 'granted'),
+      subscribeToPush: vi.fn(async () => ({
+        endpoint: 'https://push.example/abc',
+        p256dh: 'p256',
+        auth: 'authkey',
+      })),
+      unsubscribeFromPush: vi.fn(async () => 'https://push.example/abc'),
+    },
+    pwa: {
+      isIOSDevice: vi.fn(() => false),
+      isStandaloneDisplay: vi.fn(() => false),
+    },
+    // useInstallPrompt の戻り値。テストごとに書き換える。
+    installState: { isInstalled: false, canInstall: false, isPrompting: false },
+  }));
 
 vi.mock('@/lib/api/apiClient', () => ({ apiFetch: mockApiFetch }));
 vi.mock('@/hooks/useToast', () => ({ useToast: () => ({ showToast: mockShowToast }) }));
 vi.mock('@/lib/push/client', () => pushClient);
 vi.mock('@/lib/pwa/standalone', () => pwa);
+vi.mock('@/hooks/useInstallPrompt', () => ({
+  useInstallPrompt: () => ({ ...installState, promptInstall: mockPromptInstall }),
+}));
 
 import { NotificationSettings } from './NotificationSettings';
 
@@ -54,30 +61,52 @@ describe('NotificationSettings', () => {
     pushClient.unsubscribeFromPush.mockResolvedValue('https://push.example/abc');
     pwa.isIOSDevice.mockReturnValue(false);
     pwa.isStandaloneDisplay.mockReturnValue(false);
+    installState.isInstalled = false;
+    installState.canInstall = false;
+    installState.isPrompting = false;
   });
 
-  it('always shows the install requirement note', async () => {
+  it('shows the install guidance when not installed', async () => {
     mockPreferencesApi(null);
     render(<NotificationSettings />);
     await waitFor(() => expect(getSelect()).toBeInTheDocument());
-    expect(screen.getByText('📱 プッシュ通知を受け取るには')).toBeInTheDocument();
+    expect(
+      await screen.findByText('📱 通知を受け取るにはインストールが必要です'),
+    ).toBeInTheDocument();
   });
 
-  it('warns iOS users who have not installed the app to the home screen', async () => {
-    pwa.isIOSDevice.mockReturnValue(true);
-    pwa.isStandaloneDisplay.mockReturnValue(false);
-    mockPreferencesApi(null);
-    render(<NotificationSettings />);
-    expect(await screen.findByRole('alert')).toHaveTextContent('ホーム画面に追加');
-  });
-
-  it('does not warn when running as an installed PWA on iOS', async () => {
-    pwa.isIOSDevice.mockReturnValue(true);
-    pwa.isStandaloneDisplay.mockReturnValue(true);
+  it('hides the install guidance when already installed', async () => {
+    installState.isInstalled = true;
     mockPreferencesApi(2);
     render(<NotificationSettings />);
     await waitFor(() => expect(getSelect()).toBeInTheDocument());
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('📱 通知を受け取るにはインストールが必要です'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows iOS home-screen steps when not installed on iOS without an install prompt', async () => {
+    pwa.isIOSDevice.mockReturnValue(true);
+    installState.canInstall = false;
+    mockPreferencesApi(null);
+    render(<NotificationSettings />);
+    expect(await screen.findByText('「ホーム画面に追加」を選択')).toBeInTheDocument();
+  });
+
+  it('triggers the install prompt when the install button is clicked', async () => {
+    installState.canInstall = true;
+    mockPromptInstall.mockResolvedValue('accepted');
+    mockPreferencesApi(null);
+    render(<NotificationSettings />);
+
+    const installButton = await screen.findByRole('button', { name: 'アプリをインストール' });
+    fireEvent.click(installButton);
+
+    await waitFor(() => expect(mockPromptInstall).toHaveBeenCalled());
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'インストールしました。通知を有効にできます。',
+      'success',
+    );
   });
 
   it('loads and shows the current reminder weekday', async () => {
