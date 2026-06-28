@@ -8,10 +8,7 @@ const DEFAULT_PREFERENCES = {
   pwa_install_dismissed: false,
   timezone: 'Asia/Tokyo',
   notification_preferences: {
-    daily_reminder: false,
-    reminder_time: '20:00',
-    weekly_summary: false,
-    achievement_alerts: true,
+    reminder_weekday: null,
   } as NotificationPreferences,
 };
 

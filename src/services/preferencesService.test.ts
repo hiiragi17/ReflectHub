@@ -18,10 +18,7 @@ const mockPreferences = {
   pwa_install_dismissed: false,
   timezone: 'Asia/Tokyo',
   notification_preferences: {
-    daily_reminder: false,
-    reminder_time: '20:00',
-    weekly_summary: false,
-    achievement_alerts: true,
+    reminder_weekday: null,
   },
   created_at: '2026-04-19T00:00:00Z',
   updated_at: '2026-04-19T00:00:00Z',
@@ -128,7 +125,7 @@ describe('preferencesService', () => {
         ...mockPreferences,
         notification_preferences: {
           ...mockPreferences.notification_preferences,
-          daily_reminder: true,
+          reminder_weekday: 1,
         },
       };
       const singleFn = vi.fn().mockResolvedValue({ data: updatedPreferences, error: null });
@@ -145,11 +142,10 @@ describe('preferencesService', () => {
         .mockReturnValueOnce(updateChain as any); // update call
 
       const result = await preferencesService.updatePreferences(USER_ID, {
-        notification_preferences: { daily_reminder: true },
+        notification_preferences: { reminder_weekday: 1 },
       });
 
-      expect(result.notification_preferences.daily_reminder).toBe(true);
-      expect(result.notification_preferences.achievement_alerts).toBe(true);
+      expect(result.notification_preferences.reminder_weekday).toBe(1);
     });
 
     it('throws AUTH_ERROR when not authenticated', async () => {
