@@ -63,17 +63,22 @@ export function NotificationSettings() {
     setIsIOS(isIOSDevice());
   }, []);
 
+  /** サーバから現在の保存済み reminder_weekday を取得して select の値に変換する。 */
+  const fetchSavedWeekday = useCallback(async (): Promise<string> => {
+    const res = await apiFetch('/api/preferences');
+    if (!res.ok) throw new Error('通知設定の取得に失敗しました。');
+    const data = (await res.json()) as {
+      preferences?: { notification_preferences?: NotificationPreferences };
+    };
+    return weekdayToValue(data.preferences?.notification_preferences?.reminder_weekday);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await apiFetch('/api/preferences');
-        if (!res.ok) throw new Error('通知設定の取得に失敗しました。');
-        const data = (await res.json()) as {
-          preferences?: { notification_preferences?: NotificationPreferences };
-        };
+        const value = await fetchSavedWeekday();
         if (cancelled) return;
-        const value = weekdayToValue(data.preferences?.notification_preferences?.reminder_weekday);
         setWeekday(value);
         setSavedWeekday(value);
       } catch (err) {
@@ -86,7 +91,7 @@ export function NotificationSettings() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [fetchSavedWeekday]);
 
   const enablePush = useCallback(async (): Promise<boolean> => {
     if (!isPushSupported()) {
@@ -119,11 +124,27 @@ export function NotificationSettings() {
   const disablePush = useCallback(async (): Promise<void> => {
     const endpoint = await unsubscribeFromPush();
     if (!endpoint) return;
-    await apiFetch('/api/push/unsubscribe', {
+    const res = await apiFetch('/api/push/unsubscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ endpoint }),
     });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(body.error || 'プッシュ通知の解除に失敗しました。');
+    }
+  }, []);
+
+  const savePreference = useCallback(async (reminderWeekday: number | null): Promise<void> => {
+    const res = await apiFetch('/api/preferences', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notification_preferences: { reminder_weekday: reminderWeekday } }),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(body.error || '通知設定の保存に失敗しました。');
+    }
   }, []);
 
   const handleInstall = useCallback(async () => {
@@ -138,31 +159,35 @@ export function NotificationSettings() {
     try {
       const reminderWeekday = weekday === OFF_VALUE ? null : Number(weekday);
 
+      // ブラウザの購読解除はクライアント操作で DB と真にアトミックにはできないため、
+      // cron の唯一の真実である reminder_weekday (DB) と購読状態が極力ずれない順序にする。
       if (reminderWeekday !== null) {
+        // 有効化: 先に購読を確立してから保存する (購読が無いまま「ON」を永続化しない)。
         const ok = await enablePush();
         if (!ok) return;
+        await savePreference(reminderWeekday);
       } else {
+        // 無効化: 先に DB を OFF にしてから購読解除する (解除が失敗しても誤配信しない)。
+        await savePreference(reminderWeekday);
         await disablePush();
-      }
-
-      const res = await apiFetch('/api/preferences', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notification_preferences: { reminder_weekday: reminderWeekday } }),
-      });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error || '通知設定の保存に失敗しました。');
       }
 
       setSavedWeekday(weekday);
       showToast('通知設定を保存しました。', 'success');
     } catch (err) {
       showToast(err instanceof Error ? err.message : '通知設定の保存に失敗しました。', 'error');
+      // 部分的失敗で表示と実状態が乖離しないよう、保存済みの値に UI を再同期する。
+      try {
+        const value = await fetchSavedWeekday();
+        setWeekday(value);
+        setSavedWeekday(value);
+      } catch {
+        // 再同期にも失敗した場合は元のエラー表示を優先し、ここでは何もしない。
+      }
     } finally {
       setSaving(false);
     }
-  }, [weekday, enablePush, disablePush, showToast]);
+  }, [weekday, enablePush, disablePush, savePreference, fetchSavedWeekday, showToast]);
 
   const dirty = weekday !== savedWeekday;
 

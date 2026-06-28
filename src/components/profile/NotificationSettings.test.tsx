@@ -213,4 +213,34 @@ describe('NotificationSettings', () => {
       expect.objectContaining({ method: 'PUT' }),
     );
   });
+
+  it('re-syncs the UI to the saved value when persisting fails', async () => {
+    // GET は OFF を返し、PUT は失敗させる。
+    mockApiFetch.mockImplementation((url: string, init?: { method?: string }) => {
+      const method = init?.method ?? 'GET';
+      if (url === '/api/preferences' && method === 'GET') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            preferences: { notification_preferences: { reminder_weekday: null } },
+          }),
+        });
+      }
+      if (url === '/api/preferences' && method === 'PUT') {
+        return Promise.resolve({ ok: false, json: async () => ({ error: '保存に失敗しました' }) });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(<NotificationSettings />);
+    await waitFor(() => expect(getSelect()).toBeInTheDocument());
+
+    fireEvent.change(getSelect(), { target: { value: '1' } });
+    expect(getSelect().value).toBe('1');
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith('保存に失敗しました', 'error'));
+    // 失敗後はサーバの保存値 (OFF) に戻る
+    await waitFor(() => expect(getSelect().value).toBe(''));
+  });
 });
