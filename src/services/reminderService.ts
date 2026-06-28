@@ -14,6 +14,8 @@ export interface ReminderTarget {
   userId: string;
   timezone: string;
   reminderTime: string;
+  /** ISO timestamp。未通知なら null */
+  lastNotifiedAt: string | null;
   subscriptions: PushSubscription[];
 }
 
@@ -83,6 +85,39 @@ interface UserPreferenceRow {
   user_id: string;
   timezone: string;
   notification_preferences: NotificationPreferences | null;
+  last_notified_at: string | null;
+}
+
+/**
+ * 同日中にすでに通知済みかを判定する。
+ * - timezone はユーザーのローカル日付境界を使う
+ * - lastNotifiedAt が null の場合は未通知扱い
+ */
+export function isAlreadyNotifiedToday(
+  now: Date,
+  timezone: string,
+  lastNotifiedAt: string | null,
+): boolean {
+  if (!lastNotifiedAt) return false;
+  const last = new Date(lastNotifiedAt);
+  if (Number.isNaN(last.getTime())) return false;
+  try {
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    return fmt.format(now) === fmt.format(last);
+  } catch {
+    return now.toISOString().slice(0, 10) === last.toISOString().slice(0, 10);
+  }
+}
+
+export interface ReminderTargetsResult {
+  targets: ReminderTarget[];
+  /** リマインダー時刻にマッチしたが、同日中に通知済みのためスキップしたユーザー数 */
+  skippedAlreadyNotified: number;
 }
 
 /**
@@ -93,28 +128,35 @@ interface UserPreferenceRow {
 export async function getReminderTargets(
   now: Date = new Date(),
   toleranceMinutes = 5,
-): Promise<ReminderTarget[]> {
+): Promise<ReminderTargetsResult> {
   const supabase = createServiceRoleClient();
 
   const { data: prefs, error: prefsError } = await supabase
     .from('user_preferences')
-    .select('user_id, timezone, notification_preferences');
+    .select('user_id, timezone, notification_preferences, last_notified_at');
 
   if (prefsError) {
     console.error('[getReminderTargets] failed to fetch user_preferences:', prefsError);
     throw new Error(`Failed to fetch user_preferences: ${prefsError.message}`);
   }
-  if (!prefs) return [];
+  if (!prefs) return { targets: [], skippedAlreadyNotified: 0 };
 
+  let skippedAlreadyNotified = 0;
   const candidates = (prefs as UserPreferenceRow[]).filter((row) => {
     const np = row.notification_preferences;
     if (!np || !np.daily_reminder) return false;
     const reminderTime = np.reminder_time ?? '20:00';
-    const localNow = getLocalHHMM(now, row.timezone || 'UTC');
-    return shouldFireReminder(localNow, reminderTime, toleranceMinutes);
+    const tz = row.timezone || 'UTC';
+    const localNow = getLocalHHMM(now, tz);
+    if (!shouldFireReminder(localNow, reminderTime, toleranceMinutes)) return false;
+    if (isAlreadyNotifiedToday(now, tz, row.last_notified_at)) {
+      skippedAlreadyNotified += 1;
+      return false;
+    }
+    return true;
   });
 
-  if (candidates.length === 0) return [];
+  if (candidates.length === 0) return { targets: [], skippedAlreadyNotified };
 
   const userIds = candidates.map((c) => c.user_id);
   const { data: subs, error: subsError } = await supabase
@@ -127,7 +169,7 @@ export async function getReminderTargets(
     console.error('[getReminderTargets] failed to fetch push_subscriptions:', subsError);
     throw new Error(`Failed to fetch push_subscriptions: ${subsError.message}`);
   }
-  if (!subs) return [];
+  if (!subs) return { targets: [], skippedAlreadyNotified };
 
   const byUser = new Map<string, PushSubscription[]>();
   for (const sub of subs as PushSubscription[]) {
@@ -136,12 +178,46 @@ export async function getReminderTargets(
     byUser.set(sub.user_id, list);
   }
 
-  return candidates
+  const targets = candidates
     .map((row) => ({
       userId: row.user_id,
       timezone: row.timezone || 'UTC',
       reminderTime: row.notification_preferences?.reminder_time ?? '20:00',
+      lastNotifiedAt: row.last_notified_at,
       subscriptions: byUser.get(row.user_id) ?? [],
     }))
     .filter((target) => target.subscriptions.length > 0);
+
+  return { targets, skippedAlreadyNotified };
+}
+
+/**
+ * 通知配信成功時に last_notified_at を now に更新する。
+ */
+export async function markUserNotified(userId: string, now: Date = new Date()): Promise<void> {
+  const supabase = createServiceRoleClient();
+  const { error } = await supabase
+    .from('user_preferences')
+    .update({ last_notified_at: now.toISOString() })
+    .eq('user_id', userId);
+  if (error) {
+    console.error('[markUserNotified] failed to update last_notified_at:', error);
+    throw new Error(`Failed to update last_notified_at: ${error.message}`);
+  }
+}
+
+/**
+ * Push エンドポイントが失効した subscription (404/410/401) を非アクティブ化する。
+ */
+export async function deactivateSubscriptions(subscriptionIds: string[]): Promise<void> {
+  if (subscriptionIds.length === 0) return;
+  const supabase = createServiceRoleClient();
+  const { error } = await supabase
+    .from('push_subscriptions')
+    .update({ is_active: false })
+    .in('id', subscriptionIds);
+  if (error) {
+    console.error('[deactivateSubscriptions] failed:', error);
+    throw new Error(`Failed to deactivate subscriptions: ${error.message}`);
+  }
 }
