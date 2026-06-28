@@ -139,3 +139,45 @@ describe('middleware CSRF enforcement', () => {
     expect(res.status).not.toBe(403);
   });
 });
+
+describe('middleware session-redirect exemptions', () => {
+  // session 認証は route ハンドラ側で行うため、middleware で /auth に
+  // リダイレクトしてはいけないパスを明示的に検証する。
+  // 307 (Temporary Redirect) / 308 (Permanent Redirect) どちらでも fail。
+  const isRedirectStatus = (status: number) => status >= 300 && status < 400;
+
+  it('does not redirect unauthenticated GET /api/cron/* to /auth', async () => {
+    const res = await middleware(
+      makeRequest({ pathname: '/api/cron/daily-reminder', method: 'GET' }),
+    );
+    expect(isRedirectStatus(res.status)).toBe(false);
+  });
+
+  it('does not redirect unauthenticated GET /api/csrf to /auth', async () => {
+    const res = await middleware(
+      makeRequest({ pathname: '/api/csrf', method: 'GET' }),
+    );
+    expect(isRedirectStatus(res.status)).toBe(false);
+  });
+
+  it('does not redirect unauthenticated POST /api/logs/errors to /auth', async () => {
+    const res = await middleware(
+      makeRequest({ pathname: '/api/logs/errors', method: 'POST' }),
+    );
+    expect(isRedirectStatus(res.status)).toBe(false);
+  });
+
+  it('does not redirect unauthenticated GET /api/auth/callback to /auth', async () => {
+    const res = await middleware(
+      makeRequest({ pathname: '/api/auth/callback', method: 'GET' }),
+    );
+    expect(isRedirectStatus(res.status)).toBe(false);
+  });
+
+  it('still redirects unauthenticated GET /dashboard to /auth', async () => {
+    const res = await middleware(
+      makeRequest({ pathname: '/dashboard', method: 'GET' }),
+    );
+    expect(isRedirectStatus(res.status)).toBe(true);
+  });
+});

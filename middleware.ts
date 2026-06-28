@@ -24,10 +24,36 @@ const CSRF_EXEMPT_PATHS: ReadonlyArray<string> = [
   '/api/logs/errors',
 ];
 
+/**
+ * Supabase セッション保護 (`/auth` への redirect) を免除するパス。
+ *
+ * これらは route ハンドラ側で個別に認証する設計のため、middleware で
+ * 未ログイン時に `/auth` へリダイレクトしてしまうと、Vercel Cron や
+ * 未認証クライアント (sendBeacon / OAuth コールバック / CSRF トークン取得)
+ * から API に到達できなくなる。
+ *
+ * - `/api/cron/*`: `Authorization: Bearer ${CRON_SECRET}` で route 内認証
+ * - `/api/auth/callback`: OAuth フロー中で session 未確立
+ * - `/api/csrf`: 認証前にトークン取得する必要あり
+ * - `/api/logs/errors`: 未ログインクラッシュも記録するため anon でも受け付け
+ */
+const SESSION_EXEMPT_PATHS: ReadonlyArray<string> = [
+  '/api/csrf',
+  '/api/auth/callback',
+  '/api/cron/',
+  '/api/logs/errors',
+];
+
+function matchesPathList(pathname: string, list: ReadonlyArray<string>): boolean {
+  return list.some((p) => (p.endsWith('/') ? pathname.startsWith(p) : pathname === p));
+}
+
 function isCSRFExempt(pathname: string): boolean {
-  return CSRF_EXEMPT_PATHS.some((p) =>
-    p.endsWith('/') ? pathname.startsWith(p) : pathname === p,
-  );
+  return matchesPathList(pathname, CSRF_EXEMPT_PATHS);
+}
+
+function isSessionExempt(pathname: string): boolean {
+  return matchesPathList(pathname, SESSION_EXEMPT_PATHS);
 }
 
 export async function middleware(request: NextRequest) {
@@ -127,8 +153,8 @@ export async function middleware(request: NextRequest) {
     }
 
     const publicRoutes = [
-      '/auth',        
-      '/auth/callback', 
+      '/auth',
+      '/auth/callback',
       '/'
     ];
 
@@ -138,7 +164,9 @@ export async function middleware(request: NextRequest) {
         : request.nextUrl.pathname.startsWith(route)
     );
 
-    const isProtectedRoute = !isPublicRoute;
+    // session 認証を route ハンドラ側に委譲する API パス
+    // (Cron / sendBeacon / OAuth callback / CSRF 取得など)。
+    const isProtectedRoute = !isPublicRoute && !isSessionExempt(request.nextUrl.pathname);
 
     if (isProtectedRoute && !session) {
       const redirectUrl = new URL('/auth', request.url);
