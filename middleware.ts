@@ -11,7 +11,8 @@ const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 /**
  * CSRF 検証を免除するパス。
  * - `/api/csrf`: トークン発行エンドポイント (GET のみだが念のため)
- * - `/api/auth/callback`: OAuth プロバイダからのコールバック (CSRF と無関係)
+ * - `/api/auth/session`: OAuth コールバック page (`/auth/callback`) から POST されて
+ *   サーバ Cookie を確立するエンドポイント。CSRF トークン取得前に呼ばれる可能性があるため免除
  * - `/api/cron/*`: Vercel Cron からの呼び出し。`Authorization: Bearer ${CRON_SECRET}` で別途認証
  * - `/api/logs/errors`: クライアント側エラーロギング。`navigator.sendBeacon` から
  *   呼ばれるとカスタムヘッダを付与できないため CSRF 強制は外す。サーバ側で
@@ -19,7 +20,7 @@ const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
  */
 const CSRF_EXEMPT_PATHS: ReadonlyArray<string> = [
   '/api/csrf',
-  '/api/auth/callback',
+  '/api/auth/session',
   '/api/cron/',
   '/api/logs/errors',
 ];
@@ -29,17 +30,17 @@ const CSRF_EXEMPT_PATHS: ReadonlyArray<string> = [
  *
  * これらは route ハンドラ側で個別に認証する設計のため、middleware で
  * 未ログイン時に `/auth` へリダイレクトしてしまうと、Vercel Cron や
- * 未認証クライアント (sendBeacon / OAuth コールバック / CSRF トークン取得)
+ * 未認証クライアント (sendBeacon / OAuth 確立中 / CSRF トークン取得)
  * から API に到達できなくなる。
  *
  * - `/api/cron/*`: `Authorization: Bearer ${CRON_SECRET}` で route 内認証
- * - `/api/auth/callback`: OAuth フロー中で session 未確立
+ * - `/api/auth/session`: OAuth フロー中で Cookie 確立前に POST される
  * - `/api/csrf`: 認証前にトークン取得する必要あり
  * - `/api/logs/errors`: 未ログインクラッシュも記録するため anon でも受け付け
  */
 const SESSION_EXEMPT_PATHS: ReadonlyArray<string> = [
   '/api/csrf',
-  '/api/auth/callback',
+  '/api/auth/session',
   '/api/cron/',
   '/api/logs/errors',
 ];
