@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/useToast';
 import { apiFetch } from '@/lib/api/apiClient';
@@ -166,14 +167,14 @@ export function NotificationSettings() {
   const dirty = weekday !== savedWeekday;
 
   return (
-    <section className="bg-white border border-gray-200 rounded-lg p-6" aria-labelledby="notification-settings-title">
-      <h2 id="notification-settings-title" className="text-lg font-semibold text-gray-900">
-        通知設定
-      </h2>
-      <p className="mt-1 text-sm text-gray-600">
-        毎週、選択した曜日の朝 11:00（日本時間）に振り返りのリマインダーをお送りします。
-      </p>
-
+    <Card>
+      <CardHeader>
+        <CardTitle>通知設定</CardTitle>
+        <CardDescription>
+          毎週、選択した曜日の朝 11:00（日本時間）に振り返りのリマインダーをお送りします。
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
       {/* すでにホーム画面に追加 (standalone) 済みなら案内は出さない。
           iOS はインストール必須なので amber で強調、それ以外は任意なので gray で案内。 */}
       {mounted && !isInstalled && (
@@ -248,6 +249,7 @@ export function NotificationSettings() {
           </div>
         </div>
       )}
-    </section>
+      </CardContent>
+    </Card>
   );
 }
