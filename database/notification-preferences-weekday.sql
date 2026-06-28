@@ -19,7 +19,15 @@ ALTER TABLE user_preferences
   ALTER COLUMN notification_preferences
   SET DEFAULT '{"reminder_weekday": null}'::jsonb;
 
--- 2) 既存行を OFF にリセット
+-- 2) 旧モデルの行だけを OFF にリセットする。
+-- 旧フォーマット (daily_reminder 等のキーを持つ行) のみを対象にすることで、
+-- スクリプトを再実行しても、既に新モデルへ移行済み (reminder_weekday を設定済み)
+-- のユーザーの選択を上書きしない。
 UPDATE user_preferences
   SET notification_preferences = '{"reminder_weekday": null}'::jsonb
-  WHERE notification_preferences IS DISTINCT FROM '{"reminder_weekday": null}'::jsonb;
+  WHERE notification_preferences ?| ARRAY[
+    'daily_reminder',
+    'weekly_summary',
+    'reminder_time',
+    'achievement_alerts'
+  ];

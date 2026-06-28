@@ -39,6 +39,13 @@ export function buildReminderPayload(overrides: Partial<ReminderPayload> = {}): 
   return { ...DEFAULT_PAYLOAD, ...overrides };
 }
 
+/**
+ * リマインダー配信は JST 11:00 固定。曜日判定・同日判定はすべてこの固定の
+ * タイムゾーンで行う。user_preferences.timezone はユーザーが変更でき得るため、
+ * 配信曜日の判定には使わない (非 JST の値が入ると曜日がずれるため)。
+ */
+const REMINDER_TIMEZONE = 'Asia/Tokyo';
+
 const WEEKDAY_MAP: Record<string, number> = {
   Sun: 0,
   Mon: 1,
@@ -130,9 +137,9 @@ export async function getReminderTargets(
   const candidates = (prefs as UserPreferenceRow[]).filter((row) => {
     const weekday = row.notification_preferences?.reminder_weekday;
     if (weekday === null || weekday === undefined) return false;
-    const tz = row.timezone || 'Asia/Tokyo';
-    if (getLocalWeekday(now, tz) !== weekday) return false;
-    if (isAlreadyNotifiedToday(now, tz, row.last_notified_at)) {
+    // 配信は JST 固定。保存済み timezone ではなく常に JST で曜日・同日を判定する。
+    if (getLocalWeekday(now, REMINDER_TIMEZONE) !== weekday) return false;
+    if (isAlreadyNotifiedToday(now, REMINDER_TIMEZONE, row.last_notified_at)) {
       skippedAlreadyNotified += 1;
       return false;
     }
@@ -164,7 +171,7 @@ export async function getReminderTargets(
   const targets = candidates
     .map((row) => ({
       userId: row.user_id,
-      timezone: row.timezone || 'Asia/Tokyo',
+      timezone: REMINDER_TIMEZONE,
       reminderWeekday: row.notification_preferences!.reminder_weekday as number,
       lastNotifiedAt: row.last_notified_at,
       subscriptions: byUser.get(row.user_id) ?? [],
