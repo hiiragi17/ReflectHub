@@ -20,10 +20,12 @@ export interface CreatePushSubscriptionRequest {
 }
 
 export interface NotificationPreferences {
-  daily_reminder: boolean;
-  reminder_time?: string; // HH:MM format
-  weekly_summary: boolean;
-  achievement_alerts: boolean;
+  /**
+   * リマインダーを配信する曜日。0=日曜〜6=土曜。
+   * null の場合は配信しない (OFF)。
+   * 配信時刻は JST 11:00 固定 (cron 側で制御)。
+   */
+  reminder_weekday: number | null;
 }
 
 export interface UserPreferences {

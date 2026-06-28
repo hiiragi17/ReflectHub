@@ -6,41 +6,28 @@ describe('validateNotificationPreferences', () => {
     it('rejects unknown keys', () => {
       expect(validateNotificationPreferences({ unknown: true })).toMatch(/不明なキー/);
     });
-  });
 
-  describe('boolean fields', () => {
-    it.each(['daily_reminder', 'weekly_summary', 'achievement_alerts'] as const)(
-      'rejects non-boolean %s',
-      (key) => {
-        expect(validateNotificationPreferences({ [key]: 'true' })).toMatch(new RegExp(key));
-      },
-    );
-
-    it('accepts valid boolean values', () => {
-      expect(
-        validateNotificationPreferences({
-          daily_reminder: true,
-          weekly_summary: false,
-          achievement_alerts: true,
-        }),
-      ).toBeNull();
+    it('rejects legacy keys that are no longer supported', () => {
+      expect(validateNotificationPreferences({ daily_reminder: true })).toMatch(/不明なキー/);
+      expect(validateNotificationPreferences({ reminder_time: '20:00' })).toMatch(/不明なキー/);
     });
   });
 
-  describe('reminder_time', () => {
-    it.each(['00:00', '09:30', '12:00', '23:59', '20:00'])('accepts valid time %s', (t) => {
-      expect(validateNotificationPreferences({ reminder_time: t })).toBeNull();
+  describe('reminder_weekday', () => {
+    it.each([0, 1, 2, 3, 4, 5, 6])('accepts valid weekday %i', (d) => {
+      expect(validateNotificationPreferences({ reminder_weekday: d })).toBeNull();
     });
 
-    it.each(['24:00', '25:30', '99:99', '12:60', '12:99', '1:00', '12:0', 'ab:cd', ''])(
-      'rejects invalid time %s',
-      (t) => {
-        expect(validateNotificationPreferences({ reminder_time: t })).toMatch(/reminder_time/);
-      },
-    );
+    it('accepts null (OFF)', () => {
+      expect(validateNotificationPreferences({ reminder_weekday: null })).toBeNull();
+    });
 
-    it('rejects non-string reminder_time', () => {
-      expect(validateNotificationPreferences({ reminder_time: 2000 })).toMatch(/reminder_time/);
+    it.each([7, -1, 1.5])('rejects out-of-range / non-integer %s', (d) => {
+      expect(validateNotificationPreferences({ reminder_weekday: d })).toMatch(/reminder_weekday/);
+    });
+
+    it('rejects non-number reminder_weekday', () => {
+      expect(validateNotificationPreferences({ reminder_weekday: '1' })).toMatch(/reminder_weekday/);
     });
   });
 

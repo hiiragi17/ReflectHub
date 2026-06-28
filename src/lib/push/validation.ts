@@ -1,9 +1,4 @@
-const VALID_NOTIFICATION_KEYS = new Set([
-  'daily_reminder',
-  'reminder_time',
-  'weekly_summary',
-  'achievement_alerts',
-]);
+const VALID_NOTIFICATION_KEYS = new Set(['reminder_weekday']);
 
 /**
  * notification_preferences ペイロードのキーと型を検証する。
@@ -17,19 +12,10 @@ export function validateNotificationPreferences(
       return `不明なキー "${key}" が含まれています。`;
     }
   }
-  if ('daily_reminder' in payload && typeof payload.daily_reminder !== 'boolean') {
-    return 'daily_reminder は boolean である必要があります。';
-  }
-  if ('weekly_summary' in payload && typeof payload.weekly_summary !== 'boolean') {
-    return 'weekly_summary は boolean である必要があります。';
-  }
-  if ('achievement_alerts' in payload && typeof payload.achievement_alerts !== 'boolean') {
-    return 'achievement_alerts は boolean である必要があります。';
-  }
-  if ('reminder_time' in payload) {
-    const t = payload.reminder_time;
-    if (typeof t !== 'string' || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(t)) {
-      return 'reminder_time は HH:MM 形式 (00:00〜23:59) である必要があります。';
+  if ('reminder_weekday' in payload) {
+    const v = payload.reminder_weekday;
+    if (v !== null && (typeof v !== 'number' || !Number.isInteger(v) || v < 0 || v > 6)) {
+      return 'reminder_weekday は 0〜6 の整数または null である必要があります。';
     }
   }
   return null;

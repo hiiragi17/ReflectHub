@@ -23,10 +23,7 @@ const mockPreferences = {
   pwa_install_dismissed: false,
   timezone: 'Asia/Tokyo',
   notification_preferences: {
-    daily_reminder: false,
-    reminder_time: '20:00',
-    weekly_summary: false,
-    achievement_alerts: true,
+    reminder_weekday: null,
   },
   created_at: '2026-04-19T00:00:00Z',
   updated_at: '2026-04-19T00:00:00Z',
@@ -180,7 +177,7 @@ describe('PUT /api/preferences', () => {
       ...mockPreferences,
       notification_preferences: {
         ...mockPreferences.notification_preferences,
-        daily_reminder: true,
+        reminder_weekday: 2,
       },
     };
     const singleFn = vi.fn().mockResolvedValue({ data: updatedPrefs, error: null });
@@ -195,11 +192,10 @@ describe('PUT /api/preferences', () => {
       .mockReturnValueOnce(existingChain)
       .mockReturnValueOnce(updateChain);
 
-    const res = await PUT(makePutRequest({ notification_preferences: { daily_reminder: true } }));
+    const res = await PUT(makePutRequest({ notification_preferences: { reminder_weekday: 2 } }));
     expect(res.status).toBe(200);
 
     const json = await res.json();
-    expect(json.preferences.notification_preferences.daily_reminder).toBe(true);
-    expect(json.preferences.notification_preferences.achievement_alerts).toBe(true);
+    expect(json.preferences.notification_preferences.reminder_weekday).toBe(2);
   });
 });

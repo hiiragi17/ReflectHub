@@ -6,10 +6,7 @@ import type {
 } from '@/types/push';
 
 const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
-  daily_reminder: false,
-  reminder_time: '20:00',
-  weekly_summary: false,
-  achievement_alerts: true,
+  reminder_weekday: null,
 };
 
 export const preferencesService = {

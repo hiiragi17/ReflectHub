@@ -69,10 +69,7 @@ CREATE TABLE IF NOT EXISTS user_preferences (
   pwa_install_dismissed BOOLEAN NOT NULL DEFAULT false,
   timezone TEXT NOT NULL DEFAULT 'Asia/Tokyo',
   notification_preferences JSONB NOT NULL DEFAULT '{
-    "daily_reminder": false,
-    "reminder_time": "20:00",
-    "weekly_summary": false,
-    "achievement_alerts": true
+    "reminder_weekday": null
   }'::JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
