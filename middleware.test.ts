@@ -118,9 +118,9 @@ describe('middleware CSRF enforcement', () => {
     expect(res.status).not.toBe(403);
   });
 
-  it('exempts /api/auth/callback', async () => {
+  it('exempts /api/auth/session (OAuth callback page POSTs here to set cookies)', async () => {
     const res = await middleware(
-      makeRequest({ pathname: '/api/auth/callback', method: 'POST' }),
+      makeRequest({ pathname: '/api/auth/session', method: 'POST' }),
     );
     expect(res.status).not.toBe(403);
   });
@@ -137,5 +137,57 @@ describe('middleware CSRF enforcement', () => {
       makeRequest({ pathname: '/dashboard', method: 'POST' }),
     );
     expect(res.status).not.toBe(403);
+  });
+});
+
+describe('middleware session-redirect exemptions', () => {
+  // session 認証は route ハンドラ側で行うため、middleware で /auth に
+  // リダイレクトしてはいけないパスを明示的に検証する。
+  // 307 (Temporary Redirect) / 308 (Permanent Redirect) どちらでも fail。
+  // 加えて POST 系は CSRF (403) や別の早期 return で通り抜けていないことを
+  // 確認するため、status < 400 (= NextResponse.next() による 200) を assert する。
+  const isRedirectStatus = (status: number) => status >= 300 && status < 400;
+
+  it('does not redirect unauthenticated GET /api/cron/* to /auth', async () => {
+    const res = await middleware(
+      makeRequest({ pathname: '/api/cron/daily-reminder', method: 'GET' }),
+    );
+    expect(isRedirectStatus(res.status)).toBe(false);
+    expect(res.status).toBeLessThan(400);
+  });
+
+  it('does not redirect unauthenticated GET /api/csrf to /auth', async () => {
+    const res = await middleware(
+      makeRequest({ pathname: '/api/csrf', method: 'GET' }),
+    );
+    expect(isRedirectStatus(res.status)).toBe(false);
+    expect(res.status).toBeLessThan(400);
+  });
+
+  it('does not redirect or 403 unauthenticated POST /api/logs/errors', async () => {
+    // POST は CSRF 検証も通る必要がある (sendBeacon はカスタムヘッダ不可)。
+    // 単に redirect されないだけでなく、session_exempt まで素通りすることを確認。
+    const res = await middleware(
+      makeRequest({ pathname: '/api/logs/errors', method: 'POST' }),
+    );
+    expect(isRedirectStatus(res.status)).toBe(false);
+    expect(res.status).toBeLessThan(400);
+  });
+
+  it('does not redirect or 403 unauthenticated POST /api/auth/session (OAuth cookie set)', async () => {
+    // OAuth callback page が CSRF トークン取得前に POST してくる可能性があるため、
+    // CSRF 免除 + session 免除の両方が必要。
+    const res = await middleware(
+      makeRequest({ pathname: '/api/auth/session', method: 'POST' }),
+    );
+    expect(isRedirectStatus(res.status)).toBe(false);
+    expect(res.status).toBeLessThan(400);
+  });
+
+  it('still redirects unauthenticated GET /dashboard to /auth', async () => {
+    const res = await middleware(
+      makeRequest({ pathname: '/dashboard', method: 'GET' }),
+    );
+    expect(isRedirectStatus(res.status)).toBe(true);
   });
 });
