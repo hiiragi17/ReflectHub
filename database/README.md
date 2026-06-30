@@ -49,6 +49,37 @@ VAPID キーペアは `pnpm exec web-push generate-vapid-keys` で生成する
 
 ---
 
+## Phase 4: 配信時刻の精度向上 (Vercel Cron → pg_cron)
+
+`daily-reminder-pg-cron.sql` を Supabase SQL Editor で実行する。
+
+### 背景
+
+Vercel Cron は起動時刻が数十分ブレる (11:00 予定が 11:22 起動など) ため、
+ユーザーには「中途半端な時刻に通知が来る」ように見えていた。
+Supabase の `pg_cron` は分ちょうどに起動するため、**追加コストゼロ**
+(無料プランでも `pg_cron` / `pg_net` 利用可) で配信時刻を JST 11:00 に揃える。
+
+### 実行手順
+
+1. `daily-reminder-pg-cron.sql` を開き、以下 2 箇所を環境に合わせて置換する:
+   - `reminder_endpoint_url`: 本番の絶対 URL
+     (例 `https://reflecthub.app/api/cron/daily-reminder`)
+   - `cron_secret`: Vercel に設定している `CRON_SECRET` と同じ値
+2. Supabase SQL Editor に貼り付けて実行する (ベキ等・再実行可)。
+3. `select * from cron.job;` でジョブ `daily-reminder` が登録されたことを確認。
+4. 動作確認は `select * from cron.job_run_details order by start_time desc limit 10;`
+   と `select * from net._http_response order by created desc limit 10;` で行う。
+
+### 注意
+
+- このスクリプトの実行と同時に、`vercel.json` から Vercel Cron 定義を削除済み。
+  **二重スケジュールにはならない** (なお重複送信は `last_notified_at` でも防止される)。
+- `CRON_SECRET` をローテーションした場合は、本スクリプトの `cron_secret` を
+  更新して再実行すること (Vault の値が更新される)。
+
+---
+
 
 ## Phase 2: フレームワーク拡張（2個 → 7個）
 

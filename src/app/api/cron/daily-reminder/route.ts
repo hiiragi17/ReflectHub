@@ -10,7 +10,8 @@ import { sendPushBatch } from '@/services/webPushSender';
 /**
  * GET /api/cron/daily-reminder
  *
- * Vercel Cron から定期的に呼び出されるエンドポイント。
+ * 定期実行スケジューラ (Supabase pg_cron) から JST 11:00 に呼び出されるエンドポイント。
+ * スケジュール定義は database/daily-reminder-pg-cron.sql を参照。
  * - Authorization: Bearer ${CRON_SECRET} で認証
  * - 配信対象ユーザーを抽出 → ユーザーごとに並列で Web Push 送信
  * - 失効サブスクリプション (HTTP 404/410) は is_active=false に更新
