@@ -4,7 +4,9 @@ import type { NotificationPreferences, PushSubscription } from '@/types/push';
 /**
  * 週次リマインダーのスケジューリング・配信対象決定ロジック。
  *
- * Vercel Cron から JST 11:00 (= 02:00 UTC) に 1 日 1 回呼び出される前提。
+ * Supabase pg_cron から JST 11:00 (= 02:00 UTC) に 1 日 1 回呼び出される前提。
+ * (Vercel Cron は起動時刻が数十分ブレるため pg_cron に置き換えた。
+ *  database/daily-reminder-pg-cron.sql を参照)
  * - ユーザーが設定した配信曜日 (reminder_weekday) と、ローカルタイムゾーンでの
  *   "今日の曜日" が一致するユーザーを抽出
  * - 該当ユーザーの有効な push_subscriptions を取得
