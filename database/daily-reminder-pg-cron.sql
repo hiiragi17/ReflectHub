@@ -33,6 +33,16 @@ declare
   v_url text := 'https://YOUR-DOMAIN/api/cron/daily-reminder'; -- ★要置換
   v_secret text := 'YOUR_CRON_SECRET';                          -- ★要置換
 begin
+  -- プレースホルダのまま実行すると、認証も到達もできないジョブが静かに登録され
+  -- 本番障害につながる。値が未置換なら fail-fast して気付けるようにする。
+  if v_url = 'https://YOUR-DOMAIN/api/cron/daily-reminder'
+     or v_secret = 'YOUR_CRON_SECRET' then
+    raise exception 'daily-reminder-pg-cron.sql: v_url / v_secret を実値に置換してから実行してください';
+  end if;
+  if v_url !~ '^https://.+' then
+    raise exception 'daily-reminder-pg-cron.sql: v_url は絶対 https URL である必要があります (現在: %)', v_url;
+  end if;
+
   if exists (select 1 from vault.secrets where name = 'reminder_endpoint_url') then
     perform vault.update_secret(
       (select id from vault.secrets where name = 'reminder_endpoint_url'),
@@ -60,6 +70,9 @@ where exists (select 1 from cron.job where jobname = 'daily-reminder');
 --    エンドポイントは GET + Authorization: Bearer <CRON_SECRET> を要求するため
 --    net.http_get で Authorization ヘッダを付与する。
 --    URL / シークレットは Vault から復号して参照する。
+--    timeout_milliseconds は pg_net のデフォルト (2000ms) だと、コールドスタートや
+--    購読者が多い場合に /api/cron/daily-reminder の処理が 2 秒を超えて DB 側が先に
+--    タイムアウトし、配信が中断・誤失敗扱いになる恐れがある。余裕を持って 30 秒にする。
 select cron.schedule(
   'daily-reminder',
   '0 2 * * *',
@@ -69,7 +82,8 @@ select cron.schedule(
     headers := jsonb_build_object(
       'Authorization',
       'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret')
-    )
+    ),
+    timeout_milliseconds := 30000
   );
   $job$
 );
