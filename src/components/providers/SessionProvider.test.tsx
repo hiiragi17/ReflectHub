@@ -18,13 +18,16 @@ vi.mock("@/stores/authStore", () => ({
   },
 }));
 
-vi.mock("@/utils/sessionUtils", () => ({
-  SessionUtils: {
-    setupAutoRefresh: vi.fn(() => vi.fn()), // Returns cleanup function
+vi.mock("@/lib/supabase/client", () => ({
+  supabase: {
+    auth: {
+      refreshSession: vi.fn(),
+      getSession: vi.fn(),
+    },
   },
 }));
 
-describe("SessionProvider - Auto Refresh", () => {
+describe("SessionProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -33,8 +36,19 @@ describe("SessionProvider - Auto Refresh", () => {
     vi.clearAllMocks();
   });
 
-  it("should setup auto refresh on mount", async () => {
-    const { SessionUtils } = await import("@/utils/sessionUtils");
+  it("should render children", () => {
+    const { getByText } = render(
+      <SessionProvider>
+        <div>Test Child</div>
+      </SessionProvider>
+    );
+
+    expect(getByText("Test Child")).toBeInTheDocument();
+  });
+
+  it("should not set up a custom refresh interval (token refresh is delegated to supabase-js)", async () => {
+    vi.useFakeTimers();
+    const { supabase } = await import("@/lib/supabase/client");
 
     render(
       <SessionProvider>
@@ -42,34 +56,14 @@ describe("SessionProvider - Auto Refresh", () => {
       </SessionProvider>
     );
 
-    await waitFor(() => {
-      expect(SessionUtils.setupAutoRefresh).toHaveBeenCalledWith(5);
-    });
-  });
+    // 独自インターバルが残っていれば 1 分ごとに refreshSession/getSession が
+    // 呼ばれるはず。10 分進めても一切呼ばれないことを確認する。
+    vi.advanceTimersByTime(10 * 60 * 1000);
 
-  it("should cleanup auto refresh on unmount", async () => {
-    const { SessionUtils } = await import("@/utils/sessionUtils");
-    const cleanupFn = vi.fn();
+    expect(supabase.auth.refreshSession).not.toHaveBeenCalled();
+    expect(supabase.auth.getSession).not.toHaveBeenCalled();
 
-    vi.mocked(SessionUtils.setupAutoRefresh).mockReturnValue(cleanupFn);
-
-    const { unmount } = render(
-      <SessionProvider>
-        <div>Test Child</div>
-      </SessionProvider>
-    );
-
-    // Verify setup was called
-    await waitFor(() => {
-      expect(SessionUtils.setupAutoRefresh).toHaveBeenCalled();
-    });
-
-    // Unmount and verify cleanup
-    unmount();
-
-    await waitFor(() => {
-      expect(cleanupFn).toHaveBeenCalled();
-    });
+    vi.useRealTimers();
   });
 
   it("should not initialize auth state directly", async () => {
@@ -101,23 +95,5 @@ describe("SessionProvider - Auto Refresh", () => {
 
     // Still not called
     expect(initializeMock).toHaveBeenCalledTimes(0);
-  });
-
-  it("should call setupAutoRefresh with correct parameters", async () => {
-    const { SessionUtils } = await import("@/utils/sessionUtils");
-
-    render(
-      <SessionProvider>
-        <div>Test Child</div>
-      </SessionProvider>
-    );
-
-    await waitFor(() => {
-      expect(SessionUtils.setupAutoRefresh).toHaveBeenCalledWith(5);
-    });
-
-    // Verify it's called with 5 minutes before expiry
-    const calls = vi.mocked(SessionUtils.setupAutoRefresh).mock.calls;
-    expect(calls[0][0]).toBe(5);
   });
 });

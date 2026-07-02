@@ -68,8 +68,10 @@ export const useAuthStore = create<AuthStore>()(
             // サーバー側のログアウトが失敗してもクライアント側のログアウトは続行
           }
 
-          // すべてのタブでログアウトする
-          const { error } = await supabase.auth.signOut({ scope: 'global' });
+          // この端末のセッションのみ破棄する。scope: 'global' だと全デバイスの
+          // リフレッシュトークンが失効し、iOS では Safari と PWA が別セッション
+          // のため「ブラウザでログアウトしたら PWA も切れる」挙動になる。
+          const { error } = await supabase.auth.signOut({ scope: 'local' });
           if (error) {
             console.error("Signout error:", error);
           }
