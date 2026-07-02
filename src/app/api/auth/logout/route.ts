@@ -31,8 +31,11 @@ export async function POST(_request: NextRequest) {
       }
     );
 
-    // Supabase セッションをクリア
-    await supabase.auth.signOut();
+    // Supabase セッションをクリア。scope を省略するとデフォルトの 'global' に
+    // なり、全デバイスのリフレッシュトークンが失効してしまう (iOS では
+    // Safari と PWA が別セッションのため、片方のログアウトがもう片方を
+    // 巻き込む)。クライアント側 (authStore.signOut) と同じく 'local' に揃える。
+    await supabase.auth.signOut({ scope: 'local' });
 
     // レスポンスを作成してクッキーをクリア
     const response = NextResponse.json({ success: true });
