@@ -109,10 +109,8 @@ describe("useSessionManager - Error Handling", () => {
 
     // サーバーへのトークン再送 (/api/auth/session) は行わない。
     // PWA 復帰時に同一リフレッシュトークンの二重使用を招くため。
-    expect(fetchSpy).not.toHaveBeenCalledWith(
-      "/api/auth/session",
-      expect.anything()
-    );
+    // initialize はモック済みなので、フック自体が fetch しないことを検証する。
+    expect(fetchSpy).not.toHaveBeenCalled();
 
     fetchSpy.mockRestore();
   });

@@ -18,21 +18,14 @@ vi.mock("@/stores/authStore", () => ({
   },
 }));
 
-vi.mock("@/lib/supabase/client", () => ({
-  supabase: {
-    auth: {
-      refreshSession: vi.fn(),
-      getSession: vi.fn(),
-    },
-  },
-}));
-
 describe("SessionProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
     vi.clearAllMocks();
   });
 
@@ -46,9 +39,11 @@ describe("SessionProvider", () => {
     expect(getByText("Test Child")).toBeInTheDocument();
   });
 
-  it("should not set up a custom refresh interval (token refresh is delegated to supabase-js)", async () => {
+  it("should not set up a custom refresh interval (token refresh is delegated to supabase-js)", () => {
     vi.useFakeTimers();
-    const { supabase } = await import("@/lib/supabase/client");
+    // useSessionManager をモックしているため supabase の呼び出しでは検知できない。
+    // インターバル登録そのものを監視する。
+    const setIntervalSpy = vi.spyOn(globalThis, "setInterval");
 
     render(
       <SessionProvider>
@@ -56,14 +51,7 @@ describe("SessionProvider", () => {
       </SessionProvider>
     );
 
-    // 独自インターバルが残っていれば 1 分ごとに refreshSession/getSession が
-    // 呼ばれるはず。10 分進めても一切呼ばれないことを確認する。
-    vi.advanceTimersByTime(10 * 60 * 1000);
-
-    expect(supabase.auth.refreshSession).not.toHaveBeenCalled();
-    expect(supabase.auth.getSession).not.toHaveBeenCalled();
-
-    vi.useRealTimers();
+    expect(setIntervalSpy).not.toHaveBeenCalled();
   });
 
   it("should not initialize auth state directly", async () => {
