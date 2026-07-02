@@ -1,8 +1,7 @@
 'use client';
-import { createContext, useContext, ReactNode, useEffect } from 'react';
+import { createContext, useContext, ReactNode } from 'react';
 import { useSessionManager } from '@/hooks/useSessionManager';
 import { Session } from '@supabase/supabase-js';
-import { SessionUtils } from '@/utils/sessionUtils';
 
 interface SessionContextType {
   checkSession: () => Promise<Session | null>;
@@ -15,19 +14,13 @@ interface SessionProviderProps {
   children: ReactNode;
 }
 
+// トークンの自動リフレッシュは supabase-js (createBrowserClient) の
+// autoRefreshToken に一任する。独自のインターバルで refreshSession() を
+// 併走させると、PWA 復帰時などに同一リフレッシュトークンの二重使用
+// (ローテーション競合) が起き、セッションファミリーごと失効して
+// 強制ログアウトになるため、ここでは何も上乗せしない。
 export function SessionProvider({ children }: SessionProviderProps) {
   const sessionManager = useSessionManager();
-
-  // セッション自動リフレッシュを設定
-  useEffect(() => {
-    // 期限切れ5分前にリフレッシュ
-    const cleanup = SessionUtils.setupAutoRefresh(5);
-
-    return () => {
-      // コンポーネントのアンマウント時にクリーンアップ
-      cleanup();
-    };
-  }, []);
 
   return (
     <SessionContext.Provider value={sessionManager}>
@@ -43,24 +36,3 @@ export function useSession() {
   }
   return context;
 }
-
-// app/layout.tsx での使用例
-/*
-import { SessionProvider } from '@/components/providers/SessionProvider';
-
-export default function RootLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  return (
-    <html lang="ja">
-      <body>
-        <SessionProvider>
-          {children}
-        </SessionProvider>
-      </body>
-    </html>
-  );
-}
-*/
