@@ -25,7 +25,6 @@ import webpush, { WebPushError } from 'web-push';
 import {
   __resetVapidConfigForTests,
   sendPush,
-  sendPushBatch,
   sendPushToFirstAvailable,
 } from './webPushSender';
 
@@ -134,32 +133,6 @@ describe('webPushSender', () => {
       sendNotification.mockResolvedValueOnce({ statusCode: 200 });
       await sendPush(sub(), 'raw-body');
       expect(sendNotification).toHaveBeenCalledWith(expect.anything(), 'raw-body');
-    });
-  });
-
-  describe('sendPushBatch', () => {
-    it('sends to all subscriptions in parallel and isolates failures', async () => {
-      sendNotification
-        .mockResolvedValueOnce({ statusCode: 201 })
-        .mockRejectedValueOnce(makeWebPushError('Gone', 410))
-        .mockResolvedValueOnce({ statusCode: 201 });
-
-      const subs = [
-        sub({ id: 'a', endpoint: 'https://push.example/a' }),
-        sub({ id: 'b', endpoint: 'https://push.example/b' }),
-        sub({ id: 'c', endpoint: 'https://push.example/c' }),
-      ];
-      const results = await sendPushBatch(subs, { msg: 'hi' });
-      expect(results).toHaveLength(3);
-      expect(results[0]).toMatchObject({ subscriptionId: 'a', success: true });
-      expect(results[1]).toMatchObject({ subscriptionId: 'b', success: false, expired: true });
-      expect(results[2]).toMatchObject({ subscriptionId: 'c', success: true });
-    });
-
-    it('returns empty array when no subscriptions', async () => {
-      const results = await sendPushBatch([], {});
-      expect(results).toEqual([]);
-      expect(sendNotification).not.toHaveBeenCalled();
     });
   });
 

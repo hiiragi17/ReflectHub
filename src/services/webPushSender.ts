@@ -114,24 +114,3 @@ export async function sendPushToFirstAvailable(
   }
   return results;
 }
-
-/**
- * 複数の subscription へ並列送信。1 件の失敗が他に影響しないよう Promise.allSettled を使う。
- */
-export async function sendPushBatch(
-  subscriptions: PushSubscription[],
-  payload: unknown,
-): Promise<SendPushResult[]> {
-  const settled = await Promise.allSettled(subscriptions.map((s) => sendPush(s, payload)));
-  return settled.map((r, i) => {
-    if (r.status === 'fulfilled') return r.value;
-    const sub = subscriptions[i];
-    return {
-      subscriptionId: sub.id,
-      endpoint: sub.endpoint,
-      success: false,
-      expired: false,
-      error: r.reason instanceof Error ? r.reason.message : String(r.reason),
-    };
-  });
-}
