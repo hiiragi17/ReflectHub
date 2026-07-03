@@ -9,7 +9,10 @@ import type { NotificationPreferences, PushSubscription } from '@/types/push';
  *  database/daily-reminder-pg-cron.sql を参照)
  * - ユーザーが設定した配信曜日 (reminder_weekday) と、ローカルタイムゾーンでの
  *   "今日の曜日" が一致するユーザーを抽出
- * - 該当ユーザーの有効な push_subscriptions を取得
+ * - 該当ユーザーの有効な push_subscriptions のうち「最後に通知を ON にした端末」
+ *   (updated_at が最新のもの) 1 件だけを配信対象にする。複数端末へ同時通知すると
+ *   冗長なため。ON にするたび upsert で updated_at が更新される
+ *   (push-subscriptions-and-preferences.sql の updated_at トリガー)。
  * - 同日中の重複通知は last_notified_at で防止
  */
 
@@ -163,21 +166,26 @@ export async function getReminderTargets(
   }
   if (!subs) return { targets: [], skippedAlreadyNotified };
 
-  const byUser = new Map<string, PushSubscription[]>();
+  // ユーザーごとに「最後に通知を ON にした端末」= updated_at が最新の subscription を選ぶ。
+  const latestByUser = new Map<string, PushSubscription>();
   for (const sub of subs as PushSubscription[]) {
-    const list = byUser.get(sub.user_id) ?? [];
-    list.push(sub);
-    byUser.set(sub.user_id, list);
+    const current = latestByUser.get(sub.user_id);
+    if (!current || Date.parse(sub.updated_at) > Date.parse(current.updated_at)) {
+      latestByUser.set(sub.user_id, sub);
+    }
   }
 
   const targets = candidates
-    .map((row) => ({
-      userId: row.user_id,
-      timezone: REMINDER_TIMEZONE,
-      reminderWeekday: row.notification_preferences!.reminder_weekday as number,
-      lastNotifiedAt: row.last_notified_at,
-      subscriptions: byUser.get(row.user_id) ?? [],
-    }))
+    .map((row) => {
+      const latest = latestByUser.get(row.user_id);
+      return {
+        userId: row.user_id,
+        timezone: REMINDER_TIMEZONE,
+        reminderWeekday: row.notification_preferences!.reminder_weekday as number,
+        lastNotifiedAt: row.last_notified_at,
+        subscriptions: latest ? [latest] : [],
+      };
+    })
     .filter((target) => target.subscriptions.length > 0);
 
   return { targets, skippedAlreadyNotified };
