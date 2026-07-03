@@ -22,7 +22,12 @@ vi.mock('web-push', () => {
 });
 
 import webpush, { WebPushError } from 'web-push';
-import { __resetVapidConfigForTests, sendPush, sendPushBatch } from './webPushSender';
+import {
+  __resetVapidConfigForTests,
+  sendPush,
+  sendPushBatch,
+  sendPushToFirstAvailable,
+} from './webPushSender';
 
 const sendNotification = webpush.sendNotification as unknown as ReturnType<typeof vi.fn>;
 const setVapidDetails = webpush.setVapidDetails as unknown as ReturnType<typeof vi.fn>;
@@ -153,6 +158,75 @@ describe('webPushSender', () => {
 
     it('returns empty array when no subscriptions', async () => {
       const results = await sendPushBatch([], {});
+      expect(results).toEqual([]);
+      expect(sendNotification).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('sendPushToFirstAvailable', () => {
+    it('stops after the first success and does not try the rest', async () => {
+      sendNotification.mockResolvedValueOnce({ statusCode: 201 });
+
+      const subs = [
+        sub({ id: 'a', endpoint: 'https://push.example/a' }),
+        sub({ id: 'b', endpoint: 'https://push.example/b' }),
+      ];
+      const results = await sendPushToFirstAvailable(subs, { msg: 'hi' });
+
+      expect(results).toHaveLength(1);
+      expect(results[0]).toMatchObject({ subscriptionId: 'a', success: true });
+      expect(sendNotification).toHaveBeenCalledTimes(1);
+    });
+
+    it('falls back to the next device when the first is expired (410)', async () => {
+      sendNotification
+        .mockRejectedValueOnce(makeWebPushError('Gone', 410))
+        .mockResolvedValueOnce({ statusCode: 201 });
+
+      const subs = [
+        sub({ id: 'a', endpoint: 'https://push.example/a' }),
+        sub({ id: 'b', endpoint: 'https://push.example/b' }),
+      ];
+      const results = await sendPushToFirstAvailable(subs, { msg: 'hi' });
+
+      expect(results).toHaveLength(2);
+      expect(results[0]).toMatchObject({ subscriptionId: 'a', success: false, expired: true });
+      expect(results[1]).toMatchObject({ subscriptionId: 'b', success: true });
+      expect(sendNotification).toHaveBeenCalledTimes(2);
+    });
+
+    it('does NOT fall back on a non-expired failure (e.g. 500)', async () => {
+      sendNotification.mockRejectedValueOnce(makeWebPushError('Server Error', 500));
+
+      const subs = [
+        sub({ id: 'a', endpoint: 'https://push.example/a' }),
+        sub({ id: 'b', endpoint: 'https://push.example/b' }),
+      ];
+      const results = await sendPushToFirstAvailable(subs, { msg: 'hi' });
+
+      expect(results).toHaveLength(1);
+      expect(results[0]).toMatchObject({ subscriptionId: 'a', success: false, expired: false });
+      expect(sendNotification).toHaveBeenCalledTimes(1);
+    });
+
+    it('tries every device and reports all failures when all are expired', async () => {
+      sendNotification
+        .mockRejectedValueOnce(makeWebPushError('Gone', 410))
+        .mockRejectedValueOnce(makeWebPushError('Not Found', 404));
+
+      const subs = [
+        sub({ id: 'a', endpoint: 'https://push.example/a' }),
+        sub({ id: 'b', endpoint: 'https://push.example/b' }),
+      ];
+      const results = await sendPushToFirstAvailable(subs, { msg: 'hi' });
+
+      expect(results).toHaveLength(2);
+      expect(results.every((r) => !r.success && r.expired)).toBe(true);
+      expect(sendNotification).toHaveBeenCalledTimes(2);
+    });
+
+    it('returns empty array when no subscriptions', async () => {
+      const results = await sendPushToFirstAvailable([], {});
       expect(results).toEqual([]);
       expect(sendNotification).not.toHaveBeenCalled();
     });

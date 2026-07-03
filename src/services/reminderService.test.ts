@@ -107,7 +107,7 @@ describe('reminderService', () => {
       });
     }
 
-    it('targets only the most recently ON-toggled device (latest updated_at)', async () => {
+    it('orders subscriptions newest-first (most recently ON-toggled device leads)', async () => {
       mockTables(
         [
           {
@@ -143,9 +143,11 @@ describe('reminderService', () => {
 
       const { targets } = await getReminderTargets(now);
 
+      // 全有効 subscription を新しい順で保持 (先頭が最後に ON にした端末)。
+      // 配信側は先頭に送り、失効時のみ次へフォールバックする。
       expect(targets).toHaveLength(1);
-      expect(targets[0].subscriptions).toHaveLength(1);
-      expect(targets[0].subscriptions[0].id).toBe('sub-new');
+      expect(targets[0].subscriptions).toHaveLength(2);
+      expect(targets[0].subscriptions.map((s) => s.id)).toEqual(['sub-new', 'sub-old']);
     });
 
     it('drops users whose delivery weekday does not match today (JST)', async () => {
