@@ -48,7 +48,7 @@ async function main() {
 
   // Check if order matches field id expectation
   // Expected: y (order: 1), w (order: 2), t (order: 3)
-  const needsFix = fields.some((field: any) => {
+  const needsFix = fields.some((field: { id: string; order: number }) => {
     if (field.id === 'y' && field.order !== 1) return true;
     if (field.id === 'w' && field.order !== 2) return true;
     if (field.id === 't' && field.order !== 3) return true;
@@ -60,7 +60,7 @@ async function main() {
   }
 
   // Fix the schema
-  const fixedFields = fields.map((field: any) => {
+  const fixedFields = fields.map((field: { id: string; order: number }) => {
     let newOrder = field.order;
 
     // Correct the order based on field id

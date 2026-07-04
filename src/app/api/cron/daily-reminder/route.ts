@@ -5,7 +5,7 @@ import {
   getReminderTargets,
   markUserNotified,
 } from '@/services/reminderService';
-import { sendPushBatch } from '@/services/webPushSender';
+import { sendPushToFirstAvailable } from '@/services/webPushSender';
 
 /**
  * GET /api/cron/daily-reminder
@@ -13,7 +13,9 @@ import { sendPushBatch } from '@/services/webPushSender';
  * 定期実行スケジューラ (Supabase pg_cron) から JST 11:00 に呼び出されるエンドポイント。
  * スケジュール定義は database/daily-reminder-pg-cron.sql を参照。
  * - Authorization: Bearer ${CRON_SECRET} で認証
- * - 配信対象ユーザーを抽出 → ユーザーごとに並列で Web Push 送信
+ * - 配信対象ユーザーを抽出 → ユーザーごとに「最後に通知を ON にした端末」から順に
+ *   Web Push 送信。1 件成功したら止める (通知は 1 台のみ)。先頭が失効していた場合は
+ *   次に新しい端末へフォールバックする。
  * - 失効サブスクリプション (HTTP 404/410) は is_active=false に更新
  *   (401 はサーバー側 VAPID/JWT の問題なので無効化対象に含めない)
  * - 同日中の重複通知を防ぐため、配信成功時に user_preferences.last_notified_at を更新
@@ -32,12 +34,16 @@ export async function GET(request: NextRequest) {
 
     let sent = 0;
     let failed = 0;
+    // 実際に送信を試みた subscription の総数 (フォールバックで複数試すこともある)。
+    let attempted = 0;
     const skipped = skippedAlreadyNotified;
     const expiredSubscriptionIds: string[] = [];
 
     const perUserResults = await Promise.allSettled(
       targets.map(async (target) => {
-        const results = await sendPushBatch(target.subscriptions, payload);
+        // 「最後に通知を ON にした端末」から順に試し、1 件成功したら止める。
+        // 先頭が失効していた場合のみ次の端末へフォールバックする。
+        const results = await sendPushToFirstAvailable(target.subscriptions, payload);
 
         let userSent = 0;
         let userFailed = 0;
@@ -66,7 +72,7 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        return { userSent, userFailed };
+        return { userSent, userFailed, userAttempted: results.length };
       }),
     );
 
@@ -74,6 +80,7 @@ export async function GET(request: NextRequest) {
       if (r.status === 'fulfilled') {
         sent += r.value.userSent;
         failed += r.value.userFailed;
+        attempted += r.value.userAttempted;
       } else {
         failed += 1;
         console.error('[daily-reminder] target processing failed', r.reason);
@@ -88,7 +95,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const totalSubscriptions = targets.reduce((acc, t) => acc + t.subscriptions.length, 0);
+    // 実際に送信を試みた subscription 数。フォールバックにより対象端末数とは一致しない。
+    const totalSubscriptions = attempted;
     // 配信対象が存在したのに 1 件も成功しなかった場合は systemic failure (VAPID 設定ミス等)
     // とみなして 500 を返し、Vercel Cron / 監視がジョブ失敗として検知できるようにする。
     const systemicFailure = totalSubscriptions > 0 && sent === 0 && failed > 0;

@@ -11,6 +11,9 @@ vi.mock('@/lib/supabase/client', () => ({
 
 import { supabase } from '@/lib/supabase/client';
 
+// Supabase のモック戻り値を、any を使わずに実際の型へキャストするための別名。
+type FromResult = ReturnType<typeof supabase.from>;
+
 describe('frameworkService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -156,7 +159,7 @@ describe('frameworkService', () => {
         }),
       };
 
-      vi.mocked(supabase.from).mockReturnValue(mockSupabase as any);
+      vi.mocked(supabase.from).mockReturnValue(mockSupabase as unknown as FromResult);
 
       const result = await frameworkService.getFrameworks();
 
@@ -186,7 +189,7 @@ describe('frameworkService', () => {
         }),
       };
 
-      vi.mocked(supabase.from).mockReturnValue(mockSupabase as any);
+      vi.mocked(supabase.from).mockReturnValue(mockSupabase as unknown as FromResult);
 
       const result = await frameworkService.getFrameworks();
 
@@ -228,7 +231,7 @@ describe('frameworkService', () => {
         }),
       };
 
-      vi.mocked(supabase.from).mockReturnValue(mockSupabase as any);
+      vi.mocked(supabase.from).mockReturnValue(mockSupabase as unknown as FromResult);
 
       const result = await frameworkService.getFrameworks();
       const daki = result.find((f) => f.id === 'daki');
@@ -262,7 +265,7 @@ describe('frameworkService', () => {
         }),
       };
 
-      vi.mocked(supabase.from).mockReturnValue(mockSupabase as any);
+      vi.mocked(supabase.from).mockReturnValue(mockSupabase as unknown as FromResult);
 
       const result = await frameworkService.getFrameworks();
       const star = result.find((f) => f.id === 'star');
@@ -295,7 +298,7 @@ describe('frameworkService', () => {
         }),
       };
 
-      vi.mocked(supabase.from).mockReturnValue(mockSupabase as any);
+      vi.mocked(supabase.from).mockReturnValue(mockSupabase as unknown as FromResult);
 
       const result = await frameworkService.getFrameworks();
       const wlt = result.find((f) => f.id === 'wlt');
@@ -329,7 +332,7 @@ describe('frameworkService', () => {
         }),
       };
 
-      vi.mocked(supabase.from).mockReturnValue(mockSupabase as any);
+      vi.mocked(supabase.from).mockReturnValue(mockSupabase as unknown as FromResult);
 
       const result = await frameworkService.getFrameworks();
       const fourL = result.find((f) => f.id === '4l');
@@ -363,7 +366,7 @@ describe('frameworkService', () => {
         }),
       };
 
-      vi.mocked(supabase.from).mockReturnValue(mockSupabase as any);
+      vi.mocked(supabase.from).mockReturnValue(mockSupabase as unknown as FromResult);
 
       const result = await frameworkService.getFrameworks();
       const diary = result.find((f) => f.id === 'diary');
@@ -388,7 +391,7 @@ describe('frameworkService', () => {
         }),
       };
 
-      vi.mocked(supabase.from).mockReturnValue(mockSupabase as any);
+      vi.mocked(supabase.from).mockReturnValue(mockSupabase as unknown as FromResult);
 
       await expect(frameworkService.getFrameworks()).rejects.toThrow(
         'フレームワーク取得エラー: Database connection failed'
@@ -428,7 +431,7 @@ describe('frameworkService', () => {
         }),
       };
 
-      vi.mocked(supabase.from).mockReturnValue(mockSupabase as any);
+      vi.mocked(supabase.from).mockReturnValue(mockSupabase as unknown as FromResult);
 
       const result = await frameworkService.getFrameworkById('daki');
 
@@ -450,7 +453,7 @@ describe('frameworkService', () => {
         }),
       };
 
-      vi.mocked(supabase.from).mockReturnValue(mockSupabase as any);
+      vi.mocked(supabase.from).mockReturnValue(mockSupabase as unknown as FromResult);
 
       await expect(frameworkService.getFrameworkById('nonexistent')).rejects.toThrow(
         'フレームワーク取得エラー: Not found'

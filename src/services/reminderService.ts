@@ -9,7 +9,12 @@ import type { NotificationPreferences, PushSubscription } from '@/types/push';
  *  database/daily-reminder-pg-cron.sql を参照)
  * - ユーザーが設定した配信曜日 (reminder_weekday) と、ローカルタイムゾーンでの
  *   "今日の曜日" が一致するユーザーを抽出
- * - 該当ユーザーの有効な push_subscriptions を取得
+ * - 該当ユーザーの有効な push_subscriptions を「最後に通知を ON にした端末」
+ *   (updated_at が最新のもの) を先頭に、新しい順で並べて返す。配信側は通常この
+ *   先頭 1 台だけに送る (複数端末へ同時通知すると冗長なため)。ただし先頭の購読が
+ *   失効 (404/410) していた場合に備え、フォールバック候補として残りの有効な
+ *   subscription も新しい順で保持する。ON にするたび upsert で updated_at が
+ *   更新される (push-subscriptions-and-preferences.sql の updated_at トリガー)。
  * - 同日中の重複通知は last_notified_at で防止
  */
 
@@ -163,11 +168,16 @@ export async function getReminderTargets(
   }
   if (!subs) return { targets: [], skippedAlreadyNotified };
 
+  // ユーザーごとに subscription をまとめ、updated_at の新しい順 (= 最後に通知を
+  // ON にした端末が先頭) に並べる。配信側は先頭 1 台に送り、失効時のみ次へ進む。
   const byUser = new Map<string, PushSubscription[]>();
   for (const sub of subs as PushSubscription[]) {
     const list = byUser.get(sub.user_id) ?? [];
     list.push(sub);
     byUser.set(sub.user_id, list);
+  }
+  for (const list of byUser.values()) {
+    list.sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
   }
 
   const targets = candidates

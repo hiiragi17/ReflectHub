@@ -220,9 +220,9 @@ export function NotificationSettings() {
             </>
           ) : (
             <>
-              <p className="font-medium text-gray-700">📱 アプリをインストールすると、より確実に通知を受け取れます</p>
+              <p className="font-medium text-gray-700">📱 通知を受け取るならアプリのインストール（PWA）がおすすめです</p>
               <p className="mt-1">
-                ホーム画面に追加するとアプリのように起動でき、通知も安定します。インストールしなくても通知は利用できます。
+                ホーム画面に追加するとアプリのように起動でき、通知も受け取りやすくなります。ブラウザのままでも通知は利用できます。
               </p>
             </>
           )}

@@ -98,7 +98,7 @@ describe('NotificationSettings', () => {
     mockPreferencesApi(null);
     render(<NotificationSettings />);
     expect(
-      await screen.findByText('📱 アプリをインストールすると、より確実に通知を受け取れます'),
+      await screen.findByText('📱 通知を受け取るならアプリのインストール（PWA）がおすすめです'),
     ).toBeInTheDocument();
   });
 

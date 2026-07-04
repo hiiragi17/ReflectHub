@@ -1,9 +1,30 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+const fromMock = vi.fn();
+vi.mock('@/lib/supabase/server', () => ({
+  createServiceRoleClient: () => ({ from: fromMock }),
+}));
+
 import {
   buildReminderPayload,
   getLocalWeekday,
+  getReminderTargets,
   isAlreadyNotifiedToday,
 } from './reminderService';
+
+/**
+ * Supabase クエリビルダーの最小モック。select/in/eq はチェーン用に自身を返し、
+ * await されたら渡された結果に解決する thenable。
+ */
+function makeBuilder(result: { data: unknown; error: unknown }) {
+  const builder: Record<string, unknown> = {
+    select: vi.fn(() => builder),
+    in: vi.fn(() => builder),
+    eq: vi.fn(() => builder),
+    then: (resolve: (v: unknown) => unknown) => resolve(result),
+  };
+  return builder;
+}
 
 describe('reminderService', () => {
   describe('getLocalWeekday', () => {
@@ -66,6 +87,84 @@ describe('reminderService', () => {
     it('returns false for invalid timestamp', () => {
       const now = new Date('2026-05-07T11:00:00Z');
       expect(isAlreadyNotifiedToday(now, 'UTC', 'not-a-date')).toBe(false);
+    });
+  });
+
+  describe('getReminderTargets', () => {
+    beforeEach(() => {
+      fromMock.mockReset();
+    });
+
+    // JST で配信曜日が一致するよう now と reminder_weekday を揃える。
+    const now = new Date('2026-07-03T02:00:00Z'); // JST 2026-07-03 11:00
+    const weekday = getLocalWeekday(now, 'Asia/Tokyo');
+
+    function mockTables(prefs: unknown[], subs: unknown[]) {
+      fromMock.mockImplementation((table: string) => {
+        if (table === 'user_preferences') return makeBuilder({ data: prefs, error: null });
+        if (table === 'push_subscriptions') return makeBuilder({ data: subs, error: null });
+        throw new Error(`unexpected table: ${table}`);
+      });
+    }
+
+    it('orders subscriptions newest-first (most recently ON-toggled device leads)', async () => {
+      mockTables(
+        [
+          {
+            user_id: 'u1',
+            timezone: 'Asia/Tokyo',
+            notification_preferences: { reminder_weekday: weekday },
+            last_notified_at: null,
+          },
+        ],
+        [
+          {
+            id: 'sub-old',
+            user_id: 'u1',
+            endpoint: 'https://push/old',
+            p256dh: 'p',
+            auth: 'a',
+            is_active: true,
+            created_at: '2026-06-01T00:00:00Z',
+            updated_at: '2026-06-01T00:00:00Z',
+          },
+          {
+            id: 'sub-new',
+            user_id: 'u1',
+            endpoint: 'https://push/new',
+            p256dh: 'p',
+            auth: 'a',
+            is_active: true,
+            created_at: '2026-06-10T00:00:00Z',
+            updated_at: '2026-07-01T00:00:00Z',
+          },
+        ],
+      );
+
+      const { targets } = await getReminderTargets(now);
+
+      // 全有効 subscription を新しい順で保持 (先頭が最後に ON にした端末)。
+      // 配信側は先頭に送り、失効時のみ次へフォールバックする。
+      expect(targets).toHaveLength(1);
+      expect(targets[0].subscriptions).toHaveLength(2);
+      expect(targets[0].subscriptions.map((s) => s.id)).toEqual(['sub-new', 'sub-old']);
+    });
+
+    it('drops users whose delivery weekday does not match today (JST)', async () => {
+      mockTables(
+        [
+          {
+            user_id: 'u1',
+            timezone: 'Asia/Tokyo',
+            notification_preferences: { reminder_weekday: (weekday + 1) % 7 },
+            last_notified_at: null,
+          },
+        ],
+        [],
+      );
+
+      const { targets } = await getReminderTargets(now);
+      expect(targets).toHaveLength(0);
     });
   });
 

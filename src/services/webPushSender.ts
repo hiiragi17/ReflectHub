@@ -92,22 +92,25 @@ export async function sendPush(
 }
 
 /**
- * 複数の subscription へ並列送信。1 件の失敗が他に影響しないよう Promise.allSettled を使う。
+ * subscription を渡された順 (新しい順を想定) に 1 件ずつ試し、最初に成功したら止める。
+ *
+ * - 成功したら以降は試さない (通知は 1 件だけ届く)。
+ * - 失効 (404/410) が返った endpoint は「死んでいる」ため、次の候補へフォールバックする。
+ * - 失効以外の失敗 (ネットワーク・500 等) では、他端末で改善する見込みが薄く、また
+ *   全端末へ無駄に送るのを避けるため、そこで打ち切る。
+ *
+ * 試行したすべての結果を返す。呼び出し側は expired な subscription の無効化に使う。
  */
-export async function sendPushBatch(
+export async function sendPushToFirstAvailable(
   subscriptions: PushSubscription[],
   payload: unknown,
 ): Promise<SendPushResult[]> {
-  const settled = await Promise.allSettled(subscriptions.map((s) => sendPush(s, payload)));
-  return settled.map((r, i) => {
-    if (r.status === 'fulfilled') return r.value;
-    const sub = subscriptions[i];
-    return {
-      subscriptionId: sub.id,
-      endpoint: sub.endpoint,
-      success: false,
-      expired: false,
-      error: r.reason instanceof Error ? r.reason.message : String(r.reason),
-    };
-  });
+  const results: SendPushResult[] = [];
+  for (const subscription of subscriptions) {
+    const result = await sendPush(subscription, payload);
+    results.push(result);
+    // 成功、または失効以外の失敗なら打ち切り。失効時のみ次の端末へフォールバック。
+    if (result.success || !result.expired) break;
+  }
+  return results;
 }
