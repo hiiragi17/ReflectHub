@@ -133,9 +133,11 @@ describe('retryOperation', () => {
     const op = vi.fn().mockRejectedValue(new Error('always fails'));
 
     const promise = retryOperation(op, 3, 1000);
+    // タイマー消化中に reject されるため、先にハンドラを付けて unhandled rejection を防ぐ
+    const expectation = expect(promise).rejects.toThrow('always fails');
     await vi.runAllTimersAsync();
 
-    await expect(promise).rejects.toThrow('always fails');
+    await expectation;
     expect(op).toHaveBeenCalledTimes(3);
   });
 
@@ -151,14 +153,12 @@ describe('retryOperation', () => {
         return originalSetTimeout(fn as () => void, 0);
       });
 
-    const promise = retryOperation(op, 3, 1000);
-    await vi.runAllTimersAsync();
-
-    try {
-      await promise;
-    } catch {
+    // タイマー消化中に reject されるため、先にハンドラを付けて unhandled rejection を防ぐ
+    const promise = retryOperation(op, 3, 1000).catch(() => {
       // expected
-    }
+    });
+    await vi.runAllTimersAsync();
+    await promise;
 
     setTimeoutSpy.mockRestore();
 
@@ -217,8 +217,10 @@ describe('retryWithNetworkRecovery', () => {
   it('does not retry on non-recoverable errors', async () => {
     const op = vi.fn().mockRejectedValue(new Error('Validation failed'));
     const promise = retryWithNetworkRecovery(op, 3, 100);
+    // タイマー消化中に reject されるため、先にハンドラを付けて unhandled rejection を防ぐ
+    const expectation = expect(promise).rejects.toThrow();
     await vi.runAllTimersAsync();
-    await expect(promise).rejects.toThrow();
+    await expectation;
     expect(op).toHaveBeenCalledTimes(1);
   });
 });

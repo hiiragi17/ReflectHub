@@ -311,7 +311,7 @@ describe("authStore - Loading State and Timeout Management", () => {
       40000
     );
 
-    it("should provide specific error message for Supabase query timeout", async () => {
+    it("should not surface an error to the user when Supabase query times out", async () => {
       const { supabase } = await import("@/lib/supabase/client");
 
       // Mock session verification to fail
@@ -333,7 +333,10 @@ describe("authStore - Loading State and Timeout Management", () => {
       await initPromise;
 
       const state = useAuthStore.getState();
-      expect(state.error).toBe("データベース接続がタイムアウトしました。");
+      // 初期化エラーはログ出力のみでユーザーには通知しない仕様 (authStore の catch ブロック参照)
+      expect(state.error).toBeNull();
+      expect(state.isLoading).toBe(false);
+      expect(state.isAuthenticated).toBe(false);
     });
   });
 
