@@ -46,9 +46,14 @@ import { _resetCSRFCacheForTest } from '@/lib/api/apiClient';
  * apiFetch は mutation の前に /api/csrf へトークン取得のリクエストを行うため、
  * URL で分岐して両方の呼び出しに応答を返す fetch モックを組み立てる。
  */
+/** fetch の第1引数 (string | Request | URL) を URL 文字列に正規化する */
+function toUrlString(input: RequestInfo | URL): string {
+  return input instanceof Request ? input.url : String(input);
+}
+
 function mockFetchWithCSRF(profileResponse: { ok: boolean; status: number; json: () => Promise<unknown> }) {
   (global.fetch as ReturnType<typeof vi.fn>).mockImplementation((input: RequestInfo | URL) => {
-    if (input === '/api/csrf') {
+    if (toUrlString(input).endsWith('/api/csrf')) {
       return Promise.resolve({
         ok: true,
         status: 200,
@@ -201,10 +206,12 @@ describe('ProfilePage', () => {
     });
 
     const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
-    const patchCall = fetchMock.mock.calls.find(([url]) => url === '/api/auth/profile/user-123');
+    const patchCall = fetchMock.mock.calls.find(
+      ([url]) => toUrlString(url).endsWith('/api/auth/profile/user-123')
+    );
     expect(patchCall).toBeDefined();
 
-    const [, init] = patchCall as [string, RequestInit];
+    const [, init] = patchCall as [RequestInfo | URL, RequestInit];
     expect(init.method).toBe('PATCH');
     expect(init.body).toBe(JSON.stringify({ name: '新しい名前' }));
 
