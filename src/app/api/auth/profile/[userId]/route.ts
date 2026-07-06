@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
 import { ProfileUpdateSchema } from '@/lib/validation/schemas';
 import { parseJsonBody } from '@/lib/validation/parse';
 import { sanitizePlainText } from '@/utils/sanitize';
@@ -11,44 +10,22 @@ export async function GET(
 ) {
   try {
     const { userId } = await params;  // ← await を追加
-    
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            try {
-              cookieStore.set({ name, value, ...options });
-            } catch {
-              // Silent failure
-            }
-          },
-          remove(name: string, options: CookieOptions) {
-            try {
-              cookieStore.delete({ name, ...options });
-            } catch {
-              // Silent failure
-            }
-          },
-        },
-      }
-    );
 
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    if (sessionError || !session) {
+    // Cookie の読み書き (getAll / setAll) は共通の createClient に集約。
+    const supabase = await createClient();
+
+    // 認可判定には cookie 由来の getSession() ではなく、Supabase Auth サーバで
+    // トークンを検証する getUser() を使う。
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    if (session.user.id !== userId) {  // params.userId → userId
+    if (user.id !== userId) {  // params.userId → userId
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
@@ -64,15 +41,15 @@ export async function GET(
     if (profileError) {
       if (profileError.code === 'PGRST116') {
         // プロフィールが存在しない場合は新規作成
-        const googleName = session.user.user_metadata?.full_name ||
-                          session.user.user_metadata?.name ||
-                          session.user.email?.split('@')[0] || 'ユーザー';
+        const googleName = user.user_metadata?.full_name ||
+                          user.user_metadata?.name ||
+                          user.email?.split('@')[0] || 'ユーザー';
 
         const { data: newProfile, error: createError } = await supabase
           .from('profiles')
           .insert({
-            id: session.user.id,
-            email: session.user.email,
+            id: user.id,
+            email: user.email,
             name: googleName,
             provider: 'google',
             created_at: new Date().toISOString(),
@@ -116,43 +93,19 @@ export async function PATCH(
   try {
     const { userId } = await params;
 
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            try {
-              cookieStore.set({ name, value, ...options });
-            } catch {
-              // Silent failure
-            }
-          },
-          remove(name: string, options: CookieOptions) {
-            try {
-              cookieStore.delete({ name, ...options });
-            } catch {
-              // Silent failure
-            }
-          },
-        },
-      }
-    );
+    const supabase = await createClient();
 
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // GET と同じく、認可判定はトークン検証を伴う getUser() で行う。
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (sessionError || !session) {
+    if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    if (session.user.id !== userId) {
+    if (user.id !== userId) {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }

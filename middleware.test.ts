@@ -5,11 +5,12 @@ import { NextRequest } from 'next/server';
 vi.mock('@supabase/ssr', () => ({
   createServerClient: vi.fn(() => ({
     auth: {
-      getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+      getClaims: vi.fn().mockResolvedValue({ data: null, error: null }),
     },
   })),
 }));
 
+import { createServerClient } from '@supabase/ssr';
 import { generateCSRFToken, CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/utils/csrfToken';
 import { middleware } from './middleware';
 
@@ -189,5 +190,24 @@ describe('middleware session-redirect exemptions', () => {
       makeRequest({ pathname: '/dashboard', method: 'GET' }),
     );
     expect(isRedirectStatus(res.status)).toBe(true);
+  });
+
+  it('does not redirect to /auth when getClaims fails transiently (network/JWKS error)', async () => {
+    // 一時的な検証失敗は「未ログイン」と区別し、リダイレクトせずに通す。
+    // 認可判定はルート側 (API の getUser / クライアント側ガード) が行う。
+    (createServerClient as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+      auth: {
+        getClaims: vi.fn().mockResolvedValue({
+          data: null,
+          error: new Error('fetch failed'),
+        }),
+      },
+    });
+
+    const res = await middleware(
+      makeRequest({ pathname: '/dashboard', method: 'GET' }),
+    );
+    expect(isRedirectStatus(res.status)).toBe(false);
+    expect(res.status).toBeLessThan(400);
   });
 });

@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import {
   CSRF_COOKIE_NAME,
@@ -57,6 +57,19 @@ function isSessionExempt(pathname: string): boolean {
   return matchesPathList(pathname, SESSION_EXEMPT_PATHS);
 }
 
+/**
+ * リダイレクト用レスポンスへ、Supabase がリフレッシュ時に書き込んだ
+ * Set-Cookie を引き継ぐ。これを忘れると、更新済みトークンがブラウザに
+ * 届かず旧リフレッシュトークンが再利用され、ローテーション失効で
+ * 強制ログアウトされる。
+ */
+function withSessionCookies(target: NextResponse, source: NextResponse): NextResponse {
+  source.cookies.getAll().forEach((cookie) => {
+    target.cookies.set(cookie);
+  });
+  return target;
+}
+
 export async function middleware(request: NextRequest) {
   // /api/* かつ mutation メソッドの場合は CSRF を先に検証する。
   // Supabase セッション初期化より前に走らせて、未認証でも同じ 403 で弾く。
@@ -96,47 +109,34 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // Cookie の読み書きは getAll / setAll で行う (@supabase/ssr の現行推奨)。
+  // 旧 get / set / remove API は、セッション Cookie がチャンク分割
+  // (sb-xxx-auth-token.0 / .1) された場合に set が複数回呼ばれ、その度に
+  // response を作り直す実装だと先に書いたチャンクが失われる。壊れた
+  // セッション Cookie がブラウザに残り、ランダムなログアウトを引き起こす
+  // (特にトークン期限切れ後の PWA 再開時は middleware がリフレッシュを
+  // 担うため、毎回この経路を踏んでいた)。
   const supabase = createServerClient(
     supabaseUrl,
     supabaseAnonKey,
     {
       cookies: {
-        get(name: string) {
-          const value = request.cookies.get(name)?.value;
-          return value;
+        getAll() {
+          return request.cookies.getAll();
         },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => {
+            request.cookies.set(name, value);
           });
+          // setAll は全 Cookie を一括で受け取るため、response の再生成は
+          // 1 回で済み、書き込みが欠落しない。
           response = NextResponse.next({
             request: {
               headers: request.headers,
             },
           });
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
           });
         },
       },
@@ -144,10 +144,11 @@ export async function middleware(request: NextRequest) {
   );
 
   try {
-    const {
-      data: { session },
-      error,
-    } = await supabase.auth.getSession();
+    // getSession() は cookie の内容を検証せずに返すため、ルート保護には
+    // トークン検証を伴う getClaims() を使う (Supabase 推奨)。期限切れ時の
+    // セッションリフレッシュ (setAll 経由の Cookie 更新) もここで走る。
+    const { data: claimsData, error } = await supabase.auth.getClaims();
+    const claims = claimsData?.claims ?? null;
 
     if (error) {
       console.error('Middleware session error:', error);
@@ -169,23 +170,33 @@ export async function middleware(request: NextRequest) {
     // (Cron / sendBeacon / OAuth callback / CSRF 取得など)。
     const isProtectedRoute = !isPublicRoute && !isSessionExempt(request.nextUrl.pathname);
 
-    if (isProtectedRoute && !session) {
+    if (isProtectedRoute && !claims) {
+      // 一時的な検証失敗 (認証サーバへのネットワークエラー・JWKS 取得失敗など)
+      // を「未ログイン」と混同して /auth へ飛ばすと、回線が不安定な PWA 起動
+      // 直後などに強制再ログインへ化ける。エラー時はリダイレクトせずに通し、
+      // 認可判定は各ルート (API の getUser / ページのクライアント側ガード)
+      // に委ねる。
+      if (error) {
+        return response;
+      }
+
       const redirectUrl = new URL('/auth', request.url);
       const nextPath = request.nextUrl.pathname + request.nextUrl.search;
       redirectUrl.searchParams.set('next', nextPath);
-      
-      return NextResponse.redirect(redirectUrl, { headers: response.headers });
+
+      return withSessionCookies(NextResponse.redirect(redirectUrl), response);
     }
 
-    if (request.nextUrl.pathname === '/auth' && session) {
+    if (request.nextUrl.pathname === '/auth' && claims) {
       const rawNext = request.nextUrl.searchParams.get('next') || '/dashboard';
-      const safeNext = rawNext.startsWith('/') && !rawNext.startsWith('//') 
-        ? rawNext 
+      const safeNext = rawNext.startsWith('/') && !rawNext.startsWith('//')
+        ? rawNext
         : '/dashboard';
-      
-      return NextResponse.redirect(new URL(safeNext, request.url), {
-        headers: response.headers,
-      });
+
+      return withSessionCookies(
+        NextResponse.redirect(new URL(safeNext, request.url)),
+        response,
+      );
     }
     return response;
 
