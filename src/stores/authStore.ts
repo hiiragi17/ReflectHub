@@ -174,16 +174,26 @@ export const useAuthStore = create<AuthStore>()(
             }
           };
 
-          const serverSessionResponse = await fetchWithTimeout(
-            "/api/auth/verify",
-            {
-              method: "GET",
-              credentials: "include",
-            },
-            30000
-          );
+          // /api/auth/verify への到達失敗 (オフライン・回線断・タイムアウト) を
+          // 「未ログイン」と混同しない。PWA の起動直後は回線が不安定なことが
+          // 多く、ここで throw するとセッションが生きていても認証画面へ
+          // 飛ばされてしまう。失敗時はクライアント側 (cookie) のセッション
+          // 確認へフォールバックする。
+          let serverSessionResponse: Response | null = null;
+          try {
+            serverSessionResponse = await fetchWithTimeout(
+              "/api/auth/verify",
+              {
+                method: "GET",
+                credentials: "include",
+              },
+              30000
+            );
+          } catch (verifyError) {
+            console.error("[AuthStore] Session verify request failed:", verifyError);
+          }
 
-          if (serverSessionResponse.ok) {
+          if (serverSessionResponse?.ok) {
             const serverSession = await serverSessionResponse.json();
 
             if (serverSession.authenticated) {
@@ -279,7 +289,10 @@ export const useAuthStore = create<AuthStore>()(
               .eq("id", session.user.id)
               .single();
 
-            let profileResult;
+            // プロフィール取得の失敗は致命的ではない。セッションが有効なら
+            // session.user の情報でフォールバックし、ログイン状態を維持する
+            // (サーバー経由の経路と同じ扱い)。
+            let profileResult: { data: ProfileData | null } | null = null;
             try {
               profileResult = await timeoutPromise(
                 profileQuery as unknown as Promise<{ data: ProfileData | null }>,
@@ -287,7 +300,31 @@ export const useAuthStore = create<AuthStore>()(
               );
             } catch (profileError) {
               console.error('[AuthStore] Profile query failed:', profileError);
-              throw profileError;
+            }
+
+            if (!profileResult) {
+              const sessionUser = session.user as SupabaseUser;
+              const user: User = {
+                id: sessionUser.id,
+                email: sessionUser.email || '',
+                name:
+                  sessionUser.user_metadata?.full_name ||
+                  sessionUser.user_metadata?.name ||
+                  sessionUser.email?.split('@')[0] ||
+                  'ユーザー',
+                provider: 'google',
+                avatar_url: sessionUser.user_metadata?.avatar_url,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              };
+
+              set({
+                user,
+                isAuthenticated: true,
+                isLoading: false,
+                error: null,
+              });
+              return;
             }
 
             const { data: profile } = profileResult;

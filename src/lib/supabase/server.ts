@@ -1,30 +1,29 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 export async function createClient() {
   const cookieStore = await cookies();
 
+  // 旧 get / set / remove API はチャンク分割されたセッション Cookie を
+  // 壊すことがある (ランダムログアウトの原因) ため、@supabase/ssr の
+  // 現行推奨である getAll / setAll を使う。
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
+        getAll() {
+          return cookieStore.getAll();
         },
-        set(name: string, value: string, options: CookieOptions) {
+        setAll(cookiesToSet) {
           try {
-            cookieStore.set({ name, value, ...options });
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
           } catch {
-            // Silent failure
-          }
-        },
-        remove(name: string, options: CookieOptions) {
-          try {
-            cookieStore.set({ name, value: "", ...options });
-          } catch {
-            // Silent failure
+            // Server Component から呼ばれた場合、Cookie の書き込みはできない。
+            // セッションのリフレッシュと Cookie 更新は middleware が担うため無視してよい。
           }
         },
       },

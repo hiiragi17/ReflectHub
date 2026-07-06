@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { SessionCreateSchema } from '@/lib/validation/schemas';
 import { parseJsonBody } from '@/lib/validation/parse';
@@ -18,22 +18,18 @@ export async function POST(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
+        // チャンク分割されたセッション Cookie を欠落なく書き込むため
+        // getAll / setAll を使う (@supabase/ssr の現行推奨 API)。
         cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
+          getAll() {
+            return cookieStore.getAll();
           },
-          set(name: string, value: string, options: CookieOptions) {
+          setAll(cookiesToSet) {
             try {
-              cookieStore.set({ name, value, ...options });
-              response.cookies.set({ name, value, ...options });
-            } catch {
-              // Silent failure
-            }
-          },
-          remove(name: string, options: CookieOptions) {
-            try {
-              cookieStore.delete({ name, ...options });
-              response.cookies.delete({ name, ...options });
+              cookiesToSet.forEach(({ name, value, options }) => {
+                cookieStore.set(name, value, options);
+                response.cookies.set(name, value, options);
+              });
             } catch {
               // Silent failure
             }

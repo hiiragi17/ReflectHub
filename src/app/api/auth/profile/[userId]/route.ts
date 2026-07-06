@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
 import { ProfileUpdateSchema } from '@/lib/validation/schemas';
 import { parseJsonBody } from '@/lib/validation/parse';
 import { sanitizePlainText } from '@/utils/sanitize';
@@ -11,36 +10,12 @@ export async function GET(
 ) {
   try {
     const { userId } = await params;  // ← await を追加
-    
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            try {
-              cookieStore.set({ name, value, ...options });
-            } catch {
-              // Silent failure
-            }
-          },
-          remove(name: string, options: CookieOptions) {
-            try {
-              cookieStore.delete({ name, ...options });
-            } catch {
-              // Silent failure
-            }
-          },
-        },
-      }
-    );
+
+    // Cookie の読み書き (getAll / setAll) は共通の createClient に集約。
+    const supabase = await createClient();
 
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
+
     if (sessionError || !session) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -116,32 +91,7 @@ export async function PATCH(
   try {
     const { userId } = await params;
 
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            try {
-              cookieStore.set({ name, value, ...options });
-            } catch {
-              // Silent failure
-            }
-          },
-          remove(name: string, options: CookieOptions) {
-            try {
-              cookieStore.delete({ name, ...options });
-            } catch {
-              // Silent failure
-            }
-          },
-        },
-      }
-    );
+    const supabase = await createClient();
 
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
