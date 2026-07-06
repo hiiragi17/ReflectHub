@@ -292,17 +292,31 @@ export const useAuthStore = create<AuthStore>()(
             // プロフィール取得の失敗は致命的ではない。セッションが有効なら
             // session.user の情報でフォールバックし、ログイン状態を維持する
             // (サーバー経由の経路と同じ扱い)。
-            let profileResult: { data: ProfileData | null } | null = null;
+            let profileResult: {
+              data: ProfileData | null;
+              error: { code?: string } | null;
+            } | null = null;
             try {
               profileResult = await timeoutPromise(
-                profileQuery as unknown as Promise<{ data: ProfileData | null }>,
+                profileQuery as unknown as Promise<{
+                  data: ProfileData | null;
+                  error: { code?: string } | null;
+                }>,
                 30000
               );
             } catch (profileError) {
               console.error('[AuthStore] Profile query failed:', profileError);
             }
 
-            if (!profileResult) {
+            // Supabase クエリは失敗しても throw せず { data: null, error } で
+            // 解決する。読み取りエラーを「プロフィール未作成 (PGRST116 = 0 行)」
+            // と混同して createDefaultProfile へ進むと、既存プロフィールと
+            // 衝突して作成にも失敗し、有効なセッションがあるのに未ログイン
+            // 扱いになってしまう。読み取り失敗時はセッション情報で継続する。
+            if (
+              !profileResult ||
+              (profileResult.error != null && profileResult.error.code !== 'PGRST116')
+            ) {
               const sessionUser = session.user as SupabaseUser;
               const user: User = {
                 id: sessionUser.id,

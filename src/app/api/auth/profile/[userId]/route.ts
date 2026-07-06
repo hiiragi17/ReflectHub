@@ -14,16 +14,18 @@ export async function GET(
     // Cookie の読み書き (getAll / setAll) は共通の createClient に集約。
     const supabase = await createClient();
 
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // 認可判定には cookie 由来の getSession() ではなく、Supabase Auth サーバで
+    // トークンを検証する getUser() を使う。
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (sessionError || !session) {
+    if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    if (session.user.id !== userId) {  // params.userId → userId
+    if (user.id !== userId) {  // params.userId → userId
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
@@ -39,15 +41,15 @@ export async function GET(
     if (profileError) {
       if (profileError.code === 'PGRST116') {
         // プロフィールが存在しない場合は新規作成
-        const googleName = session.user.user_metadata?.full_name ||
-                          session.user.user_metadata?.name ||
-                          session.user.email?.split('@')[0] || 'ユーザー';
+        const googleName = user.user_metadata?.full_name ||
+                          user.user_metadata?.name ||
+                          user.email?.split('@')[0] || 'ユーザー';
 
         const { data: newProfile, error: createError } = await supabase
           .from('profiles')
           .insert({
-            id: session.user.id,
-            email: session.user.email,
+            id: user.id,
+            email: user.email,
             name: googleName,
             provider: 'google',
             created_at: new Date().toISOString(),
@@ -93,16 +95,17 @@ export async function PATCH(
 
     const supabase = await createClient();
 
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // GET と同じく、認可判定はトークン検証を伴う getUser() で行う。
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (sessionError || !session) {
+    if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    if (session.user.id !== userId) {
+    if (user.id !== userId) {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }

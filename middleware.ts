@@ -144,10 +144,11 @@ export async function middleware(request: NextRequest) {
   );
 
   try {
-    const {
-      data: { session },
-      error,
-    } = await supabase.auth.getSession();
+    // getSession() は cookie の内容を検証せずに返すため、ルート保護には
+    // トークン検証を伴う getClaims() を使う (Supabase 推奨)。期限切れ時の
+    // セッションリフレッシュ (setAll 経由の Cookie 更新) もここで走る。
+    const { data: claimsData, error } = await supabase.auth.getClaims();
+    const claims = claimsData?.claims ?? null;
 
     if (error) {
       console.error('Middleware session error:', error);
@@ -169,7 +170,7 @@ export async function middleware(request: NextRequest) {
     // (Cron / sendBeacon / OAuth callback / CSRF 取得など)。
     const isProtectedRoute = !isPublicRoute && !isSessionExempt(request.nextUrl.pathname);
 
-    if (isProtectedRoute && !session) {
+    if (isProtectedRoute && !claims) {
       const redirectUrl = new URL('/auth', request.url);
       const nextPath = request.nextUrl.pathname + request.nextUrl.search;
       redirectUrl.searchParams.set('next', nextPath);
@@ -177,7 +178,7 @@ export async function middleware(request: NextRequest) {
       return withSessionCookies(NextResponse.redirect(redirectUrl), response);
     }
 
-    if (request.nextUrl.pathname === '/auth' && session) {
+    if (request.nextUrl.pathname === '/auth' && claims) {
       const rawNext = request.nextUrl.searchParams.get('next') || '/dashboard';
       const safeNext = rawNext.startsWith('/') && !rawNext.startsWith('//')
         ? rawNext
