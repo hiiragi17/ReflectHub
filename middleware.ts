@@ -171,6 +171,15 @@ export async function middleware(request: NextRequest) {
     const isProtectedRoute = !isPublicRoute && !isSessionExempt(request.nextUrl.pathname);
 
     if (isProtectedRoute && !claims) {
+      // 一時的な検証失敗 (認証サーバへのネットワークエラー・JWKS 取得失敗など)
+      // を「未ログイン」と混同して /auth へ飛ばすと、回線が不安定な PWA 起動
+      // 直後などに強制再ログインへ化ける。エラー時はリダイレクトせずに通し、
+      // 認可判定は各ルート (API の getUser / ページのクライアント側ガード)
+      // に委ねる。
+      if (error) {
+        return response;
+      }
+
       const redirectUrl = new URL('/auth', request.url);
       const nextPath = request.nextUrl.pathname + request.nextUrl.search;
       redirectUrl.searchParams.set('next', nextPath);
