@@ -7,6 +7,7 @@ vi.mock('@/lib/supabase/server', () => ({
 
 import {
   buildReminderPayload,
+  getLocalHour,
   getLocalWeekday,
   getReminderTargets,
   isAlreadyNotifiedToday,
@@ -55,6 +56,24 @@ describe('reminderService', () => {
     it('falls back to UTC weekday for an invalid timezone', () => {
       const d = new Date(Date.UTC(2026, 4, 7, 12, 0, 0));
       expect(getLocalWeekday(d, 'Not/AZone')).toBe(d.getUTCDay());
+    });
+  });
+
+  describe('getLocalHour', () => {
+    it('returns the hour (0-23) in the given timezone', () => {
+      const d = new Date(Date.UTC(2026, 4, 7, 2, 0, 0)); // 02:00 UTC = 11:00 JST
+      expect(getLocalHour(d, 'UTC')).toBe(2);
+      expect(getLocalHour(d, 'Asia/Tokyo')).toBe(11);
+    });
+
+    it('returns 0 (not 24) at local midnight', () => {
+      const d = new Date(Date.UTC(2026, 4, 7, 15, 0, 0)); // 15:00 UTC = 00:00 JST
+      expect(getLocalHour(d, 'Asia/Tokyo')).toBe(0);
+    });
+
+    it('falls back to UTC hour for an invalid timezone', () => {
+      const d = new Date(Date.UTC(2026, 4, 7, 12, 0, 0));
+      expect(getLocalHour(d, 'Not/AZone')).toBe(12);
     });
   });
 
@@ -165,6 +184,78 @@ describe('reminderService', () => {
 
       const { targets } = await getReminderTargets(now);
       expect(targets).toHaveLength(0);
+    });
+
+    const subscriptionFor = (userId: string) => ({
+      id: `sub-${userId}`,
+      user_id: userId,
+      endpoint: `https://push/${userId}`,
+      p256dh: 'p',
+      auth: 'a',
+      is_active: true,
+      created_at: '2026-06-01T00:00:00Z',
+      updated_at: '2026-06-01T00:00:00Z',
+    });
+
+    it('includes users whose reminder_hour matches the current JST hour', async () => {
+      // now = 02:00 UTC = JST 11:00
+      mockTables(
+        [
+          {
+            user_id: 'u1',
+            timezone: 'Asia/Tokyo',
+            notification_preferences: { reminder_weekday: weekday, reminder_hour: 11 },
+            last_notified_at: null,
+          },
+        ],
+        [subscriptionFor('u1')],
+      );
+
+      const { targets } = await getReminderTargets(now);
+      expect(targets).toHaveLength(1);
+      expect(targets[0].reminderHour).toBe(11);
+    });
+
+    it('drops users whose reminder_hour does not match the current JST hour', async () => {
+      mockTables(
+        [
+          {
+            user_id: 'u1',
+            timezone: 'Asia/Tokyo',
+            notification_preferences: { reminder_weekday: weekday, reminder_hour: 20 },
+            last_notified_at: null,
+          },
+        ],
+        [],
+      );
+
+      const { targets } = await getReminderTargets(now);
+      expect(targets).toHaveLength(0);
+    });
+
+    it('treats missing reminder_hour as the legacy default (JST 11:00)', async () => {
+      // 既存ユーザー (reminder_hour キー無し) は 11 時扱いになる。
+      mockTables(
+        [
+          {
+            user_id: 'u1',
+            timezone: 'Asia/Tokyo',
+            notification_preferences: { reminder_weekday: weekday },
+            last_notified_at: null,
+          },
+        ],
+        [subscriptionFor('u1')],
+      );
+
+      // JST 11:00 → 配信対象
+      const { targets: at11 } = await getReminderTargets(now);
+      expect(at11).toHaveLength(1);
+      expect(at11[0].reminderHour).toBe(11);
+
+      // JST 12:00 → 対象外
+      const noonJst = new Date('2026-07-03T03:00:00Z');
+      const { targets: at12 } = await getReminderTargets(noonJst);
+      expect(at12).toHaveLength(0);
     });
   });
 

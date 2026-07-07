@@ -23,9 +23,13 @@ export interface NotificationPreferences {
   /**
    * リマインダーを配信する曜日。0=日曜〜6=土曜。
    * null の場合は配信しない (OFF)。
-   * 配信時刻は JST 11:00 固定 (cron 側で制御)。
    */
   reminder_weekday: number | null;
+  /**
+   * リマインダーを配信する時刻 (JST、0〜23 時)。
+   * 既存行などキーが無い場合は 11 (従来の固定時刻) として扱う。
+   */
+  reminder_hour?: number;
 }
 
 export interface UserPreferences {

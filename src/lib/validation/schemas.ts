@@ -28,6 +28,13 @@ export const NotificationPreferencesPatchSchema = z
       .max(6, { error: 'reminder_weekday は 0〜6 である必要があります。' })
       .nullable()
       .optional(),
+    // リマインダー配信時刻 (JST)。0〜23 時。
+    reminder_hour: z
+      .number()
+      .int({ error: 'reminder_hour は整数である必要があります。' })
+      .min(0, { error: 'reminder_hour は 0〜23 である必要があります。' })
+      .max(23, { error: 'reminder_hour は 0〜23 である必要があります。' })
+      .optional(),
   })
   .strict();
 

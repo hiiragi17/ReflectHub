@@ -34,16 +34,28 @@ function weekdayToValue(weekday: number | null | undefined): string {
   return String(weekday);
 }
 
+/** reminder_hour 未設定の既存ユーザー向けデフォルト (従来の固定配信時刻 JST 11:00)。 */
+const DEFAULT_HOUR_VALUE = '11';
+
+const HOUR_OPTIONS: { value: string; label: string }[] = Array.from({ length: 24 }, (_, h) => ({
+  value: String(h),
+  label: `${h}:00`,
+}));
+
+function hourToValue(hour: number | null | undefined): string {
+  if (hour === null || hour === undefined) return DEFAULT_HOUR_VALUE;
+  return String(hour);
+}
+
 /**
  * プロフィールページの通知設定セクション。
  *
- * - GET /api/preferences で現在の配信曜日を取得
- * - 曜日 Select を 1 つ表示 (OFF / 日〜土)
- * - 配信時刻は JST 11:00 固定 (cron 側で制御)
+ * - GET /api/preferences で現在の配信曜日・配信時刻を取得
+ * - 曜日 Select (OFF / 日〜土) と時刻 Select (0:00〜23:00、JST) を表示
  * - 保存時:
  *   - OFF 以外を選択 → Push 購読を確実化して /api/push/subscribe に登録
  *   - OFF を選択 → ブラウザの購読を解除して /api/push/unsubscribe に通知
- *   - いずれも PUT /api/preferences で reminder_weekday を永続化
+ *   - いずれも PUT /api/preferences で reminder_weekday / reminder_hour を永続化
  */
 export function NotificationSettings() {
   const { showToast } = useToast();
@@ -53,6 +65,8 @@ export function NotificationSettings() {
   const [saving, setSaving] = useState(false);
   const [weekday, setWeekday] = useState<string>(OFF_VALUE);
   const [savedWeekday, setSavedWeekday] = useState<string>(OFF_VALUE);
+  const [hour, setHour] = useState<string>(DEFAULT_HOUR_VALUE);
+  const [savedHour, setSavedHour] = useState<string>(DEFAULT_HOUR_VALUE);
   // インストール状態と UA 判定は SSR と一致しないため、マウント後に評価する
   // (hydration mismatch を避けるため、確定するまで案内を描画しない)。
   const [mounted, setMounted] = useState(false);
@@ -63,24 +77,32 @@ export function NotificationSettings() {
     setIsIOS(isIOSDevice());
   }, []);
 
-  /** サーバから現在の保存済み reminder_weekday を取得して select の値に変換する。 */
-  const fetchSavedWeekday = useCallback(async (): Promise<string> => {
+  /** サーバから現在の保存済み reminder_weekday / reminder_hour を取得して select の値に変換する。 */
+  const fetchSavedPreferences = useCallback(async (): Promise<{
+    weekday: string;
+    hour: string;
+  }> => {
     const res = await apiFetch('/api/preferences');
     if (!res.ok) throw new Error('通知設定の取得に失敗しました。');
     const data = (await res.json()) as {
       preferences?: { notification_preferences?: NotificationPreferences };
     };
-    return weekdayToValue(data.preferences?.notification_preferences?.reminder_weekday);
+    return {
+      weekday: weekdayToValue(data.preferences?.notification_preferences?.reminder_weekday),
+      hour: hourToValue(data.preferences?.notification_preferences?.reminder_hour),
+    };
   }, []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const value = await fetchSavedWeekday();
+        const value = await fetchSavedPreferences();
         if (cancelled) return;
-        setWeekday(value);
-        setSavedWeekday(value);
+        setWeekday(value.weekday);
+        setSavedWeekday(value.weekday);
+        setHour(value.hour);
+        setSavedHour(value.hour);
       } catch (err) {
         if (cancelled) return;
         setLoadError(err instanceof Error ? err.message : '通知設定の取得に失敗しました。');
@@ -91,7 +113,7 @@ export function NotificationSettings() {
     return () => {
       cancelled = true;
     };
-  }, [fetchSavedWeekday]);
+  }, [fetchSavedPreferences]);
 
   const enablePush = useCallback(async (): Promise<boolean> => {
     if (!isPushSupported()) {
@@ -135,17 +157,25 @@ export function NotificationSettings() {
     }
   }, []);
 
-  const savePreference = useCallback(async (reminderWeekday: number | null): Promise<void> => {
-    const res = await apiFetch('/api/preferences', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notification_preferences: { reminder_weekday: reminderWeekday } }),
-    });
-    if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      throw new Error(body.error || '通知設定の保存に失敗しました。');
-    }
-  }, []);
+  const savePreference = useCallback(
+    async (reminderWeekday: number | null, reminderHour: number): Promise<void> => {
+      const res = await apiFetch('/api/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notification_preferences: {
+            reminder_weekday: reminderWeekday,
+            reminder_hour: reminderHour,
+          },
+        }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error || '通知設定の保存に失敗しました。');
+      }
+    },
+    [],
+  );
 
   const handleInstall = useCallback(async () => {
     const outcome = await promptInstall();
@@ -158,6 +188,7 @@ export function NotificationSettings() {
     setSaving(true);
     try {
       const reminderWeekday = weekday === OFF_VALUE ? null : Number(weekday);
+      const reminderHour = Number(hour);
 
       // ブラウザの購読解除はクライアント操作で DB と真にアトミックにはできないため、
       // cron の唯一の真実である reminder_weekday (DB) と購読状態が極力ずれない順序にする。
@@ -165,38 +196,41 @@ export function NotificationSettings() {
         // 有効化: 先に購読を確立してから保存する (購読が無いまま「ON」を永続化しない)。
         const ok = await enablePush();
         if (!ok) return;
-        await savePreference(reminderWeekday);
+        await savePreference(reminderWeekday, reminderHour);
       } else {
         // 無効化: 先に DB を OFF にしてから購読解除する (解除が失敗しても誤配信しない)。
-        await savePreference(reminderWeekday);
+        await savePreference(reminderWeekday, reminderHour);
         await disablePush();
       }
 
       setSavedWeekday(weekday);
+      setSavedHour(hour);
       showToast('通知設定を保存しました。', 'success');
     } catch (err) {
       showToast(err instanceof Error ? err.message : '通知設定の保存に失敗しました。', 'error');
       // 部分的失敗で表示と実状態が乖離しないよう、保存済みの値に UI を再同期する。
       try {
-        const value = await fetchSavedWeekday();
-        setWeekday(value);
-        setSavedWeekday(value);
+        const value = await fetchSavedPreferences();
+        setWeekday(value.weekday);
+        setSavedWeekday(value.weekday);
+        setHour(value.hour);
+        setSavedHour(value.hour);
       } catch {
         // 再同期にも失敗した場合は元のエラー表示を優先し、ここでは何もしない。
       }
     } finally {
       setSaving(false);
     }
-  }, [weekday, enablePush, disablePush, savePreference, fetchSavedWeekday, showToast]);
+  }, [weekday, hour, enablePush, disablePush, savePreference, fetchSavedPreferences, showToast]);
 
-  const dirty = weekday !== savedWeekday;
+  const dirty = weekday !== savedWeekday || hour !== savedHour;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>通知設定</CardTitle>
         <CardDescription>
-          毎週、選択した曜日の朝 11:00（日本時間）に振り返りのリマインダーをお送りします。
+          毎週、選択した曜日・時刻（日本時間）に振り返りのリマインダーをお送りします。
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -265,6 +299,28 @@ export function NotificationSettings() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="space-y-1">
+            <label htmlFor="reminder-hour" className="block text-sm font-medium text-gray-700">
+              通知する時刻（日本時間）
+            </label>
+            <select
+              id="reminder-hour"
+              value={hour}
+              disabled={saving || weekday === OFF_VALUE}
+              onChange={(e) => setHour(e.target.value)}
+              className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {HOUR_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            {weekday === OFF_VALUE && (
+              <p className="text-xs text-gray-500">曜日を選択すると時刻を設定できます。</p>
+            )}
           </div>
 
           <div className="flex justify-end">

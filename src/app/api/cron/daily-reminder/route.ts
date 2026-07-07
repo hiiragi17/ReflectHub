@@ -10,10 +10,11 @@ import { sendPushToFirstAvailable } from '@/services/webPushSender';
 /**
  * GET /api/cron/daily-reminder
  *
- * 定期実行スケジューラ (Supabase pg_cron) から JST 11:00 に呼び出されるエンドポイント。
+ * 定期実行スケジューラ (Supabase pg_cron) から毎時 0 分に呼び出されるエンドポイント。
  * スケジュール定義は database/daily-reminder-pg-cron.sql を参照。
  * - Authorization: Bearer ${CRON_SECRET} で認証
- * - 配信対象ユーザーを抽出 → ユーザーごとに「最後に通知を ON にした端末」から順に
+ * - ユーザーが設定した配信曜日・配信時刻 (JST) が現在と一致するユーザーを抽出
+ *   → ユーザーごとに「最後に通知を ON にした端末」から順に
  *   Web Push 送信。1 件成功したら止める (通知は 1 台のみ)。先頭が失効していた場合は
  *   次に新しい端末へフォールバックする。
  * - 失効サブスクリプション (HTTP 404/410) は is_active=false に更新

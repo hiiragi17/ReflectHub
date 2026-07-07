@@ -7,6 +7,7 @@ import type {
 
 const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   reminder_weekday: null,
+  reminder_hour: 11,
 };
 
 export const preferencesService = {

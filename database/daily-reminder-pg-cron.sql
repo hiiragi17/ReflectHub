@@ -1,4 +1,4 @@
--- 日次リマインダーを Supabase pg_cron で「JST 11:00 ちょうど」に配信する。
+-- リマインダー配信ジョブを Supabase pg_cron で「毎時 0 分ちょうど」に起動する。
 --
 -- 背景:
 --   従来は Vercel Cron (`vercel.json` の `0 2 * * *`) から
@@ -10,6 +10,12 @@
 --   評価して実行するため、指定した分ちょうどに起動する。これにより
 --   追加コストゼロ (Supabase 無料プランでも pg_cron / pg_net 利用可) で
 --   配信時刻の精度を上げる。
+--
+--   さらに、配信時刻がユーザー設定 (notification_preferences.reminder_hour、JST)
+--   になったため、ジョブは毎時起動し、どのユーザーに配信するかの判定は
+--   アプリ側 (src/services/reminderService.ts) が「JST での今の曜日・時」と
+--   ユーザー設定を突き合わせて行う。設定時刻に一致しない時間帯の起動は
+--   対象 0 件で即終了するだけなので追加コストは無視できる。
 --
 -- このスクリプトは Supabase SQL Editor で実行する。ベキ等 (再実行可能)。
 
@@ -66,7 +72,9 @@ end $$;
 select cron.unschedule('daily-reminder')
 where exists (select 1 from cron.job where jobname = 'daily-reminder');
 
--- 4) JST 11:00 = 02:00 UTC ちょうどに /api/cron/daily-reminder を叩く。
+-- 4) 毎時 0 分ちょうどに /api/cron/daily-reminder を叩く。
+--    どのユーザーへ配信するかは、アプリ側がユーザー設定の曜日・時刻 (JST) と
+--    突き合わせて判定する。
 --    エンドポイントは GET + Authorization: Bearer <CRON_SECRET> を要求するため
 --    net.http_get で Authorization ヘッダを付与する。
 --    URL / シークレットは Vault から復号して参照する。
@@ -75,7 +83,7 @@ where exists (select 1 from cron.job where jobname = 'daily-reminder');
 --    タイムアウトし、配信が中断・誤失敗扱いになる恐れがある。余裕を持って 30 秒にする。
 select cron.schedule(
   'daily-reminder',
-  '0 2 * * *',
+  '0 * * * *',
   $job$
   select net.http_get(
     url := (select decrypted_secret from vault.decrypted_secrets where name = 'reminder_endpoint_url'),

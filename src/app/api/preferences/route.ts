@@ -9,6 +9,7 @@ const DEFAULT_PREFERENCES = {
   timezone: 'Asia/Tokyo',
   notification_preferences: {
     reminder_weekday: null,
+    reminder_hour: 11,
   } as NotificationPreferences,
 };
 

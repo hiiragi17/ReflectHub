@@ -4,11 +4,11 @@ import type { NotificationPreferences, PushSubscription } from '@/types/push';
 /**
  * 週次リマインダーのスケジューリング・配信対象決定ロジック。
  *
- * Supabase pg_cron から JST 11:00 (= 02:00 UTC) に 1 日 1 回呼び出される前提。
+ * Supabase pg_cron から毎時 0 分に呼び出される前提。
  * (Vercel Cron は起動時刻が数十分ブレるため pg_cron に置き換えた。
  *  database/daily-reminder-pg-cron.sql を参照)
- * - ユーザーが設定した配信曜日 (reminder_weekday) と、ローカルタイムゾーンでの
- *   "今日の曜日" が一致するユーザーを抽出
+ * - ユーザーが設定した配信曜日 (reminder_weekday) と配信時刻 (reminder_hour) が、
+ *   JST での "今の曜日・時" と一致するユーザーを抽出
  * - 該当ユーザーの有効な push_subscriptions を「最後に通知を ON にした端末」
  *   (updated_at が最新のもの) を先頭に、新しい順で並べて返す。配信側は通常この
  *   先頭 1 台だけに送る (複数端末へ同時通知すると冗長なため)。ただし先頭の購読が
@@ -23,6 +23,8 @@ export interface ReminderTarget {
   timezone: string;
   /** 0=日曜〜6=土曜 */
   reminderWeekday: number;
+  /** 配信時刻 (JST、0〜23 時) */
+  reminderHour: number;
   /** ISO timestamp。未通知なら null */
   lastNotifiedAt: string | null;
   subscriptions: PushSubscription[];
@@ -47,11 +49,17 @@ export function buildReminderPayload(overrides: Partial<ReminderPayload> = {}): 
 }
 
 /**
- * リマインダー配信は JST 11:00 固定。曜日判定・同日判定はすべてこの固定の
- * タイムゾーンで行う。user_preferences.timezone はユーザーが変更でき得るため、
- * 配信曜日の判定には使わない (非 JST の値が入ると曜日がずれるため)。
+ * 曜日・時刻・同日判定はすべてこの固定のタイムゾーン (JST) で行う。
+ * user_preferences.timezone はユーザーが変更でき得るため、
+ * 配信判定には使わない (非 JST の値が入ると曜日・時刻がずれるため)。
  */
 const REMINDER_TIMEZONE = 'Asia/Tokyo';
+
+/**
+ * reminder_hour が未設定 (キー無し) の既存ユーザー向けデフォルト配信時刻。
+ * 従来の固定配信時刻 (JST 11:00) を踏襲する。
+ */
+export const DEFAULT_REMINDER_HOUR = 11;
 
 const WEEKDAY_MAP: Record<string, number> = {
   Sun: 0,
@@ -76,6 +84,24 @@ export function getLocalWeekday(now: Date, timezone: string): number {
     return WEEKDAY_MAP[short] ?? now.getUTCDay();
   } catch {
     return now.getUTCDay();
+  }
+}
+
+/**
+ * 指定 timezone での現在の時 (0〜23) を返す。
+ * タイムゾーンが不正な場合は UTC の時にフォールバックする。
+ */
+export function getLocalHour(now: Date, timezone: string): number {
+  try {
+    const hour = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: 'numeric',
+      hourCycle: 'h23',
+    }).format(now);
+    const parsed = Number.parseInt(hour, 10);
+    return Number.isNaN(parsed) ? now.getUTCHours() : parsed;
+  } catch {
+    return now.getUTCHours();
   }
 }
 
@@ -144,8 +170,11 @@ export async function getReminderTargets(
   const candidates = (prefs as UserPreferenceRow[]).filter((row) => {
     const weekday = row.notification_preferences?.reminder_weekday;
     if (weekday === null || weekday === undefined) return false;
-    // 配信は JST 固定。保存済み timezone ではなく常に JST で曜日・同日を判定する。
+    // 配信判定は JST 固定。保存済み timezone ではなく常に JST で曜日・時刻・同日を判定する。
     if (getLocalWeekday(now, REMINDER_TIMEZONE) !== weekday) return false;
+    // reminder_hour 未設定の既存ユーザーは従来の JST 11:00 として扱う。
+    const hour = row.notification_preferences?.reminder_hour ?? DEFAULT_REMINDER_HOUR;
+    if (getLocalHour(now, REMINDER_TIMEZONE) !== hour) return false;
     if (isAlreadyNotifiedToday(now, REMINDER_TIMEZONE, row.last_notified_at)) {
       skippedAlreadyNotified += 1;
       return false;
@@ -185,6 +214,7 @@ export async function getReminderTargets(
       userId: row.user_id,
       timezone: REMINDER_TIMEZONE,
       reminderWeekday: row.notification_preferences!.reminder_weekday as number,
+      reminderHour: row.notification_preferences!.reminder_hour ?? DEFAULT_REMINDER_HOUR,
       lastNotifiedAt: row.last_notified_at,
       subscriptions: byUser.get(row.user_id) ?? [],
     }))
