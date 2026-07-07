@@ -19,6 +19,13 @@ export interface CreatePushSubscriptionRequest {
   browser?: string;
 }
 
+/**
+ * reminder_hour が未設定 (キー無し) の場合のデフォルト配信時刻 (JST)。
+ * 従来の固定配信時刻 (11:00) を踏襲する。設定作成時のデフォルトと
+ * 配信判定のフォールバックの両方でこの値を使うこと。
+ */
+export const DEFAULT_REMINDER_HOUR = 11;
+
 export interface NotificationPreferences {
   /**
    * リマインダーを配信する曜日。0=日曜〜6=土曜。

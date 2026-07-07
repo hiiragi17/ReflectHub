@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { DEFAULT_REMINDER_HOUR } from '@/types/push';
 import type { NotificationPreferences, PushSubscription } from '@/types/push';
 
 /**
@@ -54,12 +55,6 @@ export function buildReminderPayload(overrides: Partial<ReminderPayload> = {}): 
  * 配信判定には使わない (非 JST の値が入ると曜日・時刻がずれるため)。
  */
 const REMINDER_TIMEZONE = 'Asia/Tokyo';
-
-/**
- * reminder_hour が未設定 (キー無し) の既存ユーザー向けデフォルト配信時刻。
- * 従来の固定配信時刻 (JST 11:00) を踏襲する。
- */
-export const DEFAULT_REMINDER_HOUR = 11;
 
 const WEEKDAY_MAP: Record<string, number> = {
   Sun: 0,
@@ -156,9 +151,21 @@ export async function getReminderTargets(
 ): Promise<ReminderTargetsResult> {
   const supabase = createServiceRoleClient();
 
+  // 毎時 cron から呼ばれるため、全行を取得せず DB 側で候補を絞り込む。
+  // - 曜日: JST の今の曜日と一致する行のみ (reminder_weekday が null = OFF の行は
+  //   ->> が NULL を返すため eq で自然に除外される)
+  // - 時刻: JST の今の時と一致する行に加え、reminder_hour キーが無い既存行
+  //   (migration 未適用) も取得する。キー無し行の「デフォルト 11 時扱い」の判定は
+  //   後段のアプリ側フィルタが行う。
+  const currentWeekday = getLocalWeekday(now, REMINDER_TIMEZONE);
+  const currentHour = getLocalHour(now, REMINDER_TIMEZONE);
   const { data: prefs, error: prefsError } = await supabase
     .from('user_preferences')
-    .select('user_id, timezone, notification_preferences, last_notified_at');
+    .select('user_id, timezone, notification_preferences, last_notified_at')
+    .eq('notification_preferences->>reminder_weekday', String(currentWeekday))
+    .or(
+      `notification_preferences->>reminder_hour.eq.${currentHour},notification_preferences->>reminder_hour.is.null`,
+    );
 
   if (prefsError) {
     console.error('[getReminderTargets] failed to fetch user_preferences:', prefsError);
@@ -167,14 +174,15 @@ export async function getReminderTargets(
   if (!prefs) return { targets: [], skippedAlreadyNotified: 0 };
 
   let skippedAlreadyNotified = 0;
+  // DB 側で概ね絞り込み済みだが、キー無し行のデフォルト時刻 (11 時) 判定と
+  // 誤配信防止のため、アプリ側でも同じ条件を再検証する (配信判定は JST 固定)。
   const candidates = (prefs as UserPreferenceRow[]).filter((row) => {
     const weekday = row.notification_preferences?.reminder_weekday;
     if (weekday === null || weekday === undefined) return false;
-    // 配信判定は JST 固定。保存済み timezone ではなく常に JST で曜日・時刻・同日を判定する。
-    if (getLocalWeekday(now, REMINDER_TIMEZONE) !== weekday) return false;
+    if (currentWeekday !== weekday) return false;
     // reminder_hour 未設定の既存ユーザーは従来の JST 11:00 として扱う。
     const hour = row.notification_preferences?.reminder_hour ?? DEFAULT_REMINDER_HOUR;
-    if (getLocalHour(now, REMINDER_TIMEZONE) !== hour) return false;
+    if (currentHour !== hour) return false;
     if (isAlreadyNotifiedToday(now, REMINDER_TIMEZONE, row.last_notified_at)) {
       skippedAlreadyNotified += 1;
       return false;

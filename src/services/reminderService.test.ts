@@ -14,7 +14,7 @@ import {
 } from './reminderService';
 
 /**
- * Supabase クエリビルダーの最小モック。select/in/eq はチェーン用に自身を返し、
+ * Supabase クエリビルダーの最小モック。select/in/eq/or はチェーン用に自身を返し、
  * await されたら渡された結果に解決する thenable。
  */
 function makeBuilder(result: { data: unknown; error: unknown }) {
@@ -22,6 +22,7 @@ function makeBuilder(result: { data: unknown; error: unknown }) {
     select: vi.fn(() => builder),
     in: vi.fn(() => builder),
     eq: vi.fn(() => builder),
+    or: vi.fn(() => builder),
     then: (resolve: (v: unknown) => unknown) => resolve(result),
   };
   return builder;

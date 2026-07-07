@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase/client';
+import { DEFAULT_REMINDER_HOUR } from '@/types/push';
 import type {
   UserPreferences,
   UpdateUserPreferencesRequest,
@@ -7,7 +8,7 @@ import type {
 
 const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   reminder_weekday: null,
-  reminder_hour: 11,
+  reminder_hour: DEFAULT_REMINDER_HOUR,
 };
 
 export const preferencesService = {

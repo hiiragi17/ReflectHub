@@ -13,6 +13,7 @@ import {
 } from '@/lib/push/client';
 import { isIOSDevice } from '@/lib/pwa/standalone';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
+import { DEFAULT_REMINDER_HOUR } from '@/types/push';
 import type { NotificationPreferences } from '@/types/push';
 
 /** OFF を表す select の値 (空文字)。曜日は '0'〜'6'。 */
@@ -35,7 +36,7 @@ function weekdayToValue(weekday: number | null | undefined): string {
 }
 
 /** reminder_hour 未設定の既存ユーザー向けデフォルト (従来の固定配信時刻 JST 11:00)。 */
-const DEFAULT_HOUR_VALUE = '11';
+const DEFAULT_HOUR_VALUE = String(DEFAULT_REMINDER_HOUR);
 
 const HOUR_OPTIONS: { value: string; label: string }[] = Array.from({ length: 24 }, (_, h) => ({
   value: String(h),
