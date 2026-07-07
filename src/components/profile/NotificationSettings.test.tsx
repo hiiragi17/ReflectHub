@@ -34,15 +34,20 @@ vi.mock('@/hooks/useInstallPrompt', () => ({
 
 import { NotificationSettings } from './NotificationSettings';
 
-/** apiFetch のデフォルト挙動: GET /api/preferences は指定 weekday を返し、それ以外は ok。 */
-function mockPreferencesApi(reminderWeekday: number | null) {
+/** apiFetch のデフォルト挙動: GET /api/preferences は指定 weekday / hour を返し、それ以外は ok。 */
+function mockPreferencesApi(reminderWeekday: number | null, reminderHour?: number) {
   mockApiFetch.mockImplementation((url: string, init?: { method?: string }) => {
     const method = init?.method ?? 'GET';
     if (url === '/api/preferences' && method === 'GET') {
       return Promise.resolve({
         ok: true,
         json: async () => ({
-          preferences: { notification_preferences: { reminder_weekday: reminderWeekday } },
+          preferences: {
+            notification_preferences: {
+              reminder_weekday: reminderWeekday,
+              ...(reminderHour !== undefined ? { reminder_hour: reminderHour } : {}),
+            },
+          },
         }),
       });
     }
@@ -51,6 +56,8 @@ function mockPreferencesApi(reminderWeekday: number | null) {
 }
 
 const getSelect = () => screen.getByLabelText('通知する曜日') as HTMLSelectElement;
+const getHourSelect = () =>
+  screen.getByLabelText('通知する時刻（日本時間）') as HTMLSelectElement;
 
 describe('NotificationSettings', () => {
   beforeEach(() => {
@@ -126,6 +133,33 @@ describe('NotificationSettings', () => {
     expect(getSelect().value).toBe('2');
   });
 
+  it('loads and shows the current reminder hour', async () => {
+    mockPreferencesApi(2, 21); // 火曜 21:00
+    render(<NotificationSettings />);
+
+    await waitFor(() => expect(getHourSelect()).toBeInTheDocument());
+    expect(getHourSelect().value).toBe('21');
+  });
+
+  it('defaults the hour to 11:00 when reminder_hour is missing (legacy rows)', async () => {
+    mockPreferencesApi(2); // reminder_hour キー無し
+    render(<NotificationSettings />);
+
+    await waitFor(() => expect(getHourSelect()).toBeInTheDocument());
+    expect(getHourSelect().value).toBe('11');
+  });
+
+  it('disables the hour select while weekday is OFF', async () => {
+    mockPreferencesApi(null);
+    render(<NotificationSettings />);
+
+    await waitFor(() => expect(getHourSelect()).toBeInTheDocument());
+    expect(getHourSelect()).toBeDisabled();
+
+    fireEvent.change(getSelect(), { target: { value: '3' } });
+    expect(getHourSelect()).not.toBeDisabled();
+  });
+
   it('shows an error message when loading fails', async () => {
     mockApiFetch.mockResolvedValue({ ok: false, json: async () => ({}) });
     render(<NotificationSettings />);
@@ -167,6 +201,26 @@ describe('NotificationSettings', () => {
         body: expect.stringContaining('"reminder_weekday":1'),
       }),
     );
+    expect(mockShowToast).toHaveBeenCalledWith('通知設定を保存しました。', 'success');
+  });
+
+  it('persists the selected hour together with the weekday', async () => {
+    mockPreferencesApi(1, 11); // 月曜 11:00 初期
+    render(<NotificationSettings />);
+    await waitFor(() => expect(getSelect().value).toBe('1'));
+
+    fireEvent.change(getHourSelect(), { target: { value: '20' } }); // 20:00 へ変更
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+
+    await waitFor(() => {
+      expect(mockApiFetch).toHaveBeenCalledWith(
+        '/api/preferences',
+        expect.objectContaining({
+          method: 'PUT',
+          body: expect.stringContaining('"reminder_hour":20'),
+        }),
+      );
+    });
     expect(mockShowToast).toHaveBeenCalledWith('通知設定を保存しました。', 'success');
   });
 

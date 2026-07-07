@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { DEFAULT_REMINDER_HOUR } from '@/types/push';
 import type { NotificationPreferences } from '@/types/push';
 import { PreferencesUpdateSchema } from '@/lib/validation/schemas';
 import { parseJsonBody } from '@/lib/validation/parse';
@@ -9,6 +10,7 @@ const DEFAULT_PREFERENCES = {
   timezone: 'Asia/Tokyo',
   notification_preferences: {
     reminder_weekday: null,
+    reminder_hour: DEFAULT_REMINDER_HOUR,
   } as NotificationPreferences,
 };
 

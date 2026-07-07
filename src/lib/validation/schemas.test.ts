@@ -82,6 +82,55 @@ describe('PreferencesUpdateSchema', () => {
     ).toBe(false);
   });
 
+  it('accepts every reminder_hour value 0..23', () => {
+    for (let h = 0; h <= 23; h += 1) {
+      expect(
+        PreferencesUpdateSchema.safeParse({
+          notification_preferences: { reminder_hour: h },
+        }).success,
+      ).toBe(true);
+    }
+  });
+
+  it('accepts reminder_weekday and reminder_hour together', () => {
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_weekday: 3, reminder_hour: 21 },
+      }).success,
+    ).toBe(true);
+  });
+
+  it('rejects out-of-range reminder_hour', () => {
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_hour: 24 },
+      }).success,
+    ).toBe(false);
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_hour: -1 },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects non-integer reminder_hour', () => {
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_hour: 11.5 },
+      }).success,
+    ).toBe(false);
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_hour: '11' },
+      }).success,
+    ).toBe(false);
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_hour: null },
+      }).success,
+    ).toBe(false);
+  });
+
   it('rejects non-boolean booleans', () => {
     expect(
       PreferencesUpdateSchema.safeParse({ pwa_install_dismissed: 'true' }).success,
