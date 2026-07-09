@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
 import {
   LogOut,
   Loader2,
@@ -96,6 +95,8 @@ export default function LoggedInHeader({
     };
   }, [isMenuOpen]);
 
+  const closeMenu = () => setIsMenuOpen(false);
+
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
       <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
@@ -146,129 +147,89 @@ export default function LoggedInHeader({
             </nav>
           )}
 
-          {/* 右側（デスクトップ）：ユーザー名 + お問い合わせ + ログアウト */}
-          <nav
-            aria-label="ユーザーメニュー"
-            className="hidden sm:flex items-center gap-4 flex-shrink-0"
-          >
-            <div className="flex items-center gap-2 text-gray-700">
-              <User className="w-4 h-4" aria-hidden="true" />
-              <span className="text-sm">{userName}</span>
-            </div>
-            {hasContact && (
-              <a
-                href={contactUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="お問い合わせ (新しいタブで開く)"
-                className="flex items-center gap-2 text-gray-700 hover:text-blue-700 transition px-3 py-1.5 rounded-md hover:bg-gray-50"
-              >
-                <Mail className="w-4 h-4" aria-hidden="true" />
-                <span className="text-sm">お問い合わせ</span>
-              </a>
-            )}
-            <Button
-              onClick={handleSignOut}
-              variant="outline"
-              size="sm"
-              disabled={isLoading}
-              aria-busy={isLoading}
-              aria-label={isLoading ? 'ログアウト中' : 'ログアウト'}
-              className="text-gray-700 hover:text-gray-900 px-3"
+          {/* 右側：メニューボタン（全画面共通）+ ドロップダウン */}
+          <div className="relative flex-shrink-0">
+            <button
+              ref={menuButtonRef}
+              type="button"
+              onClick={() => setIsMenuOpen((open) => !open)}
+              aria-expanded={isMenuOpen}
+              aria-controls="app-menu-panel"
+              aria-label={isMenuOpen ? 'メニューを閉じる' : 'メニューを開く'}
+              className="flex items-center justify-center w-10 h-10 -mr-1 rounded-md text-gray-700 hover:text-gray-900 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             >
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+              {isMenuOpen ? (
+                <X className="w-6 h-6" aria-hidden="true" />
               ) : (
-                <LogOut className="w-4 h-4" aria-hidden="true" />
+                <Menu className="w-6 h-6" aria-hidden="true" />
               )}
-              <span className="ml-2">{isLoading ? 'ログアウト中...' : 'ログアウト'}</span>
-            </Button>
-          </nav>
+            </button>
 
-          {/* 右側（モバイル）：ハンバーガーメニュー */}
-          <button
-            ref={menuButtonRef}
-            type="button"
-            onClick={() => setIsMenuOpen((open) => !open)}
-            aria-expanded={isMenuOpen}
-            aria-controls="mobile-menu-panel"
-            aria-label={isMenuOpen ? 'メニューを閉じる' : 'メニューを開く'}
-            className="sm:hidden flex items-center justify-center w-10 h-10 -mr-1 rounded-md text-gray-700 hover:text-gray-900 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 flex-shrink-0"
-          >
-            {isMenuOpen ? (
-              <X className="w-6 h-6" aria-hidden="true" />
-            ) : (
-              <Menu className="w-6 h-6" aria-hidden="true" />
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* モバイルメニューパネル */}
-      {isMenuOpen && (
-        <div
-          ref={menuPanelRef}
-          id="mobile-menu-panel"
-          className="sm:hidden border-t border-gray-200 bg-white shadow-sm"
-        >
-          <div className="max-w-6xl mx-auto px-3 py-3">
-            <div className="flex items-center gap-2 text-gray-700 px-2 pb-3 mb-2 border-b border-gray-100">
-              <User className="w-4 h-4" aria-hidden="true" />
-              <span className="text-sm font-medium">{userName}</span>
-            </div>
-
-            <nav aria-label="メインメニュー">
-              <ul className="flex flex-col">
-                {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
-                  <li key={href}>
-                    <Link
-                      href={href}
-                      onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-3 px-2 py-3 rounded-md text-gray-800 hover:bg-gray-50"
-                    >
-                      <Icon className="w-5 h-5 text-gray-500" aria-hidden="true" />
-                      <span className="text-sm">{label}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-
-            <div className="mt-2 pt-2 border-t border-gray-100 flex flex-col">
-              {hasContact && (
-                <a
-                  href={contactUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => setIsMenuOpen(false)}
-                  aria-label="お問い合わせ (新しいタブで開く)"
-                  className="flex items-center gap-3 px-2 py-3 rounded-md text-gray-800 hover:bg-gray-50"
-                >
-                  <Mail className="w-5 h-5 text-gray-500" aria-hidden="true" />
-                  <span className="text-sm">お問い合わせ</span>
-                </a>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMenuOpen(false);
-                  void handleSignOut();
-                }}
-                disabled={isLoading}
-                aria-busy={isLoading}
-                className="flex items-center gap-3 px-2 py-3 rounded-md text-gray-800 hover:bg-gray-50 disabled:opacity-50 text-left"
+            {isMenuOpen && (
+              <div
+                ref={menuPanelRef}
+                id="app-menu-panel"
+                className="absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-1.5rem)] rounded-lg border border-gray-200 bg-white shadow-lg py-2 z-30"
               >
-                {isLoading ? (
-                  <Loader2 className="w-5 h-5 text-gray-500 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                ) : (
-                  <LogOut className="w-5 h-5 text-gray-500" aria-hidden="true" />
-                )}
-                <span className="text-sm">{isLoading ? 'ログアウト中...' : 'ログアウト'}</span>
-              </button>
-            </div>
+                <div className="flex items-center gap-2 text-gray-700 px-4 pb-2 mb-1 border-b border-gray-100">
+                  <User className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+                  <span className="text-sm font-medium truncate">{userName}</span>
+                </div>
+
+                <nav aria-label="メインメニュー">
+                  <ul className="flex flex-col">
+                    {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
+                      <li key={href}>
+                        <Link
+                          href={href}
+                          onClick={closeMenu}
+                          className="flex items-center gap-3 px-4 py-2.5 text-gray-800 hover:bg-gray-50"
+                        >
+                          <Icon className="w-5 h-5 text-gray-500 flex-shrink-0" aria-hidden="true" />
+                          <span className="text-sm">{label}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </nav>
+
+                <div className="mt-1 pt-1 border-t border-gray-100 flex flex-col">
+                  {hasContact && (
+                    <a
+                      href={contactUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={closeMenu}
+                      aria-label="お問い合わせ (新しいタブで開く)"
+                      className="flex items-center gap-3 px-4 py-2.5 text-gray-800 hover:bg-gray-50"
+                    >
+                      <Mail className="w-5 h-5 text-gray-500 flex-shrink-0" aria-hidden="true" />
+                      <span className="text-sm">お問い合わせ</span>
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeMenu();
+                      void handleSignOut();
+                    }}
+                    disabled={isLoading}
+                    aria-busy={isLoading}
+                    className="flex items-center gap-3 px-4 py-2.5 text-gray-800 hover:bg-gray-50 disabled:opacity-50 text-left"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="w-5 h-5 text-gray-500 animate-spin motion-reduce:animate-none flex-shrink-0" aria-hidden="true" />
+                    ) : (
+                      <LogOut className="w-5 h-5 text-gray-500 flex-shrink-0" aria-hidden="true" />
+                    )}
+                    <span className="text-sm">{isLoading ? 'ログアウト中...' : 'ログアウト'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
     </header>
   );
 }
