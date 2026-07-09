@@ -154,8 +154,60 @@ export default function LoggedInHeader({
             </nav>
           )}
 
-          {/* 右側：メニューボタン（全画面共通）+ ドロップダウン */}
-          <div className="relative flex-shrink-0">
+          {/* 右側（デスクトップ）：横並びナビ。xl 未満（スマホ・タブレット）は非表示 */}
+          <nav
+            aria-label="メインメニュー"
+            className="hidden xl:flex items-center gap-1 flex-shrink-0"
+          >
+            {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+              >
+                <Icon className="w-4 h-4 text-gray-500 flex-shrink-0" aria-hidden="true" />
+                <span>{label}</span>
+              </Link>
+            ))}
+
+            {hasContact && (
+              <a
+                href={contactUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="お問い合わせ (新しいタブで開く)"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+              >
+                <Mail className="w-4 h-4 text-gray-500 flex-shrink-0" aria-hidden="true" />
+                <span>お問い合わせ</span>
+              </a>
+            )}
+
+            <div className="mx-1 h-6 w-px bg-gray-200" aria-hidden="true" />
+
+            <div className="flex items-center gap-1.5 px-2 text-gray-700">
+              <User className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+              <span className="text-sm font-medium max-w-[8rem] truncate">{userName}</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void handleSignOut()}
+              disabled={isLoading}
+              aria-busy={isLoading}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm text-gray-700 hover:text-gray-900 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 text-gray-500 animate-spin motion-reduce:animate-none flex-shrink-0" aria-hidden="true" />
+              ) : (
+                <LogOut className="w-4 h-4 text-gray-500 flex-shrink-0" aria-hidden="true" />
+              )}
+              <span>{isLoading ? 'ログアウト中...' : 'ログアウト'}</span>
+            </button>
+          </nav>
+
+          {/* 右側（スマホ・タブレット）：ハンバーガーメニュー + ドロップダウン。xl 以上は非表示 */}
+          <div className="relative flex-shrink-0 xl:hidden">
             <button
               ref={menuButtonRef}
               type="button"
@@ -217,10 +269,7 @@ export default function LoggedInHeader({
                   )}
                   <button
                     type="button"
-                    onClick={() => {
-                      closeMenu();
-                      void handleSignOut();
-                    }}
+                    onClick={() => void handleSignOut()}
                     disabled={isLoading}
                     aria-busy={isLoading}
                     className="flex items-center gap-3 px-4 py-2.5 text-gray-800 hover:bg-gray-50 disabled:opacity-50 text-left"
