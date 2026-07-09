@@ -89,8 +89,6 @@ export default function ProfilePage() {
         userName={user.name}
         onSignOut={handleSignOut}
         title="プロフィール"
-        showBackButton
-        backHref="/dashboard"
       />
 
       <main className="max-w-2xl mx-auto px-4 py-8">
