@@ -1,12 +1,7 @@
 'use client';
 
-import LoggedInHeader from './LoggedInHeader';
+import LoggedInHeader, { type Breadcrumb } from './LoggedInHeader';
 import LoggedOutHeader from './LoggedOutHeader';
-
-interface Breadcrumb {
-  label: string;
-  href?: string;
-}
 
 interface HeaderProps {
   isAuthenticated: boolean;

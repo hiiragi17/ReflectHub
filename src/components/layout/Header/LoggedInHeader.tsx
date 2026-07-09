@@ -20,7 +20,7 @@ import { isValidUrl } from '@/utils/urlValidation';
 const BRAND = 'ReflectHub';
 const HOME_HREF = '/dashboard';
 
-interface Breadcrumb {
+export interface Breadcrumb {
   label: string;
   href?: string;
 }
@@ -53,6 +53,7 @@ export default function LoggedInHeader({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const menuPanelRef = useRef<HTMLDivElement>(null);
+  const firstMenuItemRef = useRef<HTMLAnchorElement>(null);
 
   const isHome = title === BRAND && breadcrumbs.length === 0;
   const hasContact = contactUrl != null && isValidUrl(contactUrl);
@@ -61,6 +62,9 @@ export default function LoggedInHeader({
     setIsLoading(true);
     try {
       await onSignOut();
+    } catch {
+      // onSignOut のエラーは呼び出し元で処理される想定。
+      // ここで握りつぶすことで未処理のPromiseRejectionをUIに伝播させない。
     } finally {
       setIsLoading(false);
     }
@@ -69,6 +73,9 @@ export default function LoggedInHeader({
   // メニュー: Escape で閉じてトリガーにフォーカスを戻す + 外側クリックで閉じる
   useEffect(() => {
     if (!isMenuOpen) return;
+
+    // 開いたら最初のメニュー項目へフォーカスを移す（開示パターンの定石）
+    queueMicrotask(() => firstMenuItemRef.current?.focus());
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -178,9 +185,10 @@ export default function LoggedInHeader({
 
                 <nav aria-label="メインメニュー">
                   <ul className="flex flex-col">
-                    {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
+                    {NAV_ITEMS.map(({ href, label, icon: Icon }, index) => (
                       <li key={href}>
                         <Link
+                          ref={index === 0 ? firstMenuItemRef : undefined}
                           href={href}
                           onClick={closeMenu}
                           className="flex items-center gap-3 px-4 py-2.5 text-gray-800 hover:bg-gray-50"
