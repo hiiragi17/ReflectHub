@@ -166,6 +166,7 @@ export default function ReflectionDetailPage() {
           userName={user?.name}
           onSignOut={handleSignOut}
           title="振り返り詳細"
+          breadcrumbs={[{ label: '振り返り履歴', href: '/history' }]}
         />
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
@@ -181,8 +182,7 @@ export default function ReflectionDetailPage() {
         userName={user?.name}
         onSignOut={handleSignOut}
         title="振り返り詳細"
-        showBackButton={true}
-        backHref="/history"
+        breadcrumbs={[{ label: '振り返り履歴', href: '/history' }]}
       />
 
       <div className="max-w-3xl mx-auto py-8 px-4">

@@ -3,13 +3,17 @@
 import LoggedInHeader from './LoggedInHeader';
 import LoggedOutHeader from './LoggedOutHeader';
 
+interface Breadcrumb {
+  label: string;
+  href?: string;
+}
+
 interface HeaderProps {
   isAuthenticated: boolean;
   userName?: string;
   onSignOut?: () => Promise<void>;
   title?: string;
-  showBackButton?: boolean;
-  backHref?: string;
+  breadcrumbs?: Breadcrumb[];
   contactUrl?: string;
 }
 
@@ -18,8 +22,7 @@ export default function Header({
   userName,
   onSignOut,
   title = 'ReflectHub',
-  showBackButton = false,
-  backHref = '/dashboard',
+  breadcrumbs,
   contactUrl
 }: HeaderProps) {
   if (isAuthenticated && userName != null && onSignOut) {
@@ -28,8 +31,7 @@ export default function Header({
         userName={userName}
         onSignOut={onSignOut}
         title={title}
-        showBackButton={showBackButton}
-        backHref={backHref}
+        breadcrumbs={breadcrumbs}
         contactUrl={contactUrl}
       />
     );
