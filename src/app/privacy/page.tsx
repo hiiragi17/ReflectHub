@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 const POLICY_LAST_UPDATED = new Date('2026-01-31');
 
 export default function PrivacyPage() {
-  const { user, signOut, isLoading } = useAuth();
+  const { user, signOut } = useAuth();
   const router = useRouter();
 
   const handleSignOut = async () => {

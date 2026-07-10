@@ -68,8 +68,10 @@ export const useAuthStore = create<AuthStore>()(
             // サーバー側のログアウトが失敗してもクライアント側のログアウトは続行
           }
 
-          // すべてのタブでログアウトする
-          const { error } = await supabase.auth.signOut({ scope: 'global' });
+          // この端末のセッションのみ破棄する。scope: 'global' だと全デバイスの
+          // リフレッシュトークンが失効し、iOS では Safari と PWA が別セッション
+          // のため「ブラウザでログアウトしたら PWA も切れる」挙動になる。
+          const { error } = await supabase.auth.signOut({ scope: 'local' });
           if (error) {
             console.error("Signout error:", error);
           }
@@ -172,16 +174,26 @@ export const useAuthStore = create<AuthStore>()(
             }
           };
 
-          const serverSessionResponse = await fetchWithTimeout(
-            "/api/auth/verify",
-            {
-              method: "GET",
-              credentials: "include",
-            },
-            30000
-          );
+          // /api/auth/verify への到達失敗 (オフライン・回線断・タイムアウト) を
+          // 「未ログイン」と混同しない。PWA の起動直後は回線が不安定なことが
+          // 多く、ここで throw するとセッションが生きていても認証画面へ
+          // 飛ばされてしまう。失敗時はクライアント側 (cookie) のセッション
+          // 確認へフォールバックする。
+          let serverSessionResponse: Response | null = null;
+          try {
+            serverSessionResponse = await fetchWithTimeout(
+              "/api/auth/verify",
+              {
+                method: "GET",
+                credentials: "include",
+              },
+              30000
+            );
+          } catch (verifyError) {
+            console.error("[AuthStore] Session verify request failed:", verifyError);
+          }
 
-          if (serverSessionResponse.ok) {
+          if (serverSessionResponse?.ok) {
             const serverSession = await serverSessionResponse.json();
 
             if (serverSession.authenticated) {
@@ -277,15 +289,56 @@ export const useAuthStore = create<AuthStore>()(
               .eq("id", session.user.id)
               .single();
 
-            let profileResult;
+            // プロフィール取得の失敗は致命的ではない。セッションが有効なら
+            // session.user の情報でフォールバックし、ログイン状態を維持する
+            // (サーバー経由の経路と同じ扱い)。
+            let profileResult: {
+              data: ProfileData | null;
+              error: { code?: string } | null;
+            } | null = null;
             try {
               profileResult = await timeoutPromise(
-                profileQuery as unknown as Promise<{ data: ProfileData | null }>,
+                profileQuery as unknown as Promise<{
+                  data: ProfileData | null;
+                  error: { code?: string } | null;
+                }>,
                 30000
               );
             } catch (profileError) {
               console.error('[AuthStore] Profile query failed:', profileError);
-              throw profileError;
+            }
+
+            // Supabase クエリは失敗しても throw せず { data: null, error } で
+            // 解決する。読み取りエラーを「プロフィール未作成 (PGRST116 = 0 行)」
+            // と混同して createDefaultProfile へ進むと、既存プロフィールと
+            // 衝突して作成にも失敗し、有効なセッションがあるのに未ログイン
+            // 扱いになってしまう。読み取り失敗時はセッション情報で継続する。
+            if (
+              !profileResult ||
+              (profileResult.error != null && profileResult.error.code !== 'PGRST116')
+            ) {
+              const sessionUser = session.user as SupabaseUser;
+              const user: User = {
+                id: sessionUser.id,
+                email: sessionUser.email || '',
+                name:
+                  sessionUser.user_metadata?.full_name ||
+                  sessionUser.user_metadata?.name ||
+                  sessionUser.email?.split('@')[0] ||
+                  'ユーザー',
+                provider: 'google',
+                avatar_url: sessionUser.user_metadata?.avatar_url,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              };
+
+              set({
+                user,
+                isAuthenticated: true,
+                isLoading: false,
+                error: null,
+              });
+              return;
             }
 
             const { data: profile } = profileResult;

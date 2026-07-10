@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { isIOSDevice, isStandaloneDisplay } from '@/lib/pwa/standalone';
 
 /**
  * Chrome / Edge が発火する beforeinstallprompt の型定義。
@@ -17,33 +18,6 @@ export interface BeforeInstallPromptEvent extends Event {
 
 const DISMISS_KEY = 'reflecthub:install-prompt:dismissed-at';
 const DISMISS_COOLDOWN_MS = 1000 * 60 * 60 * 24 * 14; // 14 日
-
-function isStandalone(): boolean {
-  if (typeof window === 'undefined') return false;
-  if (window.matchMedia?.('(display-mode: standalone)').matches) return true;
-  // iOS Safari の独自フラグ。
-  const navAny = window.navigator as Navigator & { standalone?: boolean };
-  return navAny.standalone === true;
-}
-
-/**
- * iOS デバイス上で動作しているかを判定する。
- *
- * iOS の Safari/Chrome/Firefox はいずれも WebKit ベースで `beforeinstallprompt`
- * を発火しない。代わりにユーザーが手動で「共有 → ホーム画面に追加」する必要が
- * あるので、その案内 UI を出すために iOS かどうかだけを見ればよい。
- *
- * iPadOS 13+ は UA が "Macintosh" を含むので、`maxTouchPoints` でタッチデバイス
- * かを併せて判定する。
- */
-function isIOSDevice(): boolean {
-  if (typeof window === 'undefined') return false;
-  const ua = window.navigator.userAgent;
-  if (/iPad|iPhone|iPod/.test(ua)) return true;
-  const isMacLike = /Macintosh/.test(ua);
-  const touchPoints = window.navigator.maxTouchPoints ?? 0;
-  return isMacLike && touchPoints > 1;
-}
 
 function readDismissedAt(): number | null {
   if (typeof window === 'undefined') return null;
@@ -85,7 +59,7 @@ export interface UseInstallPromptResult {
 export function useInstallPrompt(): UseInstallPromptResult {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
-  const [installed, setInstalled] = useState<boolean>(() => isStandalone());
+  const [installed, setInstalled] = useState<boolean>(() => isStandaloneDisplay());
   const [isPrompting, setIsPrompting] = useState(false);
   const [outcome, setOutcome] = useState<'accepted' | 'dismissed' | null>(null);
   const [dismissedAt, setDismissedAt] = useState<number | null>(() =>
@@ -149,7 +123,7 @@ export function useInstallPrompt(): UseInstallPromptResult {
 
     // display-mode の変更 (PWA で起動など) を検知。
     const mql = window.matchMedia?.('(display-mode: standalone)');
-    const onModeChange = () => setInstalled(isStandalone());
+    const onModeChange = () => setInstalled(isStandaloneDisplay());
     mql?.addEventListener?.('change', onModeChange);
 
     return () => {

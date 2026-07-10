@@ -12,8 +12,6 @@ const trimmedString = (min: number, max: number) =>
       message: `${min}〜${max} 文字で入力してください。`,
     });
 
-const HHMM_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
-
 const BASE64URL_PATTERN = /^[A-Za-z0-9\-_]+=*$/;
 
 // ───────────────────────────────────────────────────────────────────
@@ -22,14 +20,20 @@ const BASE64URL_PATTERN = /^[A-Za-z0-9\-_]+=*$/;
 
 export const NotificationPreferencesPatchSchema = z
   .object({
-    daily_reminder: z.boolean().optional(),
-    weekly_summary: z.boolean().optional(),
-    achievement_alerts: z.boolean().optional(),
-    reminder_time: z
-      .string()
-      .regex(HHMM_PATTERN, {
-        error: 'reminder_time は HH:MM 形式 (00:00〜23:59) である必要があります。',
-      })
+    // リマインダー配信曜日。0=日曜〜6=土曜。null = OFF (配信しない)。
+    reminder_weekday: z
+      .number()
+      .int({ error: 'reminder_weekday は整数である必要があります。' })
+      .min(0, { error: 'reminder_weekday は 0〜6 である必要があります。' })
+      .max(6, { error: 'reminder_weekday は 0〜6 である必要があります。' })
+      .nullable()
+      .optional(),
+    // リマインダー配信時刻 (JST)。0〜23 時。
+    reminder_hour: z
+      .number()
+      .int({ error: 'reminder_hour は整数である必要があります。' })
+      .min(0, { error: 'reminder_hour は 0〜23 である必要があります。' })
+      .max(23, { error: 'reminder_hour は 0〜23 である必要があります。' })
       .optional(),
   })
   .strict();

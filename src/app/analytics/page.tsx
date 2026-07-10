@@ -51,8 +51,6 @@ export default function AnalyticsPage() {
         userName={user.name}
         onSignOut={handleSignOut}
         title="統計・トレンド分析"
-        showBackButton
-        backHref="/dashboard"
       />
 
       <main className="max-w-7xl mx-auto px-4 py-8">

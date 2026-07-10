@@ -10,6 +10,10 @@ vi.mock('@/lib/supabase/client', () => ({
 import { preferencesService } from './preferencesService';
 import { supabase } from '@/lib/supabase/client';
 
+// Supabase のモック戻り値を、any を使わずに実際の型へキャストするための別名。
+type UserResult = Awaited<ReturnType<typeof supabase.auth.getUser>>;
+type FromResult = ReturnType<typeof supabase.from>;
+
 const USER_ID = 'user-1';
 
 const mockPreferences = {
@@ -18,10 +22,7 @@ const mockPreferences = {
   pwa_install_dismissed: false,
   timezone: 'Asia/Tokyo',
   notification_preferences: {
-    daily_reminder: false,
-    reminder_time: '20:00',
-    weekly_summary: false,
-    achievement_alerts: true,
+    reminder_weekday: null,
   },
   created_at: '2026-04-19T00:00:00Z',
   updated_at: '2026-04-19T00:00:00Z',
@@ -37,14 +38,14 @@ describe('preferencesService', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: { id: USER_ID } },
         error: null,
-      } as any);
+      } as unknown as UserResult);
 
       const mockChain = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({ data: mockPreferences, error: null }),
       };
-      vi.mocked(supabase.from).mockReturnValue(mockChain as any);
+      vi.mocked(supabase.from).mockReturnValue(mockChain as unknown as FromResult);
 
       const result = await preferencesService.getPreferences(USER_ID);
       expect(result).toEqual(mockPreferences);
@@ -54,7 +55,7 @@ describe('preferencesService', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: { id: USER_ID } },
         error: null,
-      } as any);
+      } as unknown as UserResult);
 
       const mockSelectChain = {
         select: vi.fn().mockReturnThis(),
@@ -71,8 +72,8 @@ describe('preferencesService', () => {
       };
 
       vi.mocked(supabase.from)
-        .mockReturnValueOnce(mockSelectChain as any)
-        .mockReturnValueOnce(mockInsertChain as any);
+        .mockReturnValueOnce(mockSelectChain as unknown as FromResult)
+        .mockReturnValueOnce(mockInsertChain as unknown as FromResult);
 
       const result = await preferencesService.getPreferences(USER_ID);
       expect(result).toEqual(mockPreferences);
@@ -82,7 +83,7 @@ describe('preferencesService', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: null },
         error: new Error('Not authenticated'),
-      } as any);
+      } as unknown as UserResult);
 
       await expect(preferencesService.getPreferences(USER_ID)).rejects.toMatchObject({
         code: 'AUTH_ERROR',
@@ -93,7 +94,7 @@ describe('preferencesService', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: { id: USER_ID } },
         error: null,
-      } as any);
+      } as unknown as UserResult);
 
       const mockChain = {
         select: vi.fn().mockReturnThis(),
@@ -103,7 +104,7 @@ describe('preferencesService', () => {
           error: { code: 'OTHER', message: 'DB error' },
         }),
       };
-      vi.mocked(supabase.from).mockReturnValue(mockChain as any);
+      vi.mocked(supabase.from).mockReturnValue(mockChain as unknown as FromResult);
 
       await expect(preferencesService.getPreferences(USER_ID)).rejects.toMatchObject({
         code: 'DB_ERROR',
@@ -116,7 +117,7 @@ describe('preferencesService', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: { id: USER_ID } },
         error: null,
-      } as any);
+      } as unknown as UserResult);
 
       // getPreferences の SELECT (auth guard + select)
       const selectChain = {
@@ -128,7 +129,7 @@ describe('preferencesService', () => {
         ...mockPreferences,
         notification_preferences: {
           ...mockPreferences.notification_preferences,
-          daily_reminder: true,
+          reminder_weekday: 1,
         },
       };
       const singleFn = vi.fn().mockResolvedValue({ data: updatedPreferences, error: null });
@@ -141,22 +142,21 @@ describe('preferencesService', () => {
       };
 
       vi.mocked(supabase.from)
-        .mockReturnValueOnce(selectChain as any) // getPreferences
-        .mockReturnValueOnce(updateChain as any); // update call
+        .mockReturnValueOnce(selectChain as unknown as FromResult) // getPreferences
+        .mockReturnValueOnce(updateChain as unknown as FromResult); // update call
 
       const result = await preferencesService.updatePreferences(USER_ID, {
-        notification_preferences: { daily_reminder: true },
+        notification_preferences: { reminder_weekday: 1 },
       });
 
-      expect(result.notification_preferences.daily_reminder).toBe(true);
-      expect(result.notification_preferences.achievement_alerts).toBe(true);
+      expect(result.notification_preferences.reminder_weekday).toBe(1);
     });
 
     it('throws AUTH_ERROR when not authenticated', async () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: null },
         error: new Error('Not authenticated'),
-      } as any);
+      } as unknown as UserResult);
 
       await expect(
         preferencesService.updatePreferences(USER_ID, { pwa_install_dismissed: true }),
@@ -167,7 +167,7 @@ describe('preferencesService', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: { id: USER_ID } },
         error: null,
-      } as any);
+      } as unknown as UserResult);
 
       const selectChain = {
         select: vi.fn().mockReturnThis(),
@@ -185,8 +185,8 @@ describe('preferencesService', () => {
       };
 
       vi.mocked(supabase.from)
-        .mockReturnValueOnce(selectChain as any)
-        .mockReturnValueOnce(updateChain as any);
+        .mockReturnValueOnce(selectChain as unknown as FromResult)
+        .mockReturnValueOnce(updateChain as unknown as FromResult);
 
       await expect(
         preferencesService.updatePreferences(USER_ID, { pwa_install_dismissed: true }),

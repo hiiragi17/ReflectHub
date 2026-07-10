@@ -18,13 +18,28 @@ describe('PreferencesUpdateSchema', () => {
       pwa_install_dismissed: true,
       timezone: 'Asia/Tokyo',
       notification_preferences: {
-        daily_reminder: true,
-        reminder_time: '20:30',
-        weekly_summary: false,
-        achievement_alerts: true,
+        reminder_weekday: 3,
       },
     });
     expect(result.success).toBe(true);
+  });
+
+  it('accepts null reminder_weekday (OFF)', () => {
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_weekday: null },
+      }).success,
+    ).toBe(true);
+  });
+
+  it('accepts every weekday value 0..6', () => {
+    for (let d = 0; d <= 6; d += 1) {
+      expect(
+        PreferencesUpdateSchema.safeParse({
+          notification_preferences: { reminder_weekday: d },
+        }).success,
+      ).toBe(true);
+    }
   });
 
   it('rejects unknown top-level keys', () => {
@@ -41,15 +56,77 @@ describe('PreferencesUpdateSchema', () => {
     ).toBe(false);
   });
 
-  it('rejects invalid reminder_time format', () => {
+  it('rejects out-of-range reminder_weekday', () => {
     expect(
       PreferencesUpdateSchema.safeParse({
-        notification_preferences: { reminder_time: '25:00' },
+        notification_preferences: { reminder_weekday: 7 },
       }).success,
     ).toBe(false);
     expect(
       PreferencesUpdateSchema.safeParse({
-        notification_preferences: { reminder_time: '9:00' },
+        notification_preferences: { reminder_weekday: -1 },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects non-integer reminder_weekday', () => {
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_weekday: 1.5 },
+      }).success,
+    ).toBe(false);
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_weekday: '1' },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('accepts every reminder_hour value 0..23', () => {
+    for (let h = 0; h <= 23; h += 1) {
+      expect(
+        PreferencesUpdateSchema.safeParse({
+          notification_preferences: { reminder_hour: h },
+        }).success,
+      ).toBe(true);
+    }
+  });
+
+  it('accepts reminder_weekday and reminder_hour together', () => {
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_weekday: 3, reminder_hour: 21 },
+      }).success,
+    ).toBe(true);
+  });
+
+  it('rejects out-of-range reminder_hour', () => {
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_hour: 24 },
+      }).success,
+    ).toBe(false);
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_hour: -1 },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects non-integer reminder_hour', () => {
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_hour: 11.5 },
+      }).success,
+    ).toBe(false);
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_hour: '11' },
+      }).success,
+    ).toBe(false);
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_hour: null },
       }).success,
     ).toBe(false);
   });

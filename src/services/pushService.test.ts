@@ -15,6 +15,10 @@ import { pushService } from './pushService';
 import { supabase } from '@/lib/supabase/client';
 import { validatePushSubscriptionFields } from '@/lib/push/encryption';
 
+// Supabase のモック戻り値を、any を使わずに実際の型へキャストするための別名。
+type UserResult = Awaited<ReturnType<typeof supabase.auth.getUser>>;
+type FromResult = ReturnType<typeof supabase.from>;
+
 const USER_ID = 'user-1';
 const ENDPOINT = 'https://fcm.googleapis.com/push/abc';
 const P256DH = 'BNb2B0dAi8Q=';
@@ -42,14 +46,14 @@ describe('pushService', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: { id: USER_ID } },
         error: null,
-      } as any);
+      } as unknown as UserResult);
 
       const mockChain = {
         upsert: vi.fn().mockReturnThis(),
         select: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({ data: mockSubscription, error: null }),
       };
-      vi.mocked(supabase.from).mockReturnValue(mockChain as any);
+      vi.mocked(supabase.from).mockReturnValue(mockChain as unknown as FromResult);
 
       const result = await pushService.subscribe(USER_ID, {
         endpoint: ENDPOINT,
@@ -77,7 +81,7 @@ describe('pushService', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: null },
         error: new Error('Not authenticated'),
-      } as any);
+      } as unknown as UserResult);
 
       await expect(
         pushService.subscribe(USER_ID, { endpoint: ENDPOINT, p256dh: P256DH, auth: AUTH }),
@@ -88,7 +92,7 @@ describe('pushService', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: { id: 'other-user' } },
         error: null,
-      } as any);
+      } as unknown as UserResult);
 
       await expect(
         pushService.subscribe(USER_ID, { endpoint: ENDPOINT, p256dh: P256DH, auth: AUTH }),
@@ -100,7 +104,7 @@ describe('pushService', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: { id: USER_ID } },
         error: null,
-      } as any);
+      } as unknown as UserResult);
 
       await expect(
         pushService.subscribe(USER_ID, { endpoint: 'http://bad.com', p256dh: P256DH, auth: AUTH }),
@@ -111,14 +115,14 @@ describe('pushService', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: { id: USER_ID } },
         error: null,
-      } as any);
+      } as unknown as UserResult);
 
       const mockChain = {
         upsert: vi.fn().mockReturnThis(),
         select: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({ data: null, error: { message: 'DB error' } }),
       };
-      vi.mocked(supabase.from).mockReturnValue(mockChain as any);
+      vi.mocked(supabase.from).mockReturnValue(mockChain as unknown as FromResult);
 
       await expect(
         pushService.subscribe(USER_ID, { endpoint: ENDPOINT, p256dh: P256DH, auth: AUTH }),
@@ -131,12 +135,12 @@ describe('pushService', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: { id: USER_ID } },
         error: null,
-      } as any);
+      } as unknown as UserResult);
 
       const eqInner = vi.fn().mockResolvedValue({ error: null });
       const eqOuter = vi.fn().mockReturnValue({ eq: eqInner });
       const update = vi.fn().mockReturnValue({ eq: eqOuter });
-      vi.mocked(supabase.from).mockReturnValue({ update } as any);
+      vi.mocked(supabase.from).mockReturnValue({ update } as unknown as FromResult);
 
       await expect(pushService.unsubscribe(USER_ID, ENDPOINT)).resolves.toBeUndefined();
       expect(update).toHaveBeenCalledWith({ is_active: false });
@@ -148,7 +152,7 @@ describe('pushService', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: null },
         error: new Error('Not authenticated'),
-      } as any);
+      } as unknown as UserResult);
 
       await expect(pushService.unsubscribe(USER_ID, ENDPOINT)).rejects.toMatchObject({
         code: 'AUTH_ERROR',
@@ -159,12 +163,12 @@ describe('pushService', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: { id: USER_ID } },
         error: null,
-      } as any);
+      } as unknown as UserResult);
 
       const eqInner = vi.fn().mockResolvedValue({ error: { message: 'Update failed' } });
       const eqOuter = vi.fn().mockReturnValue({ eq: eqInner });
       const update = vi.fn().mockReturnValue({ eq: eqOuter });
-      vi.mocked(supabase.from).mockReturnValue({ update } as any);
+      vi.mocked(supabase.from).mockReturnValue({ update } as unknown as FromResult);
 
       await expect(pushService.unsubscribe(USER_ID, ENDPOINT)).rejects.toMatchObject({
         code: 'DB_ERROR',
@@ -177,14 +181,14 @@ describe('pushService', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: { id: USER_ID } },
         error: null,
-      } as any);
+      } as unknown as UserResult);
 
       const mockChain = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         order: vi.fn().mockResolvedValue({ data: [mockSubscription], error: null }),
       };
-      vi.mocked(supabase.from).mockReturnValue(mockChain as any);
+      vi.mocked(supabase.from).mockReturnValue(mockChain as unknown as FromResult);
 
       const result = await pushService.getActiveSubscriptions(USER_ID);
       expect(result).toHaveLength(1);
@@ -197,14 +201,14 @@ describe('pushService', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: { id: USER_ID } },
         error: null,
-      } as any);
+      } as unknown as UserResult);
 
       const mockChain = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         order: vi.fn().mockResolvedValue({ data: [], error: null }),
       };
-      vi.mocked(supabase.from).mockReturnValue(mockChain as any);
+      vi.mocked(supabase.from).mockReturnValue(mockChain as unknown as FromResult);
 
       const result = await pushService.getActiveSubscriptions(USER_ID);
       expect(result).toEqual([]);

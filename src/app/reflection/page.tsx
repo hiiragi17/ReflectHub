@@ -46,8 +46,6 @@ export default function ReflectionPage() {
         userName={user.name}
         onSignOut={handleSignOut}
         title="新しい振り返りを作成"
-        showBackButton={true}
-        backHref="/dashboard"
       />
 
       {/* Main Content */}
