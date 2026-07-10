@@ -1,10 +1,12 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 import { ToastProvider } from "@/components/providers/ToastProvider";
+import { ServiceWorkerProvider } from "@/components/providers/ServiceWorkerProvider";
 import ErrorBoundary from "@/components/common/ErrorBoundary";
 import Footer from "@/components/layout/Footer";
+import InstallPrompt from "@/components/common/InstallPrompt";
 import { SkipLink } from "@/components/a11y/SkipLink";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -56,7 +58,22 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: "/favicon.ico",
+    apple: "/icons/icon-192.png",
   },
+  manifest: "/manifest.json",
+  applicationName: "ReflectHub",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "ReflectHub",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0a0a0a",
 };
 
 export default function RootLayout({
@@ -77,9 +94,11 @@ export default function RootLayout({
                 {children}
               </div>
               <Footer />
+              <InstallPrompt />
             </ToastProvider>
           </SessionProvider>
         </ErrorBoundary>
+        <ServiceWorkerProvider />
         <Analytics />
         <SpeedInsights />
       </body>

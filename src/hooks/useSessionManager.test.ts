@@ -78,6 +78,43 @@ describe("useSessionManager - Error Handling", () => {
     });
   });
 
+  it("should handle SIGNED_IN by initializing, without re-posting tokens to the server", async () => {
+    const { useAuthStore } = await import("@/stores/authStore");
+    const initializeMock = vi.fn();
+    const fetchSpy = vi.spyOn(global, "fetch");
+
+    vi.mocked(useAuthStore.getState).mockReturnValue({
+      initialize: initializeMock,
+      signOut: vi.fn(),
+      user: null,
+      isLoading: false,
+    } as never);
+
+    renderHook(() => useSessionManager());
+
+    const authCallback = (global as never)["authCallback"] as (
+      event: string,
+      session: unknown
+    ) => Promise<void>;
+
+    await authCallback("SIGNED_IN", {
+      user: { id: "test" },
+      access_token: "at",
+      refresh_token: "rt",
+    });
+
+    await waitFor(() => {
+      expect(initializeMock).toHaveBeenCalled();
+    });
+
+    // サーバーへのトークン再送 (/api/auth/session) は行わない。
+    // PWA 復帰時に同一リフレッシュトークンの二重使用を招くため。
+    // initialize はモック済みなので、フック自体が fetch しないことを検証する。
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    fetchSpy.mockRestore();
+  });
+
   it("should handle TOKEN_REFRESHED without calling initialize", async () => {
     const { useAuthStore } = await import("@/stores/authStore");
     const initializeMock = vi.fn();

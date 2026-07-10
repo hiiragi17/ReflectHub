@@ -2,11 +2,38 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type {
   ErrorCategory,
-  ErrorLogBatch,
-  ErrorLogEntry,
   ErrorSeverity,
   PersistedErrorLog,
 } from '@/types/errorTracking';
+import { ErrorLogsBatchSchema, type ErrorLogsBatchInput } from '@/lib/validation/schemas';
+import { parseJsonBody } from '@/lib/validation/parse';
+
+/**
+ * zod スキーマ (`ErrorLogEntrySchema`) は `passthrough()` で柔軟に受けるため
+ * `ErrorLogEntry` 型と完全には一致しない。本ハンドラ内で必要な DB 行への
+ * 詰め替えに必要な最小フィールドだけを取り出す型として定義する。
+ */
+type ParsedLog = ErrorLogsBatchInput['logs'][number];
+
+function rowFromLog(log: ParsedLog, userId: string | null, fallbackSessionId: string | undefined) {
+  return {
+    id: log.id,
+    user_id: userId,
+    error_type: log.errorType as ErrorCategory,
+    message: log.message,
+    stack: log.stack ?? null,
+    status_code: log.statusCode ?? null,
+    severity: log.severity as ErrorSeverity,
+    page: log.context?.page ?? null,
+    action: log.context?.action ?? null,
+    url: log.context?.url ?? null,
+    user_agent: log.context?.userAgent ?? null,
+    session_id: log.context?.sessionId ?? fallbackSessionId ?? null,
+    metadata: (log as { metadata?: Record<string, unknown> }).metadata ?? null,
+    resolved: false,
+    created_at: safeToISOString(log.createdAt) ?? new Date().toISOString(),
+  };
+}
 
 type DbErrorLogRow = {
   id: string;
@@ -41,39 +68,12 @@ function safeToISOString(timestamp: number): string | null {
 }
 
 export async function POST(request: NextRequest) {
-  let body: ErrorLogBatch;
-  try {
-    body = (await request.json()) as ErrorLogBatch;
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
-  }
+  const parsed = await parseJsonBody(request, ErrorLogsBatchSchema);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
 
   try {
-    if (!body.logs || !Array.isArray(body.logs)) {
-      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
-    }
-
-    const candidateLogs = body.logs.slice(0, MAX_BATCH_SIZE);
-
-    const isValidLog = (log: unknown): log is ErrorLogEntry => {
-      if (!log || typeof log !== 'object') return false;
-      const v = log as Partial<ErrorLogEntry>;
-      return (
-        typeof v.id === 'string' &&
-        typeof v.errorType === 'string' &&
-        typeof v.message === 'string' &&
-        typeof v.createdAt === 'number' &&
-        typeof v.severity === 'string' &&
-        !!v.context &&
-        typeof v.context === 'object'
-      );
-    };
-
-    if (!candidateLogs.every(isValidLog)) {
-      return NextResponse.json({ error: 'Invalid log entry' }, { status: 400 });
-    }
-
-    const logs: ErrorLogEntry[] = candidateLogs;
+    const logs = body.logs.slice(0, MAX_BATCH_SIZE);
 
     const supabase = await createClient();
     const {
@@ -83,25 +83,15 @@ export async function POST(request: NextRequest) {
     // Always use the server-verified userId; never trust client-supplied values.
     const userId = session?.user?.id ?? null;
 
-    const rows = logs.map((log) => ({
-      id: log.id,
-      user_id: userId,
-      error_type: log.errorType,
-      message: log.message,
-      stack: log.stack ?? null,
-      status_code: log.statusCode ?? null,
-      severity: log.severity,
-      page: log.context?.page ?? null,
-      action: log.context?.action ?? null,
-      url: log.context?.url ?? null,
-      user_agent: log.context?.userAgent ?? null,
-      session_id: log.context?.sessionId ?? body.sessionId ?? null,
-      metadata: log.metadata ?? null,
-      resolved: false,
-      created_at: safeToISOString(log.createdAt) ?? new Date().toISOString(),
-    }));
+    const rows = logs.map((log) => rowFromLog(log, userId, body.sessionId));
 
-    const { error } = await supabase.from('error_logs').insert(rows);
+    // `id` (クライアント生成 UUID) を PK にしているため、リトライで
+    // 同じバッチが再送されると INSERT が duplicate key で失敗する
+    // (`src/lib/errorTracking/client.ts` は !res.ok で queue.unshift して
+    //  再送する仕組み)。upsert + ignoreDuplicates で idempotent にする。
+    const { error } = await supabase
+      .from('error_logs')
+      .upsert(rows, { onConflict: 'id', ignoreDuplicates: true });
 
     if (error) {
       console.error('[ErrorLogs] DB insert failed:', error.message);

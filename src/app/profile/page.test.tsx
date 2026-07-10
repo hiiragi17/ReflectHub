@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { useRouter } from 'next/navigation';
 import ProfilePage from './page';
 
@@ -14,13 +14,19 @@ vi.mock('@/hooks/useAuth', () => ({
 }));
 
 // Mock ProfileCard component
+// onUpdateProfile は失敗時に reject するため、実物と同様に呼び出し側で捕捉する
 vi.mock('@/components/profile/ProfileCard', () => ({
-  ProfileCard: ({ user, onUpdateProfile }: { user: { name: string }; onUpdateProfile: (name: string) => void }) => (
+  ProfileCard: ({ user, onUpdateProfile }: { user: { name: string }; onUpdateProfile: (name: string) => Promise<void> }) => (
     <div data-testid="profile-card">
       <div>{user.name}</div>
-      <button onClick={() => onUpdateProfile('新しい名前')}>Update</button>
+      <button onClick={() => onUpdateProfile('新しい名前').catch(() => {})}>Update</button>
     </div>
   ),
+}));
+
+// Mock NotificationSettings component
+vi.mock('@/components/profile/NotificationSettings', () => ({
+  NotificationSettings: () => <div data-testid="notification-settings" />,
 }));
 
 // Mock Header component
@@ -34,6 +40,24 @@ vi.mock('../dashboard/loading', () => ({
 }));
 
 import { useAuth } from '@/hooks/useAuth';
+import { _resetCSRFCacheForTest } from '@/lib/api/apiClient';
+
+/**
+ * apiFetch は mutation の前に /api/csrf へトークン取得のリクエストを行うため、
+ * URL で分岐して両方の呼び出しに応答を返す fetch モックを組み立てる。
+ */
+function mockFetchWithCSRF(profileResponse: { ok: boolean; status: number; json: () => Promise<unknown> }) {
+  (global.fetch as ReturnType<typeof vi.fn>).mockImplementation((input: RequestInfo | URL) => {
+    if (input === '/api/csrf') {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ token: 'test-csrf-token' }),
+      });
+    }
+    return Promise.resolve(profileResponse);
+  });
+}
 
 describe('ProfilePage', () => {
   const mockPush = vi.fn();
@@ -59,6 +83,9 @@ describe('ProfilePage', () => {
 
     // Mock fetch for API calls
     global.fetch = vi.fn();
+
+    // apiClient がモジュールスコープに CSRF トークンをキャッシュするためテスト毎に破棄する
+    _resetCSRFCacheForTest();
   });
 
   afterEach(() => {
@@ -150,8 +177,9 @@ describe('ProfilePage', () => {
     });
 
     // Mock successful API response
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    mockFetchWithCSRF({
       ok: true,
+      status: 200,
       json: async () => ({ profile: { ...mockUser, name: '新しい名前' } }),
     });
 
@@ -162,23 +190,27 @@ describe('ProfilePage', () => {
       writable: true,
     });
 
-    const { getByRole } = render(<ProfilePage />);
+    render(<ProfilePage />);
 
     // Trigger update
-    const updateButton = getByRole('button', { name: /update/i });
-    updateButton.click();
+    fireEvent.click(screen.getByRole('button', { name: /update/i }));
 
+    // 更新成功時はページがリロードされる
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        '/api/auth/profile/user-123',
-        expect.objectContaining({
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
-      );
+      expect(mockReload).toHaveBeenCalled();
     });
+
+    const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+    const patchCall = fetchMock.mock.calls.find(([url]) => url === '/api/auth/profile/user-123');
+    expect(patchCall).toBeDefined();
+
+    const [, init] = patchCall as [string, RequestInit];
+    expect(init.method).toBe('PATCH');
+    expect(init.body).toBe(JSON.stringify({ name: '新しい名前' }));
+
+    const headers = new Headers(init.headers);
+    expect(headers.get('Content-Type')).toBe('application/json');
+    expect(headers.get('X-CSRF-Token')).toBe('test-csrf-token');
   });
 
   it('should display error when profile update fails', async () => {
@@ -191,8 +223,9 @@ describe('ProfilePage', () => {
     });
 
     // Mock failed API response
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    mockFetchWithCSRF({
       ok: false,
+      status: 500,
       json: async () => ({ error: 'Update failed' }),
     });
 
@@ -201,6 +234,14 @@ describe('ProfilePage', () => {
     // Wait for component to render
     await waitFor(() => {
       expect(screen.getByTestId('profile-card')).toBeInTheDocument();
+    });
+
+    // Trigger update
+    fireEvent.click(screen.getByRole('button', { name: /update/i }));
+
+    // 失敗時は API が返したエラーメッセージが表示される
+    await waitFor(() => {
+      expect(screen.getByText('Update failed')).toBeInTheDocument();
     });
   });
 });

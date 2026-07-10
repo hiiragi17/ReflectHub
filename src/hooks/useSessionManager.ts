@@ -27,27 +27,13 @@ export function useSessionManager() {
             break;
           }
 
-          // セッションが存在する場合、サーバー側にもセッションを確立
-          if (session) {
-            try {
-              const response = await fetch('/api/auth/session', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({
-                  access_token: session.access_token,
-                  refresh_token: session.refresh_token,
-                }),
-              });
-
-              if (!response.ok) {
-                console.error(`[SessionManager] Failed to sync session to server:`, response.status);
-              }
-            } catch (error) {
-              console.error(`[SessionManager] Error syncing session to server:`, error);
-            }
-          }
-
+          // サーバー側セッションの確立 (/api/auth/session への POST) は
+          // OAuth コールバック (`/auth/callback`) がログイン時に一度だけ行う。
+          // セッションは cookie (@supabase/ssr) に保存されており、サーバーは
+          // 同じ cookie を読めるため、起動のたびにトークンを再送して
+          // setSession し直す必要はない。むしろ PWA 復帰直後に走ると
+          // クライアント / middleware のリフレッシュと同一リフレッシュ
+          // トークンで競合し、ローテーション失効 → 強制ログアウトを招く。
           await initialize();
           break;
 

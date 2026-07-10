@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { validatePushSubscriptionFields } from '@/lib/push/encryption';
+import { PushSubscribeSchema } from '@/lib/validation/schemas';
+import { parseJsonBody } from '@/lib/validation/parse';
 
 export async function POST(request: NextRequest) {
   try {
+    // CSRF は middleware で検証済み (defense-in-depth として個別ルートで再検証はしない)。
     const supabase = await createClient();
     const {
       data: { user },
@@ -14,40 +16,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
-    }
-
-    if (!body || typeof body !== 'object' || Array.isArray(body)) {
-      return NextResponse.json(
-        { error: 'endpoint, p256dh, auth は必須です。' },
-        { status: 400 },
-      );
-    }
-
-    const { endpoint, p256dh, auth, user_agent, browser } = body as Record<string, unknown>;
-
-    if (
-      typeof endpoint !== 'string' ||
-      typeof p256dh !== 'string' ||
-      typeof auth !== 'string' ||
-      endpoint.trim() === '' ||
-      p256dh.trim() === '' ||
-      auth.trim() === ''
-    ) {
-      return NextResponse.json(
-        { error: 'endpoint, p256dh, auth は必須です。' },
-        { status: 400 },
-      );
-    }
-
-    const validationError = validatePushSubscriptionFields(endpoint, p256dh, auth);
-    if (validationError) {
-      return NextResponse.json({ error: validationError }, { status: 400 });
-    }
+    const parsed = await parseJsonBody(request, PushSubscribeSchema);
+    if (!parsed.ok) return parsed.response;
+    const { endpoint, p256dh, auth, user_agent, browser } = parsed.data;
 
     const { data, error } = await supabase
       .from('push_subscriptions')
@@ -57,8 +28,8 @@ export async function POST(request: NextRequest) {
           endpoint,
           p256dh,
           auth,
-          user_agent: typeof user_agent === 'string' ? user_agent : null,
-          browser: typeof browser === 'string' ? browser : null,
+          user_agent: user_agent ?? null,
+          browser: browser ?? null,
           is_active: true,
         },
         { onConflict: 'user_id,endpoint' },

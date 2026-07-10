@@ -141,8 +141,6 @@ export default function HistoryPage() {
         userName={user.name}
         onSignOut={handleSignOut}
         title="振り返り履歴"
-        showBackButton={true}
-        backHref="/dashboard"
       />
 
       <main className="max-w-7xl mx-auto px-4 py-8">

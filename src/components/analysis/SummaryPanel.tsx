@@ -47,6 +47,8 @@ export function SummaryPanel() {
     error,
     rateLimit,
     period,
+    reflectionCount,
+    minRequired,
     setPeriod,
     analyze,
   } = useAISummary('week');
@@ -54,6 +56,16 @@ export function SummaryPanel() {
   const buttonLabel = summary
     ? `${PERIOD_LABEL[period]}を再分析`
     : `${PERIOD_LABEL[period]}の振り返りを AI に分析させる`;
+
+  // 件数取得済みで minRequired を満たさないときはボタンを無効化する。
+  // 取得前 (null) は既存の挙動を維持。
+  const insufficient =
+    reflectionCount !== null &&
+    minRequired !== null &&
+    reflectionCount < minRequired;
+  const shortfall = insufficient
+    ? Math.max(0, (minRequired ?? 0) - (reflectionCount ?? 0))
+    : 0;
 
   return (
     <Card data-testid="summary-panel">
@@ -75,9 +87,14 @@ export function SummaryPanel() {
               type="button"
               size="sm"
               onClick={() => void analyze()}
-              disabled={isAnalyzing || isLoading}
+              disabled={isAnalyzing || isLoading || insufficient}
               variant={summary ? 'outline' : 'default'}
               data-testid="analyze-button"
+              title={
+                insufficient
+                  ? `分析には ${minRequired} 件以上の振り返りが必要です（現在 ${reflectionCount} 件）`
+                  : undefined
+              }
             >
               <RefreshCw
                 className={`w-4 h-4 ${isAnalyzing ? 'animate-spin' : ''}`}
@@ -113,10 +130,33 @@ export function SummaryPanel() {
           ))}
         </div>
 
+        {insufficient && !error && (
+          <div
+            data-testid="insufficient-notice"
+            role="status"
+            className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+          >
+            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-medium">
+                分析にはあと {shortfall} 件の振り返りが必要です（現在 {reflectionCount} / {minRequired} 件）。
+              </p>
+              <p className="text-xs mt-1">
+                期間サマリーは複数件の比較・推移から気づきを抽出するため、ある程度件数が貯まってから実行できます。
+              </p>
+            </div>
+          </div>
+        )}
+
         {error && (
           <div
             role="alert"
-            className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+            className={cn(
+              'flex items-start gap-2 rounded-md border p-3 text-sm',
+              error.code === 'INSUFFICIENT_REFLECTIONS' || error.code === 'NO_REFLECTIONS'
+                ? 'border-amber-200 bg-amber-50 text-amber-800'
+                : 'border-red-200 bg-red-50 text-red-700',
+            )}
           >
             <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
             <div>
@@ -124,6 +164,11 @@ export function SummaryPanel() {
               {error.code === 'RATE_LIMITED' && (
                 <p className="text-xs mt-1">
                   時間をおいて再度お試しください（1 日{rateLimit?.limit ?? 2} 回まで）。
+                </p>
+              )}
+              {error.code === 'INSUFFICIENT_REFLECTIONS' && (
+                <p className="text-xs mt-1">
+                  期間サマリーは複数件の比較・推移から気づきを抽出するため、ある程度件数が必要です。
                 </p>
               )}
             </div>

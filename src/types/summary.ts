@@ -48,6 +48,7 @@ export interface SummaryError {
     | 'UNAUTHORIZED'
     | 'NOT_FOUND'
     | 'NO_REFLECTIONS'
+    | 'INSUFFICIENT_REFLECTIONS'
     | 'RATE_LIMITED'
     | 'DUPLICATE_PERIOD'
     | 'OPENAI_ERROR'
@@ -55,6 +56,9 @@ export interface SummaryError {
     | 'INTERNAL_ERROR';
   message: string;
   retry_after?: number;
+  /** INSUFFICIENT_REFLECTIONS のときに UI へ通知する情報 */
+  required?: number;
+  current?: number;
 }
 
 export interface OpenAISummaryPayload {

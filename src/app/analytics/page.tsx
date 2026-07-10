@@ -19,6 +19,7 @@ import PeriodComparison from '@/components/statistics/PeriodComparison';
 import StreakDisplay from '@/components/statistics/StreakDisplay';
 import ActivityHeatmap from '@/components/statistics/ActivityHeatmap';
 import ThisWeekStatus from '@/components/statistics/ThisWeekStatus';
+import GrowthTrendChart from '@/components/statistics/GrowthTrendChart';
 import { SummaryPanel } from '@/components/analysis/SummaryPanel';
 
 export default function AnalyticsPage() {
@@ -50,8 +51,6 @@ export default function AnalyticsPage() {
         userName={user.name}
         onSignOut={handleSignOut}
         title="統計・トレンド分析"
-        showBackButton
-        backHref="/dashboard"
       />
 
       <main className="max-w-7xl mx-auto px-4 py-8">
@@ -147,6 +146,10 @@ export default function AnalyticsPage() {
               <div className="lg:col-span-2">
                 <ActivityHeatmap heatmap={summary.weeklyHeatmap} />
               </div>
+            </section>
+
+            <section>
+              <GrowthTrendChart trends={trends} />
             </section>
 
             <section>

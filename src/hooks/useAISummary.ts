@@ -16,6 +16,10 @@ export interface UseAISummaryState {
   error: SummaryError | null;
   rateLimit: RateLimitState | null;
   period: SummaryPeriod;
+  /** 現在期間の振り返り件数 (GET 時に取得)。未取得時は null。 */
+  reflectionCount: number | null;
+  /** 分析実行に必要な最小件数 (サーバー定数を反映)。 */
+  minRequired: number | null;
   setPeriod: (period: SummaryPeriod) => void;
   analyze: () => Promise<void>;
 }
@@ -40,6 +44,8 @@ export function useAISummary(initialPeriod: SummaryPeriod = 'week'): UseAISummar
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<SummaryError | null>(null);
   const [rateLimit, setRateLimit] = useState<RateLimitState | null>(null);
+  const [reflectionCount, setReflectionCount] = useState<number | null>(null);
+  const [minRequired, setMinRequired] = useState<number | null>(null);
   const mountedRef = useRef(true);
   // fetchExisting は period 切替で連続発火するため、最後に開始したリクエスト ID
   // と一致するレスポンスのみ state に反映する。先に始まった古い period の
@@ -68,9 +74,19 @@ export function useAISummary(initialPeriod: SummaryPeriod = 'week'): UseAISummar
         setError(await parseError(response));
         return;
       }
-      const json = (await response.json()) as { summary: Summary | null };
+      const json = (await response.json()) as {
+        summary: Summary | null;
+        reflection_count?: number;
+        min_required?: number;
+      };
       if (!mountedRef.current || fetchId !== latestFetchIdRef.current) return;
       setSummary(json.summary);
+      if (typeof json.reflection_count === 'number') {
+        setReflectionCount(json.reflection_count);
+      }
+      if (typeof json.min_required === 'number') {
+        setMinRequired(json.min_required);
+      }
     } catch (err) {
       if (!mountedRef.current || fetchId !== latestFetchIdRef.current) return;
       setError({
@@ -88,6 +104,7 @@ export function useAISummary(initialPeriod: SummaryPeriod = 'week'): UseAISummar
     setSummary(null);
     setRateLimit(null);
     setError(null);
+    setReflectionCount(null);
     void fetchExisting(period);
   }, [period, fetchExisting]);
 
@@ -130,6 +147,10 @@ export function useAISummary(initialPeriod: SummaryPeriod = 'week'): UseAISummar
       if (!mountedRef.current) return;
       setSummary(json.summary);
       setRateLimit(json.rate_limit);
+      // 完了時の振り返り件数は確定値として反映 (再分析時に件数が増減している可能性がある)
+      if (typeof json.summary?.reflection_count === 'number') {
+        setReflectionCount(json.summary.reflection_count);
+      }
     } catch (err) {
       if (!mountedRef.current) return;
       setError({
@@ -148,6 +169,8 @@ export function useAISummary(initialPeriod: SummaryPeriod = 'week'): UseAISummar
     error,
     rateLimit,
     period,
+    reflectionCount,
+    minRequired,
     setPeriod,
     analyze,
   };

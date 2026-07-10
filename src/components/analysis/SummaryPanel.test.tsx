@@ -77,6 +77,50 @@ describe('SummaryPanel', () => {
     });
   });
 
+  it('振り返り件数が不足していたらボタンを無効化し理由を表示', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          summary: null,
+          reflection_count: 1,
+          min_required: 4,
+        }),
+        { status: 200 },
+      ),
+    );
+
+    render(<SummaryPanel />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('insufficient-notice')).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(/あと 3 件の振り返りが必要です/),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('analyze-button')).toBeDisabled();
+  });
+
+  it('振り返り件数が下限を満たしていればボタンが有効になる', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          summary: null,
+          reflection_count: 4,
+          min_required: 4,
+        }),
+        { status: 200 },
+      ),
+    );
+
+    render(<SummaryPanel />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/まだ生成されていません/)).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('insufficient-notice')).not.toBeInTheDocument();
+    expect(screen.getByTestId('analyze-button')).not.toBeDisabled();
+  });
+
   it('分析ボタンを押すと POST が呼ばれる', async () => {
     const fetchSpy = vi
       .spyOn(global, 'fetch')

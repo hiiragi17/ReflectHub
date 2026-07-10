@@ -1,38 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
 
-export async function POST(_request: NextRequest) {
+export async function POST() {
   try {
     const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            try {
-              cookieStore.set({ name, value, ...options });
-            } catch {
-              // Silent failure
-            }
-          },
-          remove(name: string, options: CookieOptions) {
-            try {
-              cookieStore.delete({ name, ...options });
-            } catch {
-              // Silent failure
-            }
-          },
-        },
-      }
-    );
+    // Cookie の読み書き (getAll / setAll) は共通の createClient に集約。
+    const supabase = await createClient();
 
-    // Supabase セッションをクリア
-    await supabase.auth.signOut();
+    // Supabase セッションをクリア。scope を省略するとデフォルトの 'global' に
+    // なり、全デバイスのリフレッシュトークンが失効してしまう (iOS では
+    // Safari と PWA が別セッションのため、片方のログアウトがもう片方を
+    // 巻き込む)。クライアント側 (authStore.signOut) と同じく 'local' に揃える。
+    await supabase.auth.signOut({ scope: 'local' });
 
     // レスポンスを作成してクッキーをクリア
     const response = NextResponse.json({ success: true });

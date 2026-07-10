@@ -1,0 +1,267 @@
+import { describe, it, expect } from 'vitest';
+import {
+  PreferencesUpdateSchema,
+  PushSubscribeSchema,
+  PushUnsubscribeSchema,
+  ProfileUpdateSchema,
+  SessionCreateSchema,
+  ErrorLogsBatchSchema,
+} from './schemas';
+
+describe('PreferencesUpdateSchema', () => {
+  it('accepts an empty patch', () => {
+    expect(PreferencesUpdateSchema.safeParse({}).success).toBe(true);
+  });
+
+  it('accepts a valid full payload', () => {
+    const result = PreferencesUpdateSchema.safeParse({
+      pwa_install_dismissed: true,
+      timezone: 'Asia/Tokyo',
+      notification_preferences: {
+        reminder_weekday: 3,
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts null reminder_weekday (OFF)', () => {
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_weekday: null },
+      }).success,
+    ).toBe(true);
+  });
+
+  it('accepts every weekday value 0..6', () => {
+    for (let d = 0; d <= 6; d += 1) {
+      expect(
+        PreferencesUpdateSchema.safeParse({
+          notification_preferences: { reminder_weekday: d },
+        }).success,
+      ).toBe(true);
+    }
+  });
+
+  it('rejects unknown top-level keys', () => {
+    expect(
+      PreferencesUpdateSchema.safeParse({ unknown_field: true }).success,
+    ).toBe(false);
+  });
+
+  it('rejects unknown notification_preferences keys', () => {
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { evil_field: true },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects out-of-range reminder_weekday', () => {
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_weekday: 7 },
+      }).success,
+    ).toBe(false);
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_weekday: -1 },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects non-integer reminder_weekday', () => {
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_weekday: 1.5 },
+      }).success,
+    ).toBe(false);
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_weekday: '1' },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('accepts every reminder_hour value 0..23', () => {
+    for (let h = 0; h <= 23; h += 1) {
+      expect(
+        PreferencesUpdateSchema.safeParse({
+          notification_preferences: { reminder_hour: h },
+        }).success,
+      ).toBe(true);
+    }
+  });
+
+  it('accepts reminder_weekday and reminder_hour together', () => {
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_weekday: 3, reminder_hour: 21 },
+      }).success,
+    ).toBe(true);
+  });
+
+  it('rejects out-of-range reminder_hour', () => {
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_hour: 24 },
+      }).success,
+    ).toBe(false);
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_hour: -1 },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects non-integer reminder_hour', () => {
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_hour: 11.5 },
+      }).success,
+    ).toBe(false);
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_hour: '11' },
+      }).success,
+    ).toBe(false);
+    expect(
+      PreferencesUpdateSchema.safeParse({
+        notification_preferences: { reminder_hour: null },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects non-boolean booleans', () => {
+    expect(
+      PreferencesUpdateSchema.safeParse({ pwa_install_dismissed: 'true' }).success,
+    ).toBe(false);
+  });
+
+  it('trims timezone string', () => {
+    const result = PreferencesUpdateSchema.parse({ timezone: '  Asia/Tokyo  ' });
+    expect(result.timezone).toBe('Asia/Tokyo');
+  });
+});
+
+describe('PushSubscribeSchema', () => {
+  const valid = {
+    endpoint: 'https://fcm.googleapis.com/wp/abc',
+    p256dh: 'ABCDEFGabc-_1234',
+    auth: 'XYZ_-abc12==',
+  };
+
+  it('accepts a valid payload', () => {
+    expect(PushSubscribeSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it('rejects http endpoint', () => {
+    expect(
+      PushSubscribeSchema.safeParse({ ...valid, endpoint: 'http://example.com/x' }).success,
+    ).toBe(false);
+  });
+
+  it('rejects internal endpoint', () => {
+    expect(
+      PushSubscribeSchema.safeParse({ ...valid, endpoint: 'https://localhost/x' }).success,
+    ).toBe(false);
+  });
+
+  it('rejects non-base64url auth', () => {
+    expect(
+      PushSubscribeSchema.safeParse({ ...valid, auth: 'has spaces!' }).success,
+    ).toBe(false);
+  });
+
+  it('rejects extra keys', () => {
+    expect(
+      PushSubscribeSchema.safeParse({ ...valid, evil: true }).success,
+    ).toBe(false);
+  });
+});
+
+describe('PushUnsubscribeSchema', () => {
+  it('accepts a valid endpoint', () => {
+    expect(
+      PushUnsubscribeSchema.safeParse({ endpoint: 'https://fcm.googleapis.com/wp/abc' }).success,
+    ).toBe(true);
+  });
+
+  it('rejects empty endpoint', () => {
+    expect(PushUnsubscribeSchema.safeParse({ endpoint: '' }).success).toBe(false);
+  });
+});
+
+describe('ProfileUpdateSchema', () => {
+  it('accepts a valid name', () => {
+    expect(ProfileUpdateSchema.safeParse({ name: '太郎' }).success).toBe(true);
+  });
+
+  it('trims and validates length', () => {
+    const result = ProfileUpdateSchema.parse({ name: '   太郎   ' });
+    expect(result.name).toBe('太郎');
+  });
+
+  it('rejects empty name after trim', () => {
+    expect(ProfileUpdateSchema.safeParse({ name: '   ' }).success).toBe(false);
+  });
+
+  it('rejects names over 100 chars', () => {
+    expect(
+      ProfileUpdateSchema.safeParse({ name: 'a'.repeat(101) }).success,
+    ).toBe(false);
+  });
+});
+
+describe('SessionCreateSchema', () => {
+  it('accepts valid tokens', () => {
+    expect(
+      SessionCreateSchema.safeParse({
+        access_token: 'aaa',
+        refresh_token: 'bbb',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('rejects missing tokens', () => {
+    expect(
+      SessionCreateSchema.safeParse({ access_token: 'aaa' }).success,
+    ).toBe(false);
+    expect(
+      SessionCreateSchema.safeParse({ access_token: '', refresh_token: 'b' }).success,
+    ).toBe(false);
+  });
+});
+
+describe('ErrorLogsBatchSchema', () => {
+  const validLog = {
+    id: 'l_1',
+    errorType: 'network',
+    message: 'failed',
+    severity: 'error',
+    createdAt: Date.now(),
+    context: { page: '/dashboard' },
+  };
+
+  it('accepts a valid batch', () => {
+    expect(
+      ErrorLogsBatchSchema.safeParse({ logs: [validLog], sessionId: 's' }).success,
+    ).toBe(true);
+  });
+
+  it('rejects empty logs array', () => {
+    expect(ErrorLogsBatchSchema.safeParse({ logs: [] }).success).toBe(false);
+  });
+
+  it('rejects too-large batches', () => {
+    const big = Array.from({ length: 51 }, () => validLog);
+    expect(ErrorLogsBatchSchema.safeParse({ logs: big }).success).toBe(false);
+  });
+
+  it('rejects entries missing required fields', () => {
+    expect(
+      ErrorLogsBatchSchema.safeParse({
+        logs: [{ ...validLog, id: undefined }],
+      }).success,
+    ).toBe(false);
+  });
+});
