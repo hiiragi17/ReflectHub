@@ -86,7 +86,8 @@ export async function POST(request: NextRequest) {
           // 既存プロフィールの名前がデフォルト値の場合のみ、Googleの名前で更新
           const currentName = existingProfile.name || '';
           const emailPrefix = data.session.user.email?.split('@')[0] || '';
-          const isDefaultName = currentName === 'Test User' ||
+          const isDefaultName = currentName === '' ||
+                               currentName === 'Test User' ||
                                currentName === 'ユーザー' ||
                                currentName === emailPrefix;
 
