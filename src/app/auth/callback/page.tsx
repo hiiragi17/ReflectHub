@@ -19,9 +19,11 @@ function isFreshlyIssuedSession(session: Session): boolean {
     const payload = JSON.parse(
       atob(b64.padEnd(Math.ceil(b64.length / 4) * 4, '='))
     ) as { iat?: unknown };
+    // 端末の時計は数分ずれていることがあるため、5 分まで許容する
+    // (古い残留セッションの排除には十分短い)。
     return (
       typeof payload.iat === 'number' &&
-      Math.abs(Date.now() / 1000 - payload.iat) <= 120
+      Math.abs(Date.now() / 1000 - payload.iat) <= 300
     );
   } catch {
     return false;

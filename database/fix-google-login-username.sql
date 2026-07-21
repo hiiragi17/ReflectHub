@@ -38,7 +38,10 @@ BEGIN
             NULLIF(split_part(COALESCE(NEW.email, ''), '@', 1), ''),
             'ユーザー'
         ), 100),
-        'google'
+        -- トリガーは全プロバイダの新規ユーザーで発火するため、provider は
+        -- raw_app_meta_data から動的に取得する (LINE ログイン追加時もそのまま
+        -- 動く)。取得できない場合は従来挙動と同じ 'google' にフォールバック。
+        COALESCE(NEW.raw_app_meta_data->>'provider', 'google')
     )
     -- アプリ側 (/api/auth/session, /api/auth/profile) が先に作成していても
     -- 衝突エラーで auth.users への INSERT ごと失敗しないようにする
