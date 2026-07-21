@@ -2,8 +2,31 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase/client';
 import { apiFetch } from '@/lib/api/apiClient';
+
+/**
+ * アクセストークンの発行時刻 (iat) が「たった今」かを判定する。
+ * コード交換失敗時のフォールバックで、このコールバック処理中に
+ * 自動交換で発行されたセッションだけを救済し、別アカウントの
+ * 残留セッションを誤ってログイン成功扱いしないために使う。
+ */
+function isFreshlyIssuedSession(session: Session): boolean {
+  try {
+    const b64url = session.access_token.split('.')[1] ?? '';
+    const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(
+      atob(b64.padEnd(Math.ceil(b64.length / 4) * 4, '='))
+    ) as { iat?: unknown };
+    return (
+      typeof payload.iat === 'number' &&
+      Math.abs(Date.now() / 1000 - payload.iat) <= 120
+    );
+  } catch {
+    return false;
+  }
+}
 
 export default function AuthCallback() {
   const router = useRouter();
@@ -24,9 +47,16 @@ export default function AuthCallback() {
           // 失敗する。セッション自体は確立しているため getSession() にフォール
           // バックし、後続の POST /api/auth/session (サーバー Cookie 確立と
           // プロフィール名の補正) を必ず実行する。
+          // ただし、期限切れリンクや別ブラウザで開いた場合など自動交換以外の
+          // 失敗では、getSession() が「以前のユーザー」の残留セッションを返し
+          // 得る。それを成功扱いするとアカウント切り替え失敗が旧アカウント
+          // 継続に化けるため、直近に発行されたセッションのみ救済する。
           if (exchangeError) {
             const { data: fallback } = await supabase.auth.getSession();
-            session = fallback.session;
+            session =
+              fallback.session && isFreshlyIssuedSession(fallback.session)
+                ? fallback.session
+                : null;
             if (!session) {
               console.error('コード交換エラー:', exchangeError);
               router.push('/auth?error=callback_error');
