@@ -17,23 +17,34 @@ export default function AuthCallback() {
 
         if (code) {
           const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          let session = sessionData?.session ?? null;
+
+          // createBrowserClient は detectSessionInUrl により URL の code を
+          // 自動交換することがあり、その場合ここでの手動交換は「code 使用済み」で
+          // 失敗する。セッション自体は確立しているため getSession() にフォール
+          // バックし、後続の POST /api/auth/session (サーバー Cookie 確立と
+          // プロフィール名の補正) を必ず実行する。
           if (exchangeError) {
-            console.error('コード交換エラー:', exchangeError);
-            router.push('/auth?error=callback_error');
-            return;
+            const { data: fallback } = await supabase.auth.getSession();
+            session = fallback.session;
+            if (!session) {
+              console.error('コード交換エラー:', exchangeError);
+              router.push('/auth?error=callback_error');
+              return;
+            }
           }
 
           // Googleから取得したユーザー情報をログ出力（開発環境のみ）
-          if (process.env.NODE_ENV === 'development' && sessionData.session?.user) {
-            console.log('Google user_metadata:', sessionData.session.user.user_metadata);
+          if (process.env.NODE_ENV === 'development' && session?.user) {
+            console.log('Google user_metadata:', session.user.user_metadata);
             console.log('User name from Google:',
-              sessionData.session.user.user_metadata?.full_name ||
-              sessionData.session.user.user_metadata?.name ||
+              session.user.user_metadata?.full_name ||
+              session.user.user_metadata?.name ||
               'No name found');
           }
 
           // サーバー側のセッションを設定
-          if (sessionData.session) {
+          if (session) {
             try {
               const response = await apiFetch('/api/auth/session', {
                 method: 'POST',
@@ -42,8 +53,8 @@ export default function AuthCallback() {
                 },
                 credentials: 'include',
                 body: JSON.stringify({
-                  access_token: sessionData.session.access_token,
-                  refresh_token: sessionData.session.refresh_token,
+                  access_token: session.access_token,
+                  refresh_token: session.refresh_token,
                 }),
               });
 
