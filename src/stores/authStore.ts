@@ -197,43 +197,30 @@ export const useAuthStore = create<AuthStore>()(
             const serverSession = await serverSessionResponse.json();
 
             if (serverSession.authenticated) {
-              try {
-                const profileResponse = await fetchWithTimeout(
-                  `/api/auth/profile/${serverSession.user.id}`,
-                  {
-                    method: "GET",
-                    credentials: "include",
-                  },
-                  30000
-                );
+              // /api/auth/verify がプロフィールも同梱して返すため、以前の
+              // ように /api/auth/profile/{id} を追加で叩く必要はない
+              // (verify → profile の 2 往復を 1 往復に短縮)。プロフィールが
+              // 取得できなかった場合は下の session.user 情報でフォールバック。
+              const serverProfile = serverSession.profile;
+              if (serverProfile) {
+                const user: User = {
+                  id: serverProfile.id,
+                  email: serverProfile.email,
+                  name: serverProfile.name,
+                  provider: serverProfile.provider,
+                  avatar_url: serverProfile.avatar_url,
+                  line_user_id: serverProfile.line_user_id,
+                  created_at: serverProfile.created_at,
+                  updated_at: serverProfile.updated_at,
+                };
 
-                if (profileResponse.ok) {
-                  const profileData = await profileResponse.json();
-
-                  if (profileData.profile) {
-                    const user: User = {
-                      id: profileData.profile.id,
-                      email: profileData.profile.email,
-                      name: profileData.profile.name,
-                      provider: profileData.profile.provider,
-                      avatar_url: profileData.profile.avatar_url,
-                      line_user_id: profileData.profile.line_user_id,
-                      created_at: profileData.profile.created_at,
-                      updated_at: profileData.profile.updated_at,
-                    };
-
-                    set({
-                      user,
-                      isAuthenticated: true,
-                      isLoading: false,
-                      error: null,
-                    });
-                    return;
-                  }
-                }
-              } catch (profileError) {
-                // Profile check error is non-critical
-                console.error("Profile fetch error:", profileError);
+                set({
+                  user,
+                  isAuthenticated: true,
+                  isLoading: false,
+                  error: null,
+                });
+                return;
               }
 
               const user: User = {

@@ -16,12 +16,25 @@ export async function GET() {
     }
 
     if (session?.user) {
+      // クライアントの初期化 (authStore.initialize) が verify に続けて
+      // /api/auth/profile/{id} を直列で叩いていた 2 往復を 1 往復に短縮する
+      // ため、ここでプロフィールも一緒に返す。プロフィールはログイン時
+      // (/api/auth/session POST) に作成済みで、RLS により自分の行のみ取得
+      // される。取得に失敗しても認証自体は成立しているので、profile は
+      // null で返し、クライアント側は session.user 情報でフォールバックする。
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
       return NextResponse.json({
         authenticated: true,
         user: {
           id: session.user.id,
           email: session.user.email,
-        }
+        },
+        profile: profile ?? null,
       });
     }
 
