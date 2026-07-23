@@ -70,7 +70,8 @@ describe("authStore - Loading State and Timeout Management", () => {
     );
 
     it("should set isLoading to false when fetch succeeds quickly", async () => {
-      // Mock successful response
+      // /api/auth/verify がプロフィールも同梱して返すため、初期化は 1 回の
+      // fetch で完結する (verify → profile の 2 往復ではない)。
       (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -79,13 +80,6 @@ describe("authStore - Loading State and Timeout Management", () => {
             id: "test-user-id",
             email: "test@example.com",
           },
-        }),
-      } as Response);
-
-      // Mock profile fetch
-      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
           profile: {
             id: "test-user-id",
             email: "test@example.com",
@@ -108,6 +102,9 @@ describe("authStore - Loading State and Timeout Management", () => {
       expect(state.isAuthenticated).toBe(true);
       expect(state.error).toBeNull();
       expect(state.user).toBeDefined();
+      expect(state.user?.name).toBe("Test User");
+      // 認証確認 1 回のみで完結していること (追加のプロフィール取得なし)
+      expect(global.fetch).toHaveBeenCalledTimes(1);
     });
 
     it("should handle network errors and set isLoading to false", async () => {
