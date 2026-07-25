@@ -48,6 +48,12 @@ begin
   if v_url !~ '^https://.+' then
     raise exception 'weekly-reminder-pg-cron.sql: v_url は絶対 https URL である必要があります (現在: %)', v_url;
   end if;
+  -- パスまで検証する。改名前の /api/cron/daily-reminder を貼ったまま実行しても
+  -- 「絶対 https URL」の条件は満たしてしまい、ジョブは正常に登録されたように見えて
+  -- 毎時 404 を返し続ける (静かな配信停止)。ここで弾いて気付けるようにする。
+  if v_url !~ '^https://[^/]+/api/cron/weekly-reminder/?$' then
+    raise exception 'weekly-reminder-pg-cron.sql: v_url のパスは /api/cron/weekly-reminder である必要があります (現在: %)', v_url;
+  end if;
 
   if exists (select 1 from vault.secrets where name = 'reminder_endpoint_url') then
     perform vault.update_secret(
