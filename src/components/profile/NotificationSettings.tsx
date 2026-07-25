@@ -35,7 +35,7 @@ function weekdayToValue(weekday: number | null | undefined): string {
   return String(weekday);
 }
 
-/** reminder_hour 未設定の既存ユーザー向けデフォルト (従来の固定配信時刻 JST 11:00)。 */
+/** 設定を読み込むまでの初期表示値 (JST 11:00)。 */
 const DEFAULT_HOUR_VALUE = String(DEFAULT_REMINDER_HOUR);
 
 const HOUR_OPTIONS: { value: string; label: string }[] = Array.from({ length: 24 }, (_, h) => ({
@@ -43,6 +43,7 @@ const HOUR_OPTIONS: { value: string; label: string }[] = Array.from({ length: 24
   label: `${h}:00`,
 }));
 
+/** レスポンスに配信時刻が含まれない場合 (設定未作成など) は初期表示値にフォールバックする。 */
 function hourToValue(hour: number | null | undefined): string {
   if (hour === null || hour === undefined) return DEFAULT_HOUR_VALUE;
   return String(hour);

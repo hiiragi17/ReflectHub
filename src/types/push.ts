@@ -20,9 +20,8 @@ export interface CreatePushSubscriptionRequest {
 }
 
 /**
- * reminder_hour が未設定 (キー無し) の場合のデフォルト配信時刻 (JST)。
- * 従来の固定配信時刻 (11:00) を踏襲する。設定作成時のデフォルトと
- * 配信判定のフォールバックの両方でこの値を使うこと。
+ * 設定を新規作成するときの既定の配信時刻 (JST)。
+ * 従来の固定配信時刻 (11:00) を踏襲する。
  */
 export const DEFAULT_REMINDER_HOUR = 11;
 
@@ -34,9 +33,10 @@ export interface NotificationPreferences {
   reminder_weekday: number | null;
   /**
    * リマインダーを配信する時刻 (JST、0〜23 時)。
-   * 既存行などキーが無い場合は 11 (従来の固定時刻) として扱う。
+   * カラムのデフォルトと notification-preferences-hour.sql の補完により
+   * 全行がこのキーを持つ前提。
    */
-  reminder_hour?: number;
+  reminder_hour: number;
 }
 
 export interface UserPreferences {

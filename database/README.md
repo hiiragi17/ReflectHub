@@ -98,8 +98,15 @@ Supabase の `pg_cron` は分ちょうどに起動するため、**追加コス�
 ### 注意
 
 - **実行順序**: 先に `notification-preferences-hour.sql` を流してから
-  pg_cron のスケジュールを更新すること (逆順でも既存行は
-  `reminder_hour` 未設定 = 11 時扱いになるため実害はないが、順守が安全)。
+  pg_cron のスケジュールを更新すること。
+- **`reminder_hour` は全行が持つ前提**: アプリ側は「キー無し = 11 時扱い」の
+  フォールバックを持たない (Phase 7 で削除済み)。`notification-preferences-hour.sql`
+  を流していない環境ではリマインダーが配信されないため、実行後に下記が 0 件で
+  あることを必ず確認する:
+  ```sql
+  select count(*) from public.user_preferences
+  where not (notification_preferences ? 'reminder_hour');
+  ```
 - 毎時起動になるが、設定時刻に一致しないユーザーがいない時間帯は
   対象 0 件で即終了するため、追加コストは無視できる。
 - 同日中の重複配信は従来どおり `last_notified_at` で防止される。
@@ -164,6 +171,33 @@ Supabase の `pg_cron` は分ちょうどに起動するため、**追加コス�
 - `notification_preferences` の**アンダースコア**キー `daily_reminder` は
   旧データモデルのレガシーキーで、今回のリネームとは無関係
   (`notification-preferences-weekday.sql` の migration がそのまま残っている)。
+
+---
+
+## Phase 7: `reminder_hour` のキー無しフォールバックを削除
+
+`notification-preferences-hour.sql` がカラムのデフォルトと既存行の補完を
+済ませているため、`notification_preferences` に `reminder_hour` を持たない行は
+存在しない。アプリ側に残っていた「キー無し = JST 11:00 扱い」の防御的な
+フォールバックを削除し、`reminder_hour` を必須として扱うようにした。
+
+- 配信対象の抽出クエリが `reminder_hour` の一致だけを見る単純な条件になった
+  (以前はキー無し行を拾うため `is.null` の行も毎時取得していた)
+- 型 (`NotificationPreferences.reminder_hour`) が optional から必須になった
+
+### 前提条件
+
+**`notification-preferences-hour.sql` を実行済みであること。** 未実行の環境では
+`reminder_hour` を持たない行がクエリに一致せず、リマインダーが配信されなくなる。
+下記が 0 件であることを確認する:
+
+```sql
+select count(*) from public.user_preferences
+where not (notification_preferences ? 'reminder_hour');
+```
+
+0 件でない場合は `notification-preferences-hour.sql` を流してから再確認する
+(ベキ等・再実行可、設定済みユーザーの値は上書きしない)。
 
 ---
 
