@@ -2,7 +2,7 @@
 --
 -- 背景:
 --   従来は Vercel Cron (`vercel.json` の `0 2 * * *`) から
---   /api/cron/daily-reminder を叩いていたが、Vercel Cron は起動時刻が
+--   /api/cron/weekly-reminder を叩いていたが、Vercel Cron は起動時刻が
 --   数十分ブレる (例: 11:00 予定が 11:22 起動) ため、ユーザーには
 --   "中途半端な時刻に通知が来る" ように見えていた。
 --
@@ -30,23 +30,23 @@ create extension if not exists pg_net;
 --
 --    下記 2 つの値は環境に合わせて置き換えてから実行すること:
 --      - reminder_endpoint_url: 本番の絶対 URL
---          例) https://reflecthub.app/api/cron/daily-reminder
+--          例) https://reflecthub.app/api/cron/weekly-reminder
 --      - cron_secret: Vercel に設定している CRON_SECRET と同じ値
 --
 --    既に同名のシークレットがある場合は値を更新する (ベキ等)。
 do $$
 declare
-  v_url text := 'https://YOUR-DOMAIN/api/cron/daily-reminder'; -- ★要置換
+  v_url text := 'https://YOUR-DOMAIN/api/cron/weekly-reminder'; -- ★要置換
   v_secret text := 'YOUR_CRON_SECRET';                          -- ★要置換
 begin
   -- プレースホルダのまま実行すると、認証も到達もできないジョブが静かに登録され
   -- 本番障害につながる。値が未置換なら fail-fast して気付けるようにする。
-  if v_url = 'https://YOUR-DOMAIN/api/cron/daily-reminder'
+  if v_url = 'https://YOUR-DOMAIN/api/cron/weekly-reminder'
      or v_secret = 'YOUR_CRON_SECRET' then
-    raise exception 'daily-reminder-pg-cron.sql: v_url / v_secret を実値に置換してから実行してください';
+    raise exception 'weekly-reminder-pg-cron.sql: v_url / v_secret を実値に置換してから実行してください';
   end if;
   if v_url !~ '^https://.+' then
-    raise exception 'daily-reminder-pg-cron.sql: v_url は絶対 https URL である必要があります (現在: %)', v_url;
+    raise exception 'weekly-reminder-pg-cron.sql: v_url は絶対 https URL である必要があります (現在: %)', v_url;
   end if;
 
   if exists (select 1 from vault.secrets where name = 'reminder_endpoint_url') then
@@ -68,21 +68,29 @@ begin
   end if;
 end $$;
 
--- 3) 既存の同名ジョブがあれば一旦解除してから登録し直す (ベキ等)。
+-- 3) 旧ジョブ名 'daily-reminder' で登録されているジョブを解除する。
+--    リマインダーは元から週次仕様だったが、名前だけ日次 (daily) の名残だったため
+--    'weekly-reminder' に改名した。改名前に本スクリプトを流した環境には旧名の
+--    ジョブが残っており、放置すると旧 URL (/api/cron/daily-reminder = 404) を
+--    叩き続けるので、ここで確実に解除する (旧ジョブが無ければ何もしない)。
 select cron.unschedule('daily-reminder')
 where exists (select 1 from cron.job where jobname = 'daily-reminder');
 
--- 4) 毎時 0 分ちょうどに /api/cron/daily-reminder を叩く。
+-- 4) 既存の同名ジョブがあれば一旦解除してから登録し直す (ベキ等)。
+select cron.unschedule('weekly-reminder')
+where exists (select 1 from cron.job where jobname = 'weekly-reminder');
+
+-- 5) 毎時 0 分ちょうどに /api/cron/weekly-reminder を叩く。
 --    どのユーザーへ配信するかは、アプリ側がユーザー設定の曜日・時刻 (JST) と
 --    突き合わせて判定する。
 --    エンドポイントは GET + Authorization: Bearer <CRON_SECRET> を要求するため
 --    net.http_get で Authorization ヘッダを付与する。
 --    URL / シークレットは Vault から復号して参照する。
 --    timeout_milliseconds は pg_net のデフォルト (2000ms) だと、コールドスタートや
---    購読者が多い場合に /api/cron/daily-reminder の処理が 2 秒を超えて DB 側が先に
+--    購読者が多い場合に /api/cron/weekly-reminder の処理が 2 秒を超えて DB 側が先に
 --    タイムアウトし、配信が中断・誤失敗扱いになる恐れがある。余裕を持って 30 秒にする。
 select cron.schedule(
-  'daily-reminder',
+  'weekly-reminder',
   '0 * * * *',
   $job$
   select net.http_get(

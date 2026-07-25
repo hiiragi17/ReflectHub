@@ -51,7 +51,7 @@ VAPID キーペアは `pnpm exec web-push generate-vapid-keys` で生成する
 
 ## Phase 4: 配信時刻の精度向上 (Vercel Cron → pg_cron)
 
-`daily-reminder-pg-cron.sql` を Supabase SQL Editor で実行する。
+`weekly-reminder-pg-cron.sql` を Supabase SQL Editor で実行する。
 
 ### 背景
 
@@ -62,12 +62,12 @@ Supabase の `pg_cron` は分ちょうどに起動するため、**追加コス�
 
 ### 実行手順
 
-1. `daily-reminder-pg-cron.sql` を開き、以下 2 箇所を環境に合わせて置換する:
+1. `weekly-reminder-pg-cron.sql` を開き、以下 2 箇所を環境に合わせて置換する:
    - `reminder_endpoint_url`: 本番の絶対 URL
-     (例 `https://reflecthub.app/api/cron/daily-reminder`)
+     (例 `https://reflecthub.app/api/cron/weekly-reminder`)
    - `cron_secret`: Vercel に設定している `CRON_SECRET` と同じ値
 2. Supabase SQL Editor に貼り付けて実行する (ベキ等・再実行可)。
-3. `select * from cron.job;` でジョブ `daily-reminder` が登録されたことを確認。
+3. `select * from cron.job;` でジョブ `weekly-reminder` が登録されたことを確認。
 4. 動作確認は `select * from cron.job_run_details order by start_time desc limit 10;`
    と `select * from net._http_response order by created desc limit 10;` で行う。
 
@@ -88,8 +88,8 @@ Supabase の `pg_cron` は分ちょうどに起動するため、**追加コス�
    - `notification_preferences` のデフォルトに `reminder_hour: 11` を追加
    - `reminder_hour` キーを持たない既存行へ 11 (従来の固定時刻 JST 11:00) を補完
    - 設定済みユーザーの値は上書きしない
-2. `daily-reminder-pg-cron.sql` (更新版)
-   - ジョブ `daily-reminder` のスケジュールを `0 2 * * *` (JST 11:00 の 1 日 1 回)
+2. `weekly-reminder-pg-cron.sql` (更新版)
+   - リマインダージョブのスケジュールを `0 2 * * *` (JST 11:00 の 1 日 1 回)
      から `0 * * * *` (毎時 0 分) に変更
    - どのユーザーに配信するかは、アプリ側 (`src/services/reminderService.ts`) が
      ユーザー設定の曜日 (`reminder_weekday`)・時刻 (`reminder_hour`、JST) と
@@ -103,6 +103,43 @@ Supabase の `pg_cron` は分ちょうどに起動するため、**追加コス�
 - 毎時起動になるが、設定時刻に一致しないユーザーがいない時間帯は
   対象 0 件で即終了するため、追加コストは無視できる。
 - 同日中の重複配信は従来どおり `last_notified_at` で防止される。
+
+---
+
+## Phase 6: リマインダーの命名を実態に合わせる (daily → weekly)
+
+リマインダーは元から「ユーザーが選んだ曜日・時刻に週 1 回」の週次仕様だが、
+エンドポイント名・pg_cron ジョブ名・SQL ファイル名が `daily-reminder` のままで
+実態とズレていたため、`weekly-reminder` に統一した。
+
+| 対象 | 旧 | 新 |
+| --- | --- | --- |
+| エンドポイント | `/api/cron/daily-reminder` | `/api/cron/weekly-reminder` |
+| pg_cron ジョブ名 | `daily-reminder` | `weekly-reminder` |
+| SQL ファイル | `daily-reminder-pg-cron.sql` | `weekly-reminder-pg-cron.sql` |
+
+### 反映手順
+
+1. コードをデプロイして新エンドポイント `/api/cron/weekly-reminder` を有効にする。
+2. `weekly-reminder-pg-cron.sql` の `v_url` を新パスに置換して Supabase SQL Editor
+   で実行する。Vault の `reminder_endpoint_url` が新 URL に更新され、旧ジョブ
+   `daily-reminder` が解除されて新ジョブ `weekly-reminder` が登録される。
+3. 確認:
+   - `select jobid, jobname, schedule, command from cron.job;`
+     → `weekly-reminder` があり `daily-reminder` が無いこと
+   - `select decrypted_secret from vault.decrypted_secrets where name = 'reminder_endpoint_url';`
+     → 新 URL であること
+   - 次の毎時 0 分の後、
+     `select * from cron.job_run_details order by start_time desc limit 5;` が成功していること
+
+### 注意
+
+- 手順 1 と 2 の間は、pg_cron が旧 URL を叩くため 404 になる。配信対象がいない
+  時間帯にまとめて実施すれば実害はない (毎時起動 + `last_notified_at` による
+  重複防止のため、その 1 時間に対象ユーザーが居なければ影響ゼロ)。
+- `notification_preferences` の**アンダースコア**キー `daily_reminder` は
+  旧データモデルのレガシーキーで、今回のリネームとは無関係
+  (`notification-preferences-weekday.sql` の migration がそのまま残っている)。
 
 ---
 

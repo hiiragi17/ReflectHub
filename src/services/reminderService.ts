@@ -7,7 +7,7 @@ import type { NotificationPreferences, PushSubscription } from '@/types/push';
  *
  * Supabase pg_cron から毎時 0 分に呼び出される前提。
  * (Vercel Cron は起動時刻が数十分ブレるため pg_cron に置き換えた。
- *  database/daily-reminder-pg-cron.sql を参照)
+ *  database/weekly-reminder-pg-cron.sql を参照)
  * - ユーザーが設定した配信曜日 (reminder_weekday) と配信時刻 (reminder_hour) が、
  *   JST での "今の曜日・時" と一致するユーザーを抽出
  * - 該当ユーザーの有効な push_subscriptions を「最後に通知を ON にした端末」
@@ -42,7 +42,7 @@ const DEFAULT_PAYLOAD: ReminderPayload = {
   title: 'ReflectHub - 振り返りの時間です',
   body: '今日の出来事を 1 つだけでも書き留めてみませんか？',
   url: '/reflection',
-  tag: 'reflecthub-daily-reminder',
+  tag: 'reflecthub-weekly-reminder',
 };
 
 export function buildReminderPayload(overrides: Partial<ReminderPayload> = {}): ReminderPayload {

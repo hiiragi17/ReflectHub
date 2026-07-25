@@ -8,10 +8,10 @@ import {
 import { sendPushToFirstAvailable } from '@/services/webPushSender';
 
 /**
- * GET /api/cron/daily-reminder
+ * GET /api/cron/weekly-reminder
  *
  * 定期実行スケジューラ (Supabase pg_cron) から毎時 0 分に呼び出されるエンドポイント。
- * スケジュール定義は database/daily-reminder-pg-cron.sql を参照。
+ * スケジュール定義は database/weekly-reminder-pg-cron.sql を参照。
  * - Authorization: Bearer ${CRON_SECRET} で認証
  * - ユーザーが設定した配信曜日・配信時刻 (JST) が現在と一致するユーザーを抽出
  *   → ユーザーごとに「最後に通知を ON にした端末」から順に
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
           } else {
             userFailed += 1;
             if (r.expired) expiredSubscriptionIds.push(r.subscriptionId);
-            console.error('[daily-reminder] push failed', {
+            console.error('[weekly-reminder] push failed', {
               subscriptionId: r.subscriptionId,
               statusCode: r.statusCode,
               error: r.error,
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
           try {
             await markUserNotified(target.userId, now);
           } catch (e) {
-            console.error('[daily-reminder] markUserNotified failed', {
+            console.error('[weekly-reminder] markUserNotified failed', {
               userId: target.userId,
               error: e instanceof Error ? e.message : String(e),
             });
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
         attempted += r.value.userAttempted;
       } else {
         failed += 1;
-        console.error('[daily-reminder] target processing failed', r.reason);
+        console.error('[weekly-reminder] target processing failed', r.reason);
       }
     }
 
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
       try {
         await deactivateSubscriptions(expiredSubscriptionIds);
       } catch (e) {
-        console.error('[daily-reminder] deactivateSubscriptions failed', e);
+        console.error('[weekly-reminder] deactivateSubscriptions failed', e);
       }
     }
 
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(body, { status: systemicFailure ? 500 : 200 });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'cron job failed';
-    console.error('[daily-reminder] cron failed', err);
+    console.error('[weekly-reminder] cron failed', err);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
