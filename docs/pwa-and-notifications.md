@@ -65,6 +65,85 @@ PWA を支えるのは主に次の 3 つです。
 
 Service Worker (`public/sw.js`) は、**ページを閉じていてもブラウザが管理する別スレッドで動く JavaScript** です。ネットワーク通信を横取りしたり、プッシュ通知を受け取ったりできる、PWA の心臓部です。ReflectHub では 2 つの役割を持っています。
 
+### そもそも Service Worker とは — W3C が定めた Web 標準
+
+Service Worker は「誰かが作った独自の仕組み」ではなく、**W3C が策定した公式の Web 標準 API** です。だから Chrome・Safari・Firefox など各ブラウザが共通で実装しています。
+
+理解のうえで大事なのは、**「スクリプトの中身は自分で書くが、それを Worker として動かすのはブラウザ」** という点です。
+
+| 担当 | 誰がやるか |
+| --- | --- |
+| SW の中身 (キャッシュ戦略・通知処理) を書く | **開発者** (`public/sw.js`) |
+| SW を起動・常駐・再起動し、イベントを発火する | **ブラウザ** |
+
+開発者は「こういう時にこう振る舞え」というルールブックを書いて `navigator.serviceWorker.register()` でブラウザに預けるだけ。いつ起こすか・どう常駐させるかはブラウザが管理します。だから通知はタブを閉じていても届きます。
+
+### 普通の Worker (Web Worker) との違い
+
+名前が似ていますが、目的も寿命も別物です。
+
+| 観点 | Web Worker (普通の Worker) | Service Worker |
+| --- | --- | --- |
+| 主な用途 | 重い計算を別スレッドで回す | 通信の横取り・キャッシュ・通知 |
+| 起動 | ページが `new Worker()` で生成 | ブラウザに登録して常駐させる |
+| 寿命 | ページを閉じると**死ぬ** | ページを閉じても**生きる** (必要時に起こされる) |
+| タブとの関係 | そのページ専用 (1 対 1) | 同一サイトの全タブで共有 (1 対多) |
+| 通信の横取り | できない | **できる** (`fetch` イベント) |
+| DOM 操作 | 不可 | 不可 |
+
+ReflectHub がオフライン対応と通知を両立できるのは、この「常駐性」と「通信横取り」という **Service Worker 固有の性質** のおかげです。Web Worker では実現できません (ページが消えれば Worker も消えるため)。
+
+### ライフサイクル: install → activate → 稼働
+
+SW には決まった一生があります。ReflectHub のコードで追ってみます。
+
+**① install — 事前準備**: オフライン起動に最低限必要なファイルを先読みキャッシュします。`event.waitUntil()` は「この Promise が終わるまで install を完了扱いにするな」という指示で、非同期処理は必ずこれで包みます (SW はイベント処理が終わると眠らされるため)。
+
+```js
+self.addEventListener('install', (event) => {
+  event.waitUntil((async () => {
+    const cache = await caches.open(STATIC_CACHE);
+    // 1 つの URL が 404 でも install 全体を落とさないよう個別に try/catch
+    await Promise.all(PRECACHE_URLS.map((url) => cache.add(url).catch(() => {})));
+    await self.skipWaiting();
+  })());
+});
+```
+
+**② activate — 掃除**: 古いバージョンのキャッシュを削除します。`CACHE_VERSION` を上げるとキャッシュ名が変わり、この掃除ロジックで旧版が消えます。**バージョン文字列を上げるだけでキャッシュを一新できる**設計です。
+
+**③ 稼働**: 有効化された SW は普段眠っていて、`fetch` / `push` / `notificationclick` などのイベントが来たときだけ起こされて処理します。
+
+### 更新の仕組み (SW 最大の難所)
+
+SW で一番ハマるのが「更新したのに反映されない」問題です。新しい `sw.js` を検出しても、ブラウザは古い SW がページを制御している間、新 SW を「待機状態 (waiting)」で控えさせ、デフォルトでは全タブを閉じるまで切り替えません。
+
+ReflectHub はこれを 2 つの仕掛けで即時反映しています。
+
+- **`skipWaiting()`** — 「待機列をスキップして今すぐ有効化しろ」
+- **`clients.claim()`** — 「有効化されたら、すでに開いているタブも即座に自分の制御下に置く」
+
+登録側 (`src/lib/sw/register.ts`) も、新バージョンを検出したら待機中の SW に `SKIP_WAITING` メッセージを送って更新を後押しします。
+
+```js
+// sw.js 側: メッセージを受けたら待機をスキップ
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+});
+```
+
+### 制約とつまずきポイント
+
+| 落とし穴 | ReflectHub での対策 |
+| --- | --- |
+| 更新が反映されない | `skipWaiting()` + `clients.claim()` + `SKIP_WAITING` メッセージ |
+| 非同期処理が途中で切れる | `event.waitUntil()` で必ず包む |
+| DOM を触れずエラー | SW は DOM 不可。ページとは `postMessage` で通信 |
+| HTTPS でしか動かない | 本番は https (開発は localhost が例外) |
+| 開発中に古い画面が出る | 開発環境では登録しない (`isProd` ガード) |
+
+以上を踏まえて、ReflectHub の SW が担う 2 つの役割を見ていきます。
+
 **役割 A: オフライン対応 (キャッシュ戦略)**
 
 `fetch` イベントで通信を横取りし、リクエストの種類ごとに戦略を変えています。
@@ -447,3 +526,31 @@ PWA と通知は、Service Worker という共通の土台でつながってい�
 | `src/services/webPushSender.ts` | web-push ラッパー (VAPID 設定・失効判定・フォールバック) |
 | `database/push-subscriptions-and-preferences.sql` | テーブル定義 (RLS・トリガー含む) |
 | `database/daily-reminder-pg-cron.sql` | pg_cron ジョブ定義 (Vault・pg_net) |
+
+## 参考文献
+
+Service Worker は W3C が策定した公式の Web 標準であり、本記事で扱った技術はいずれも標準仕様に基づいています。一次ソースと定番リファレンスを挙げます。
+
+**Service Worker / PWA の一次ソース**
+
+- W3C「Service Workers」仕様 — https://www.w3.org/TR/service-workers/
+- W3C 編集版 (最新の生ドラフト) — https://w3c.github.io/ServiceWorker/
+- MDN Web Docs: Service Worker API — https://developer.mozilla.org/ja/docs/Web/API/Service_Worker_API
+- MDN: Using Service Workers (実装チュートリアル) — https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API/Using_Service_Workers
+- W3C: Web App Manifest — https://www.w3.org/TR/appmanifest/
+- Fetch Standard (WHATWG) — https://fetch.spec.whatwg.org/
+
+**通知 (Web Push) 関連の一次ソース**
+
+- W3C: Push API — https://www.w3.org/TR/push-api/
+- Notifications API (WHATWG) — https://notifications.spec.whatwg.org/
+- RFC 8030: Generic Event Delivery Using HTTP Push — https://datatracker.ietf.org/doc/html/rfc8030
+- RFC 8291: Message Encryption for Web Push — https://datatracker.ietf.org/doc/html/rfc8291
+- RFC 8292: VAPID for Web Push — https://datatracker.ietf.org/doc/html/rfc8292
+
+**実務向けの解説・対応状況**
+
+- web.dev (Google): Service workers — https://web.dev/learn/pwa/service-workers/
+- Can I use: Service Workers (ブラウザ対応状況) — https://caniuse.com/serviceworkers
+
+> 補足: Service Worker は Chrome 40 (2015) で初搭載。Safari は iOS 11.3 (2018) で Service Worker に対応し、Web Push は iOS 16.4 (2023) でようやく対応した。本記事で「iOS では PWA インストールが通知の必須条件」としているのは、この Safari の対応事情が背景にある。
