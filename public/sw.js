@@ -25,14 +25,6 @@ const DEFAULT_TITLE = 'ReflectHub';
 const DEFAULT_BODY = '今日の振り返りを記録しましょう。';
 const DEFAULT_ICON = '/favicon.ico';
 
-// リマインダー通知の現行 tag と、改名前に使っていた旧 tag。
-// tag が変わると showNotification は既存通知を「置換」せず別通知として追加する
-// ため、旧 tag の通知が未読で残っているユーザーには 2 件並んで表示されてしまう。
-// 新しいリマインダーを出す前に旧 tag の通知を閉じて、置換相当の挙動を保つ。
-// 全ユーザーの端末から旧 tag の通知が消えたら、この移行処理は削除してよい。
-const REMINDER_TAG = 'reflecthub-weekly-reminder';
-const LEGACY_REMINDER_TAGS = ['reflecthub-daily-reminder'];
-
 // インストール時に確実にプリキャッシュしておきたい最小セット。
 // オフライン時にもアプリシェルが起動できる程度の URL に絞っている。
 const PRECACHE_URLS = [
@@ -220,21 +212,7 @@ self.addEventListener('push', (event) => {
     renotify: false,
   };
 
-  // リマインダーを表示する場合のみ、旧 tag で残っている通知を閉じてから出す。
-  // (getNotifications が使えない環境でも通知表示自体は落とさない)
-  const showReminder =
-    options.tag === REMINDER_TAG && typeof self.registration.getNotifications === 'function'
-      ? self.registration
-          .getNotifications()
-          .then((notifications) => {
-            for (const notification of notifications) {
-              if (LEGACY_REMINDER_TAGS.includes(notification.tag)) notification.close();
-            }
-          })
-          .catch(() => {})
-      : Promise.resolve();
-
-  event.waitUntil(showReminder.then(() => self.registration.showNotification(title, options)));
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 // 通知クリックで該当 URL を開く (既に開いていればフォーカス)。
