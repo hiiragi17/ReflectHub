@@ -140,9 +140,27 @@ Supabase の `pg_cron` は分ちょうどに起動するため、**追加コス�
 
 ### 注意
 
-- 手順 1 と 2 の間は、pg_cron が旧 URL を叩くため 404 になる。配信対象がいない
-  時間帯にまとめて実施すれば実害はない (毎時起動 + `last_notified_at` による
-  重複防止のため、その 1 時間に対象ユーザーが居なければ影響ゼロ)。
+- **手順 1 と 2 の間は、pg_cron が旧 URL を叩くため 404 になる。** この間に毎時 0 分を
+  またぐと、その時刻に配信予定だったユーザーはその週のリマインダーを取りこぼす
+  (`last_notified_at` は重複配信を防ぐだけで、取りこぼしは救済しない。週次配信
+  なので次の機会は 1 週間後)。対応は次のどちらかを選ぶ:
+  - **案 A (推奨・シンプル)**: 配信対象がいない時間帯に手順 1〜2 をまとめて実施する。
+    毎時起動なので空振りの 404 が 1 回発生するだけで、その 1 時間に対象ユーザーが
+    居なければ影響ゼロ。事前に対象の有無を確認する場合:
+    ```sql
+    -- JST の「次の毎時 0 分」に配信対象がいるか (0 なら安全に切り替えられる)
+    -- reminder_weekday が null (通知 OFF) の行は ->> が NULL を返すため自然に除外される。
+    -- reminder_hour 未設定の既存行はアプリと同じくデフォルト 11 時として扱う。
+    with next_tick as (
+      select date_trunc('hour', (now() at time zone 'Asia/Tokyo') + interval '1 hour') as t
+    )
+    select count(*) from public.user_preferences, next_tick
+    where notification_preferences->>'reminder_weekday' = extract(dow from t)::text
+      and coalesce(notification_preferences->>'reminder_hour', '11') = extract(hour from t)::text;
+    ```
+  - **案 B (無停止)**: 旧パス `/api/cron/daily-reminder` に新ハンドラを再エクスポート
+    する互換ルートを一時的に用意してからデプロイし、手順 2〜3 の稼働確認まで終えた
+    のちに互換ルートを削除する 2 段階デプロイ。空白はゼロになるが follow-up PR が要る。
 - `notification_preferences` の**アンダースコア**キー `daily_reminder` は
   旧データモデルのレガシーキーで、今回のリネームとは無関係
   (`notification-preferences-weekday.sql` の migration がそのまま残っている)。
