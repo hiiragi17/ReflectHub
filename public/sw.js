@@ -9,7 +9,7 @@
  * - API (`/api/*`) と Supabase などの外部 POST は常にネットワーク経由
  *   (オプトインしないとキャッシュしない) としている。
  * - Web Push 通知 (`push` / `notificationclick`) を受信し、
- *   日次リマインダー等のペイロードをユーザーに表示する。
+ *   週次リマインダー等のペイロードをユーザーに表示する。
  *
  * バージョン更新時は `CACHE_VERSION` を上げる。古いキャッシュは activate で
  * 削除される。
@@ -24,6 +24,14 @@ const HTML_CACHE = `${CACHE_PREFIX}html-${CACHE_VERSION}`;
 const DEFAULT_TITLE = 'ReflectHub';
 const DEFAULT_BODY = '今日の振り返りを記録しましょう。';
 const DEFAULT_ICON = '/favicon.ico';
+
+// リマインダー通知の現行 tag と、改名前に使っていた旧 tag。
+// tag が変わると showNotification は既存通知を「置換」せず別通知として追加する
+// ため、旧 tag の通知が未読で残っているユーザーには 2 件並んで表示されてしまう。
+// 新しいリマインダーを出す前に旧 tag の通知を閉じて、置換相当の挙動を保つ。
+// 全ユーザーの端末から旧 tag の通知が消えたら、この移行処理は削除してよい。
+const REMINDER_TAG = 'reflecthub-weekly-reminder';
+const LEGACY_REMINDER_TAGS = ['reflecthub-daily-reminder'];
 
 // インストール時に確実にプリキャッシュしておきたい最小セット。
 // オフライン時にもアプリシェルが起動できる程度の URL に絞っている。
@@ -212,7 +220,21 @@ self.addEventListener('push', (event) => {
     renotify: false,
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  // リマインダーを表示する場合のみ、旧 tag で残っている通知を閉じてから出す。
+  // (getNotifications が使えない環境でも通知表示自体は落とさない)
+  const showReminder =
+    options.tag === REMINDER_TAG && typeof self.registration.getNotifications === 'function'
+      ? self.registration
+          .getNotifications()
+          .then((notifications) => {
+            for (const notification of notifications) {
+              if (LEGACY_REMINDER_TAGS.includes(notification.tag)) notification.close();
+            }
+          })
+          .catch(() => {})
+      : Promise.resolve();
+
+  event.waitUntil(showReminder.then(() => self.registration.showNotification(title, options)));
 });
 
 // 通知クリックで該当 URL を開く (既に開いていればフォーカス)。

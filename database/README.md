@@ -121,8 +121,14 @@ Supabase の `pg_cron` は分ちょうどに起動するため、**追加コス�
 ### 反映手順
 
 1. コードをデプロイして新エンドポイント `/api/cron/weekly-reminder` を有効にする。
-2. `weekly-reminder-pg-cron.sql` の `v_url` を新パスに置換して Supabase SQL Editor
-   で実行する。Vault の `reminder_endpoint_url` が新 URL に更新され、旧ジョブ
+2. `weekly-reminder-pg-cron.sql` の `v_url` **と** `v_secret` を実値に置換して
+   Supabase SQL Editor で実行する。
+   - `v_url`: 新パスの絶対 URL (例 `https://reflecthub.app/api/cron/weekly-reminder`)
+   - `v_secret`: Vercel に設定している `CRON_SECRET` と同じ値。
+     **Vault に `cron_secret` が既にある場合でも置換は必須** — スクリプトは
+     プレースホルダのままだと fail-fast で例外を投げて全体が中断し、Vault の
+     URL 更新もジョブの入れ替えも行われない (旧 URL を叩き続けて 404 になる)。
+   実行すると Vault の `reminder_endpoint_url` が新 URL に更新され、旧ジョブ
    `daily-reminder` が解除されて新ジョブ `weekly-reminder` が登録される。
 3. 確認:
    - `select jobid, jobname, schedule, command from cron.job;`
