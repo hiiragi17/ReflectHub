@@ -128,7 +128,7 @@ describe('middleware CSRF enforcement', () => {
 
   it('exempts /api/cron/*', async () => {
     const res = await middleware(
-      makeRequest({ pathname: '/api/cron/daily-reminder', method: 'POST' }),
+      makeRequest({ pathname: '/api/cron/weekly-reminder', method: 'POST' }),
     );
     expect(res.status).not.toBe(403);
   });
@@ -151,7 +151,7 @@ describe('middleware session-redirect exemptions', () => {
 
   it('does not redirect unauthenticated GET /api/cron/* to /auth', async () => {
     const res = await middleware(
-      makeRequest({ pathname: '/api/cron/daily-reminder', method: 'GET' }),
+      makeRequest({ pathname: '/api/cron/weekly-reminder', method: 'GET' }),
     );
     expect(isRedirectStatus(res.status)).toBe(false);
     expect(res.status).toBeLessThan(400);

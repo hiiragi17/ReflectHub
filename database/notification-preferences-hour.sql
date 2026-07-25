@@ -5,7 +5,7 @@
 --
 -- reminder_hour は JST の「時」(0〜23)。配信ジョブ (pg_cron) は毎時起動し、
 -- アプリ側が「JST での今の曜日・時」とユーザー設定を突き合わせて配信対象を決める
--- (daily-reminder-pg-cron.sql / src/services/reminderService.ts を参照)。
+-- (weekly-reminder-pg-cron.sql / src/services/reminderService.ts を参照)。
 --
 -- 既存ユーザーは従来の固定配信時刻 (11 時) で初期化するため、通知の挙動は変わらない。
 -- このスクリプトはベキ等 (再実行可能)。

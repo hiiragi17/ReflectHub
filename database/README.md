@@ -51,7 +51,7 @@ VAPID キーペアは `pnpm exec web-push generate-vapid-keys` で生成する
 
 ## Phase 4: 配信時刻の精度向上 (Vercel Cron → pg_cron)
 
-`daily-reminder-pg-cron.sql` を Supabase SQL Editor で実行する。
+`weekly-reminder-pg-cron.sql` を Supabase SQL Editor で実行する。
 
 ### 背景
 
@@ -62,12 +62,12 @@ Supabase の `pg_cron` は分ちょうどに起動するため、**追加コス�
 
 ### 実行手順
 
-1. `daily-reminder-pg-cron.sql` を開き、以下 2 箇所を環境に合わせて置換する:
+1. `weekly-reminder-pg-cron.sql` を開き、以下 2 箇所を環境に合わせて置換する:
    - `reminder_endpoint_url`: 本番の絶対 URL
-     (例 `https://reflecthub.app/api/cron/daily-reminder`)
+     (例 `https://reflecthub.app/api/cron/weekly-reminder`)
    - `cron_secret`: Vercel に設定している `CRON_SECRET` と同じ値
 2. Supabase SQL Editor に貼り付けて実行する (ベキ等・再実行可)。
-3. `select * from cron.job;` でジョブ `daily-reminder` が登録されたことを確認。
+3. `select * from cron.job;` でジョブ `weekly-reminder` が登録されたことを確認。
 4. 動作確認は `select * from cron.job_run_details order by start_time desc limit 10;`
    と `select * from net._http_response order by created desc limit 10;` で行う。
 
@@ -88,8 +88,8 @@ Supabase の `pg_cron` は分ちょうどに起動するため、**追加コス�
    - `notification_preferences` のデフォルトに `reminder_hour: 11` を追加
    - `reminder_hour` キーを持たない既存行へ 11 (従来の固定時刻 JST 11:00) を補完
    - 設定済みユーザーの値は上書きしない
-2. `daily-reminder-pg-cron.sql` (更新版)
-   - ジョブ `daily-reminder` のスケジュールを `0 2 * * *` (JST 11:00 の 1 日 1 回)
+2. `weekly-reminder-pg-cron.sql` (更新版)
+   - リマインダージョブのスケジュールを `0 2 * * *` (JST 11:00 の 1 日 1 回)
      から `0 * * * *` (毎時 0 分) に変更
    - どのユーザーに配信するかは、アプリ側 (`src/services/reminderService.ts`) が
      ユーザー設定の曜日 (`reminder_weekday`)・時刻 (`reminder_hour`、JST) と
@@ -98,11 +98,106 @@ Supabase の `pg_cron` は分ちょうどに起動するため、**追加コス�
 ### 注意
 
 - **実行順序**: 先に `notification-preferences-hour.sql` を流してから
-  pg_cron のスケジュールを更新すること (逆順でも既存行は
-  `reminder_hour` 未設定 = 11 時扱いになるため実害はないが、順守が安全)。
+  pg_cron のスケジュールを更新すること。
+- **`reminder_hour` は全行が持つ前提**: アプリ側は「キー無し = 11 時扱い」の
+  フォールバックを持たない (Phase 7 で削除済み)。`notification-preferences-hour.sql`
+  を流していない環境ではリマインダーが配信されないため、実行後に下記が 0 件で
+  あることを必ず確認する:
+  ```sql
+  select count(*) from public.user_preferences
+  where not (notification_preferences ? 'reminder_hour');
+  ```
 - 毎時起動になるが、設定時刻に一致しないユーザーがいない時間帯は
   対象 0 件で即終了するため、追加コストは無視できる。
 - 同日中の重複配信は従来どおり `last_notified_at` で防止される。
+
+---
+
+## Phase 6: リマインダーの命名を実態に合わせる (daily → weekly)
+
+リマインダーは元から「ユーザーが選んだ曜日・時刻に週 1 回」の週次仕様だが、
+エンドポイント名・pg_cron ジョブ名・SQL ファイル名が `daily-reminder` のままで
+実態とズレていたため、`weekly-reminder` に統一した。
+
+| 対象 | 旧 | 新 |
+| --- | --- | --- |
+| エンドポイント | `/api/cron/daily-reminder` | `/api/cron/weekly-reminder` |
+| pg_cron ジョブ名 | `daily-reminder` | `weekly-reminder` |
+| SQL ファイル | `daily-reminder-pg-cron.sql` | `weekly-reminder-pg-cron.sql` |
+
+### 反映手順
+
+1. コードをデプロイして新エンドポイント `/api/cron/weekly-reminder` を有効にする。
+2. `weekly-reminder-pg-cron.sql` の `v_url` **と** `v_secret` を実値に置換して
+   Supabase SQL Editor で実行する。
+   - `v_url`: 新パスの絶対 URL (例 `https://reflecthub.app/api/cron/weekly-reminder`)
+   - `v_secret`: Vercel に設定している `CRON_SECRET` と同じ値。
+     **Vault に `cron_secret` が既にある場合でも置換は必須** — スクリプトは
+     プレースホルダのままだと fail-fast で例外を投げて全体が中断し、Vault の
+     URL 更新もジョブの入れ替えも行われない (旧 URL を叩き続けて 404 になる)。
+   実行すると Vault の `reminder_endpoint_url` が新 URL に更新され、旧ジョブ
+   `daily-reminder` が解除されて新ジョブ `weekly-reminder` が登録される。
+3. 確認:
+   - `select jobid, jobname, schedule, command from cron.job;`
+     → `weekly-reminder` があり `daily-reminder` が無いこと
+   - `select decrypted_secret from vault.decrypted_secrets where name = 'reminder_endpoint_url';`
+     → 新 URL であること
+   - 次の毎時 0 分の後、
+     `select * from cron.job_run_details order by start_time desc limit 5;` が成功していること
+
+### 注意
+
+- **手順 1 と 2 の間は、pg_cron が旧 URL を叩くため 404 になる。** この間に毎時 0 分を
+  またぐと、その時刻に配信予定だったユーザーはその週のリマインダーを取りこぼす
+  (`last_notified_at` は重複配信を防ぐだけで、取りこぼしは救済しない。週次配信
+  なので次の機会は 1 週間後)。対応は次のどちらかを選ぶ:
+  - **案 A (推奨・シンプル)**: 配信対象がいない時間帯に手順 1〜2 をまとめて実施する。
+    毎時起動なので空振りの 404 が 1 回発生するだけで、その 1 時間に対象ユーザーが
+    居なければ影響ゼロ。事前に対象の有無を確認する場合:
+    ```sql
+    -- JST の「次の毎時 0 分」に配信対象がいるか (0 なら安全に切り替えられる)
+    -- reminder_weekday が null (通知 OFF) の行は ->> が NULL を返すため自然に除外される。
+    -- reminder_hour 未設定の既存行はアプリと同じくデフォルト 11 時として扱う。
+    with next_tick as (
+      select date_trunc('hour', (now() at time zone 'Asia/Tokyo') + interval '1 hour') as t
+    )
+    select count(*) from public.user_preferences, next_tick
+    where notification_preferences->>'reminder_weekday' = extract(dow from t)::text
+      and coalesce(notification_preferences->>'reminder_hour', '11') = extract(hour from t)::text;
+    ```
+  - **案 B (無停止)**: 旧パス `/api/cron/daily-reminder` に新ハンドラを再エクスポート
+    する互換ルートを一時的に用意してからデプロイし、手順 2〜3 の稼働確認まで終えた
+    のちに互換ルートを削除する 2 段階デプロイ。空白はゼロになるが follow-up PR が要る。
+- `notification_preferences` の**アンダースコア**キー `daily_reminder` は
+  旧データモデルのレガシーキーで、今回のリネームとは無関係
+  (`notification-preferences-weekday.sql` の migration がそのまま残っている)。
+
+---
+
+## Phase 7: `reminder_hour` のキー無しフォールバックを削除
+
+`notification-preferences-hour.sql` がカラムのデフォルトと既存行の補完を
+済ませているため、`notification_preferences` に `reminder_hour` を持たない行は
+存在しない。アプリ側に残っていた「キー無し = JST 11:00 扱い」の防御的な
+フォールバックを削除し、`reminder_hour` を必須として扱うようにした。
+
+- 配信対象の抽出クエリが `reminder_hour` の一致だけを見る単純な条件になった
+  (以前はキー無し行を拾うため `is.null` の行も毎時取得していた)
+- 型 (`NotificationPreferences.reminder_hour`) が optional から必須になった
+
+### 前提条件
+
+**`notification-preferences-hour.sql` を実行済みであること。** 未実行の環境では
+`reminder_hour` を持たない行がクエリに一致せず、リマインダーが配信されなくなる。
+下記が 0 件であることを確認する:
+
+```sql
+select count(*) from public.user_preferences
+where not (notification_preferences ? 'reminder_hour');
+```
+
+0 件でない場合は `notification-preferences-hour.sql` を流してから再確認する
+(ベキ等・再実行可、設定済みユーザーの値は上書きしない)。
 
 ---
 

@@ -133,7 +133,7 @@ describe('reminderService', () => {
           {
             user_id: 'u1',
             timezone: 'Asia/Tokyo',
-            notification_preferences: { reminder_weekday: weekday },
+            notification_preferences: { reminder_weekday: weekday, reminder_hour: 11 },
             last_notified_at: null,
           },
         ],
@@ -234,8 +234,10 @@ describe('reminderService', () => {
       expect(targets).toHaveLength(0);
     });
 
-    it('treats missing reminder_hour as the legacy default (JST 11:00)', async () => {
-      // 既存ユーザー (reminder_hour キー無し) は 11 時扱いになる。
+    it('drops rows without reminder_hour instead of assuming a default hour', async () => {
+      // reminder_hour は notification-preferences-hour.sql が全行へ補完済みの前提。
+      // キー無しの行を「11 時扱い」にフォールバックすると、設定していない時刻に
+      // 誤配信し得るため、対象外として扱う (migration 未適用は運用側で検知する)。
       mockTables(
         [
           {
@@ -248,15 +250,9 @@ describe('reminderService', () => {
         [subscriptionFor('u1')],
       );
 
-      // JST 11:00 → 配信対象
-      const { targets: at11 } = await getReminderTargets(now);
-      expect(at11).toHaveLength(1);
-      expect(at11[0].reminderHour).toBe(11);
-
-      // JST 12:00 → 対象外
-      const noonJst = new Date('2026-07-03T03:00:00Z');
-      const { targets: at12 } = await getReminderTargets(noonJst);
-      expect(at12).toHaveLength(0);
+      // 旧デフォルトと同じ JST 11:00 でも配信対象にならない。
+      const { targets } = await getReminderTargets(now);
+      expect(targets).toHaveLength(0);
     });
   });
 

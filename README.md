@@ -33,9 +33,26 @@ ReflectHubは、週次の振り返りを簡単に記録・管理できるWebア�
 - ユーザー名の表示・編集
 - ダッシュボードからの設定画面遷移
 
+### 📱 PWA（ホーム画面へのインストール）
+- Web App Manifest によるスタンドアロン起動（ホーム画面/アプリ一覧から起動可能）
+- Service Worker によるオフライン対応
+  - 静的アセットは Stale-While-Revalidate でキャッシュ
+  - HTML ナビゲーションは Network-First（オフライン時のみキャッシュへフォールバック）
+  - API・外部 POST は常にネットワーク経由
+- インストール導線（`beforeinstallprompt` を利用したインストールプロンプト）
+
+### 🔔 週次リマインダー通知
+- Web Push による振り返りリマインダー
+- プロフィールの通知設定から、**配信曜日（日〜土 / OFF）と配信時刻（0:00〜23:00、日本時間）** を選択
+- 複数端末で通知を ON にしている場合は「最後に ON にした端末」1 台にのみ配信
+  （購読が失効していた場合は次の端末へフォールバック）
+- 同日中の重複通知を防止（`last_notified_at`）
+- 配信基盤は Supabase pg_cron + pg_net が毎時 0 分に
+  `/api/cron/weekly-reminder` を起動し、対象ユーザーの判定はアプリ側で行う
+  （セットアップ手順は [`database/README.md`](./database/README.md) を参照）
+
 ## 今後追加予定の機能
 
-- PWA
 - AIによる分析
 
 ## 技術スタック
@@ -50,6 +67,11 @@ ReflectHubは、週次の振り返りを簡単に記録・管理できるWebア�
 ### バックエンド
 - **Supabase** - 認証・データベース
 - **Next.js API Routes** - サーバーサイドAPI
+- **Supabase pg_cron / pg_net** - リマインダー配信のスケジューラ（毎時 0 分に起動）
+
+### PWA / 通知
+- **Web App Manifest + Service Worker** - インストール対応・オフラインキャッシュ
+- **Web Push (VAPID)** - 週次リマインダーの配信
 
 ## テスト
 
@@ -64,6 +86,9 @@ ReflectHubは、週次の振り返りを簡単に記録・管理できるWebア�
 src/
 ├── app/                    # Next.js App Router
 │   ├── api/               # APIルート
+│   │   ├── cron/          # リマインダー配信 (weekly-reminder)
+│   │   ├── preferences/   # 通知設定 (配信曜日・時刻)
+│   │   └── push/          # プッシュ購読の登録・解除
 │   ├── auth/              # 認証ページ
 │   ├── dashboard/         # ダッシュボード
 │   ├── history/           # 履歴ページ
@@ -71,17 +96,26 @@ src/
 │   └── reflection/        # 振り返り作成・編集
 ├── components/            # Reactコンポーネント
 │   ├── auth/             # 認証関連
+│   ├── common/           # 共通 (インストールプロンプト等)
 │   ├── layout/           # レイアウト
-│   ├── profile/          # プロフィール
+│   ├── profile/          # プロフィール・通知設定
 │   ├── reflection/       # 振り返り
 │   ├── providers/        # コンテキストプロバイダー
 │   └── ui/               # shadcn/uiコンポーネント
 ├── hooks/                # カスタムフック
 ├── lib/                  # ユーティリティ
-├── services/             # ビジネスロジック
+│   ├── push/             # プッシュ購読・設定バリデーション
+│   └── sw/               # Service Worker 登録
+├── services/             # ビジネスロジック (リマインダー配信判定・Web Push 送信)
 ├── stores/               # Zustand ストア
 ├── types/                # TypeScript型定義
 └── utils/                # ヘルパー関数
+
+public/
+├── manifest.json          # Web App Manifest
+└── sw.js                  # Service Worker (キャッシュ + プッシュ通知)
+
+database/                  # Supabase マイグレーション SQL (手順は database/README.md)
 ```
 
 ## コーディング規約
@@ -110,3 +144,4 @@ src/
 ### プロフィール (`/profile`)
 - ユーザー名の表示・編集
 - アカウント情報の確認
+- 通知設定：リマインダーの配信曜日（日〜土 / OFF）と配信時刻（0:00〜23:00、日本時間）の選択
