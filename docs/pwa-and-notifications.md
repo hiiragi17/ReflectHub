@@ -57,7 +57,7 @@ PWA を支えるのは主に次の 3 つです。
 
 - **`display: "standalone"`** — これが「アプリらしさ」の核。ブラウザの UI (アドレスバー・タブ) を消して、独立したアプリウィンドウとして起動します。
 - **`icons` の `maskable`** — Android の丸型・角丸などデバイスごとのアイコン形状に切り抜かれても崩れない専用アイコン。ReflectHub は `icon-maskable-512.png` を別に用意しています。
-- **`shortcuts`** — アイコン長押しで出るクイックメニュー (「新しい振り返り」「ダッシュボード」)。
+- **`shortcuts`** — アイコン長押しで出るクイックメニュー (「新しい振り返り」「ダッシュボード」)。ただし **iOS は `shortcuts` 非対応** で、Android / デスクトップ Chrome 向けの機能です。
 
 この manifest は `src/app/layout.tsx` の `manifest: "/manifest.json"` で `<head>` に登録されます。
 
@@ -88,7 +88,7 @@ Service Worker は「誰かが作った独自の仕組み」ではなく、**W3C
 | 起動 | ページが `new Worker()` で生成 | ブラウザに登録して常駐させる |
 | 寿命 | ページを閉じると**死ぬ** | ページを閉じても**生きる** (必要時に起こされる) |
 | タブとの関係 | そのページ専用 (1 対 1) | 同一サイトの全タブで共有 (1 対多) |
-| 通信の横取り | できない | **できる** (`fetch` イベント) |
+| 他リクエストの傍受 | できない (自分が `fetch()` を呼ぶのは可) | **できる** (`fetch` イベントでページの通信を横取り) |
 | DOM 操作 | 不可 | 不可 |
 
 ReflectHub がオフライン対応と通知を両立できるのは、この「常駐性」と「通信横取り」という **Service Worker 固有の性質** のおかげです。Web Worker では実現できません (ページが消えれば Worker も消えるため)。
@@ -131,6 +131,8 @@ self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
 ```
+
+> トレードオフ: 即時反映には代償があります。Next.js では、開いているタブが**旧ビルドの JS チャンク**を取りに行っている最中に新 SW が制御を奪うと、`ChunkLoadError` が起きることがあります。ReflectHub は HTML を Network-First にし API をキャッシュしない構成なので影響は限定的ですが、「`skipWaiting()` + `clients.claim()` はタダではない」点は意識しておくべきです。
 
 ### 制約とつまずきポイント
 
@@ -181,7 +183,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 // ユーザーがボタンを押したら → deferredPrompt.prompt()
 ```
 
-**iOS / iPadOS (Safari) の場合**
+**iOS / iPadOS の場合** (Safari に限らず iOS 上の全ブラウザ = WebKit)
 
 `beforeinstallprompt` が**そもそも来ません**。iOS は JS からインストールを起動できず、ユーザーが手動で「共有ボタン → ホーム画面に追加」する必要があります。そこで `src/components/common/InstallPrompt.tsx` は、iOS を検出したら**手順を絵つきで案内する UI** に切り替えます。
 
@@ -200,7 +202,9 @@ iOS 判定 (`src/lib/pwa/standalone.ts`) には一工夫あり、iPadOS 13+ は 
 
 ## 理由 1: Service Worker が両者の共通土台
 
-**プッシュ通知は Service Worker が無いと物理的に成立しません。** そして Service Worker は前述のとおり PWA の 3 本柱の 1 つです。つまり通知機能は、PWA の一部を必ず使うことになります。
+**一般的な Web Push は Service Worker が無いと成立しません。** そして Service Worker は前述のとおり PWA の 3 本柱の 1 つです。つまり通知機能は、PWA の一部を必ず使うことになります。
+
+> 補足: 厳密には例外があります。Safari 18.4 で導入された **Declarative Web Push** は、Service Worker を必要としない簡易な通知の仕組みです (通知内容を SW の JS で書き換えるのは任意)。ただし Chrome など主要ブラウザでは従来どおり SW 必須で、ReflectHub も SW ベースの標準的な Web Push を使っています。本記事で「SW 必須」と書くのは、この一般的な Web Push を指します。
 
 実際、通知を購読する処理 (`src/lib/push/client.ts`) は、その第一歩として Service Worker を登録しています。
 
@@ -312,19 +316,32 @@ sequenceDiagram
 const result = await Notification.requestPermission(); // 'granted' なら OK
 ```
 
+> **重要な制約: 許可リクエストはユーザー操作起点でしか呼べない。** iOS / macOS の Safari では、`Notification.requestPermission()` は「ボタンのタップなど直接的なユーザー操作への応答」としてのみ呼び出せます (WebKit の公式アナウンスでも、ホーム画面に追加した Web アプリは「subscribe ボタンのタップなど直接的なユーザー操作への応答である限り」許可をリクエストできると明記)。`useEffect` 内やページ読み込み時に自動で呼ぶと、iOS では無視されて詰まります。ReflectHub は **「保存」ボタンのクリックハンドラ (`handleSave`)** から呼ぶ導線なので、この要件を満たしています。
+
 ### 3. Service Worker を登録し、Push サービスを「購読」する
 
 許可が取れたら `/sw.js` を Service Worker として登録し、**Push サービスへの購読** を行います。第 2 部で触れたとおり、通知はここで PWA の Service Worker を使います。
 
 ```ts
 const registration = await navigator.serviceWorker.register('/sw.js');
+// VAPID 公開鍵 (base64url 文字列) は Uint8Array に変換して渡す。
+// 仕様上は文字列も許容されるが、ブラウザ実装差があるため変換が実務の定番。
+const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
 const subscription = await registration.pushManager.subscribe({
   userVisibleOnly: true,          // 「通知は必ずユーザーに見せる」宣言 (必須)
-  applicationServerKey: vapidPublicKey, // VAPID 公開鍵
+  applicationServerKey,           // VAPID 公開鍵 (Uint8Array)
 });
 ```
 
-`subscribe()` を呼ぶと、ブラウザが裏で Push サービス (Chrome なら FCM) と通信し、**PushSubscription** が返ってきます。中身は 3 つ。
+ReflectHub の `src/lib/push/client.ts` も、この `urlBase64ToUint8Array()` 変換を実装しています。
+
+`subscribe()` を呼ぶと、ブラウザが裏で Push サービスと通信し、**PushSubscription** が返ってきます。どの Push サービスになるかはブラウザ依存で、`endpoint` の URL に表れます。
+
+- Chrome / Edge → FCM: `https://fcm.googleapis.com/fcm/send/...`
+- Safari (Apple) → APNs ベース: `https://web.push.apple.com/...`
+- Firefox → Mozilla autopush: `https://updates.push.services.mozilla.com/...`
+
+返ってくる中身は 3 つ。
 
 | フィールド | 意味 |
 | --- | --- |
@@ -370,6 +387,8 @@ CREATE TABLE push_subscriptions (
 
 ## ② 配信フェーズ: 「毎時 0 分に動くリマインダー」
 
+> 命名についての注意: エンドポイント名は `/api/cron/daily-reminder`、重複防止カラムも `last_notified_at` で「同日中の再通知を防ぐ」ですが、**現在の仕様は「週次」** (ユーザーが選んだ曜日にのみ配信) です。`daily` は**当初日次だった頃の名残**で、実態は「選んだ曜日・時刻に週 1 回」。読者が「毎日来るの?」と誤解しないよう補足しておきます (将来的にはリネーム候補)。
+
 ### 5. pg_cron が毎時 0 分に API を叩く
 
 定期実行には **Supabase の pg_cron** を使っています (`database/daily-reminder-pg-cron.sql`)。
@@ -393,7 +412,10 @@ select cron.schedule(
 
 ポイント:
 
-- **なぜ Vercel Cron ではなく pg_cron?** — 当初は Vercel Cron を使っていましたが、起動時刻が数十分ブレる (11:00 予定が 11:22 起動など) ため「中途半端な時刻に通知が来る」状態でした。pg_cron は Postgres 内部のワーカーが毎分スケジュールを評価するので、**指定した分ちょうど** に動きます。無料プランでも使えて追加コストはゼロ。
+- **なぜ Vercel Cron ではなく pg_cron?** — 理由は 2 つあり、どちらも Vercel の **Hobby (無料) プラン** の制約です。
+  - **① 無料プランでは毎時実行がそもそも不可能** — Hobby プランの Cron は 1 日 1 回まで。`0 * * * *` (毎時) のような定義はデプロイ時にエラーになります。ユーザーごとに配信時刻が違う ReflectHub は毎時起動が前提なので、この時点で Hobby では要件を満たせません。
+  - **② 実行時刻もブレる** — Hobby プランは負荷分散のため、指定した時間内の任意のタイミングで起動します (`0 8 * * *` なら 08:00:00〜08:59:59 のどこか)。そのため「11 時ちょうど」を狙っても中途半端な時刻に通知が来ます。(Pro 以上のプランなら指定した分の中で起動するため、分単位では正確です。)
+  - pg_cron は Postgres 内部のワーカーが毎分スケジュールを評価するので、**指定した分ちょうど** に、毎時でも動きます。Supabase の無料プランで使えて追加コストはゼロ。
 - **pg_net** で DB から外部 HTTP (自アプリの API) を叩く
 - URL とシークレットは **Supabase Vault** に暗号化保存し、SQL に平文で書かない
 - タイムアウトはデフォルト 2 秒 → コールドスタート対策で 30 秒に延長
@@ -453,9 +475,18 @@ Push サービスからメッセージが届くと、**アプリを開いてい�
 
 ```js
 self.addEventListener('push', (event) => {
-  const payload = event.data.json();
+  // ペイロード無しの push が来ると event.data は null になり得る。
+  // そのまま .json() を呼ぶと例外になるので、必ずガードする。
+  let payload = {};
+  if (event.data) {
+    try {
+      payload = event.data.json();
+    } catch {
+      payload = { title: 'ReflectHub', body: event.data.text() };
+    }
+  }
   event.waitUntil(
-    self.registration.showNotification(payload.title, {
+    self.registration.showNotification(payload.title || 'ReflectHub', {
       body: payload.body,
       icon: payload.icon || '/favicon.ico',
       data: { url: payload.url || '/dashboard' },
@@ -464,6 +495,8 @@ self.addEventListener('push', (event) => {
   );
 });
 ```
+
+上記のとおり `event.data` の null ガードは実コード (`public/sw.js`) にも入っています。
 
 通知をタップすると `notificationclick` イベントで対象 URL (`/reflection`) を開きます。すでにそのページのタブが開いていれば **フォーカス** し、なければ新しく開きます。
 
@@ -482,6 +515,37 @@ self.addEventListener('notificationclick', (event) => {
   - 注意: **401 は失効扱いにしない**。401 はサーバー側の VAPID 設定ミスの可能性が高く、失効扱いにすると鍵ミス 1 つで全ユーザーの購読が無効化されてしまうため (RFC 8030 では 404/410 のみが購読失効を意味する)
 - **配信成功したユーザーの `last_notified_at` を更新** — 同日中の再通知を防ぐ
 - 対象がいたのに **1 件も成功しなかった場合は HTTP 500 を返す** — VAPID 設定ミスなどのシステム障害を監視で検知できるようにする
+
+---
+
+# 補足: iOS 特有の落とし穴と制約
+
+iOS の Web Push は制約が多く、実装でハマりやすいポイントを別立てでまとめます。
+
+## 「iOS の Safari」ではなく「iOS の全ブラウザ」
+
+iOS では、Chrome や Edge, Firefox も含め**すべてのブラウザが内部で WebKit (Safari のエンジン) を使う**ことが必須とされています。そのため本記事で「iOS (Safari)」と書いた制約は、**iOS 上のあらゆるブラウザに等しく当てはまります**。「iOS では Chrome を使えば回避できる」といった抜け道はありません。
+
+## push 購読が勝手に失効する問題(実装で書き足す価値が大きい)
+
+iOS では、ホーム画面に追加した PWA の push 購読が **1〜2 週間ほどで勝手に失効する** という報告が広くあります。失効すると配信時に 404/410 が返り、ReflectHub は `is_active = false` にするため、**ユーザーが気づかないまま通知が止まります**。
+
+現状の ReflectHub には、この失効を自動回復する仕組みは**まだありません** (`getCurrentSubscription()` は用意されているものの、起動時の生死チェックには使われていません)。実用性を上げるなら、次のような処理を **アプリ起動時** に入れるのが有効です。
+
+```ts
+// アプリ起動時に購読の生死を確認し、切れていたら再購読する(改善案)
+const sub = await getCurrentSubscription();
+if (!sub) {
+  // 購読が消えている → 通知が有効な設定なら静かに再 subscribe
+  await subscribeToPush(vapidPublicKey);
+}
+```
+
+これがあると「いつの間にか通知が来なくなる」問題を大幅に減らせます。**未実装なので、記事では「現状の制約 + 今後の改善案」として紹介するのが正直**です。
+
+## iOS 26 での緩和(参考)
+
+iOS 26 以降は、ホーム画面に追加したサイトが **manifest が無くてもデフォルトで Web アプリとして開く** ようになりました。ReflectHub は manifest を持つため前提は変わりませんが、「Apple 側も徐々に PWA を素直に扱う方向へ緩和している」という文脈として使えます。
 
 ---
 
