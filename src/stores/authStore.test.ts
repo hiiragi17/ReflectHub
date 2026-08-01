@@ -16,6 +16,24 @@ vi.mock("@/lib/supabase/client", () => ({
 // Global fetch mock
 global.fetch = vi.fn();
 
+const createAbortableNeverFetch = () =>
+  vi.fn((_: RequestInfo | URL, options?: RequestInit) => {
+    return new Promise<Response>((_, reject) => {
+      options?.signal?.addEventListener("abort", () => {
+        reject(new DOMException("The operation was aborted.", "AbortError"));
+      });
+    });
+  }) as typeof global.fetch;
+
+const createSupabaseUser = () => ({
+  id: "test-user-id",
+  email: "test@example.com",
+  user_metadata: {
+    full_name: "Test User",
+    avatar_url: "https://example.com/avatar.png",
+  },
+});
+
 describe("authStore - Loading State and Timeout Management", () => {
   beforeEach(() => {
     // Reset store state before each test
@@ -36,38 +54,36 @@ describe("authStore - Loading State and Timeout Management", () => {
   });
 
   describe("initialize() - Timeout Handling", () => {
-    it.skip(
-      "should set isLoading to false when fetch times out",
-      async () => {
-        // Mock a slow fetch that never resolves
-        (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(() => {
-          return new Promise(() => {
-            // Never resolves - simulates hanging request
-          });
-        });
+    it("should set isLoading to false when fetch times out", async () => {
+      const { supabase } = await import("@/lib/supabase/client");
 
-        const { initialize } = useAuthStore.getState();
+      // Mock a slow fetch that only rejects when AbortController aborts it.
+      global.fetch = createAbortableNeverFetch();
+      vi.mocked(supabase.auth.getSession).mockResolvedValue({
+        data: { session: null },
+        error: null,
+      });
 
-        // Start initialization
-        const initPromise = initialize();
+      const { initialize } = useAuthStore.getState();
 
-        // Initially loading should be true
-        expect(useAuthStore.getState().isLoading).toBe(true);
+      // Start initialization
+      const initPromise = initialize();
 
-        // Fast-forward past the timeout (30 seconds)
-        await vi.advanceTimersByTimeAsync(31000);
+      // Initially loading should be true
+      expect(useAuthStore.getState().isLoading).toBe(true);
 
-        // Wait for promise to settle
-        await initPromise;
+      // Fast-forward past the timeout (30 seconds)
+      await vi.advanceTimersByTimeAsync(31000);
 
-        // After timeout, loading should be false
-        const state = useAuthStore.getState();
-        expect(state.isLoading).toBe(false);
-        expect(state.error).toContain("タイムアウト");
-        expect(state.isAuthenticated).toBe(false);
-      },
-      40000
-    );
+      // Wait for promise to settle
+      await initPromise;
+
+      // After timeout, loading should be false
+      const state = useAuthStore.getState();
+      expect(state.isLoading).toBe(false);
+      expect(state.error).toBeNull();
+      expect(state.isAuthenticated).toBe(false);
+    });
 
     it("should set isLoading to false when fetch succeeds quickly", async () => {
       // /api/auth/verify がプロフィールも同梱して返すため、初期化は 1 回の
@@ -108,10 +124,16 @@ describe("authStore - Loading State and Timeout Management", () => {
     });
 
     it("should handle network errors and set isLoading to false", async () => {
-      // Mock network error
+      const { supabase } = await import("@/lib/supabase/client");
+
+      // Mock network error on server verification and no client-side session fallback.
       (global.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-        new Error("Network error")
+        new Error("Network error"),
       );
+      vi.mocked(supabase.auth.getSession).mockResolvedValue({
+        data: { session: null },
+        error: null,
+      });
 
       const { initialize } = useAuthStore.getState();
 
@@ -120,50 +142,49 @@ describe("authStore - Loading State and Timeout Management", () => {
       // After error, loading should be false
       const state = useAuthStore.getState();
       expect(state.isLoading).toBe(false);
-      expect(state.error).toBeDefined();
+      expect(state.error).toBeNull();
       expect(state.isAuthenticated).toBe(false);
     });
 
-    it.skip(
-      "should handle profile fetch timeout separately",
-      async () => {
-        // Mock successful session verification
-        (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            authenticated: true,
-            user: {
-              id: "test-user-id",
-              email: "test@example.com",
-            },
+    it("should handle profile fetch timeout separately", async () => {
+      const { supabase } = await import("@/lib/supabase/client");
+      const sessionUser = createSupabaseUser();
+
+      // Mock server verification to fail so initialize falls back to Supabase.
+      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ok: false,
+      } as Response);
+
+      vi.mocked(supabase.auth.getSession).mockResolvedValue({
+        data: { session: { user: sessionUser } },
+        error: null,
+      });
+
+      const single = vi.fn(
+        () =>
+          new Promise(() => {
+            // Never resolves - simulates a hanging profile query.
           }),
-        } as Response);
+      );
+      const eq = vi.fn(() => ({ single }));
+      const select = vi.fn(() => ({ eq }));
+      vi.mocked(supabase.from).mockReturnValue({ select } as never);
 
-        // Mock slow profile fetch that times out
-        (global.fetch as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
-          return new Promise(() => {
-            // Never resolves
-          });
-        });
+      const { initialize } = useAuthStore.getState();
 
-        const { initialize } = useAuthStore.getState();
+      const initPromise = initialize();
+      await vi.advanceTimersByTimeAsync(31000);
+      await initPromise;
 
-        // Start initialization
-        const initPromise = initialize();
-
-        // Fast-forward past the timeout
-        await vi.advanceTimersByTimeAsync(31000);
-
-        // Wait for promise to settle
-        await initPromise;
-
-        // Should still complete initialization even if profile fetch times out
-        // The initialize should fall back to session-based user
-        const state = useAuthStore.getState();
-        expect(state.isLoading).toBe(false);
-      },
-      40000
-    );
+      const state = useAuthStore.getState();
+      expect(state.isLoading).toBe(false);
+      expect(state.isAuthenticated).toBe(true);
+      expect(state.user).toMatchObject({
+        id: sessionUser.id,
+        email: sessionUser.email,
+        name: sessionUser.user_metadata.full_name,
+      });
+    });
   });
 
   describe("Supabase Query Timeout", () => {
@@ -201,9 +222,7 @@ describe("authStore - Loading State and Timeout Management", () => {
   });
 
   describe("Loading State Management", () => {
-    it.skip(
-      "should always set isLoading to false after initialize completes",
-      async () => {
+    it("should always set isLoading to false after initialize completes", async () => {
       // Mock various scenarios
       const scenarios = [
         // Scenario 1: Successful auth
@@ -231,6 +250,8 @@ describe("authStore - Loading State and Timeout Management", () => {
         },
       ];
 
+      const { supabase } = await import("@/lib/supabase/client");
+
       for (const scenario of scenarios) {
         // Reset state
         useAuthStore.setState({
@@ -241,6 +262,10 @@ describe("authStore - Loading State and Timeout Management", () => {
         });
 
         global.fetch = scenario.fetch as typeof global.fetch;
+        vi.mocked(supabase.auth.getSession).mockResolvedValue({
+          data: { session: null },
+          error: null,
+        });
 
         const { initialize } = useAuthStore.getState();
 
@@ -249,13 +274,9 @@ describe("authStore - Loading State and Timeout Management", () => {
         const state = useAuthStore.getState();
         expect(state.isLoading).toBe(false);
       }
-    },
-      40000
-    );
+    });
 
-    it.skip(
-      "should set isLoading to true when initialize starts",
-      async () => {
+    it("should set isLoading to true when initialize starts", async () => {
       (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(() => {
         return new Promise((resolve) => {
           setTimeout(() => {
@@ -275,23 +296,22 @@ describe("authStore - Loading State and Timeout Management", () => {
       expect(useAuthStore.getState().isLoading).toBe(true);
 
       // Complete the initialization
+      await vi.advanceTimersByTimeAsync(100);
       await initPromise;
 
       // Should no longer be loading
       expect(useAuthStore.getState().isLoading).toBe(false);
-    },
-      40000
-    );
+    });
   });
 
   describe("Error Messages", () => {
-    it.skip(
-      "should provide specific error message for request timeout",
-      async () => {
-      (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(() => {
-        return new Promise(() => {
-          // Never resolves
-        });
+    it("should not surface an error to the user when request timeout falls back to no session", async () => {
+      const { supabase } = await import("@/lib/supabase/client");
+
+      global.fetch = createAbortableNeverFetch();
+      vi.mocked(supabase.auth.getSession).mockResolvedValue({
+        data: { session: null },
+        error: null,
       });
 
       const { initialize } = useAuthStore.getState();
@@ -301,12 +321,10 @@ describe("authStore - Loading State and Timeout Management", () => {
       await initPromise;
 
       const state = useAuthStore.getState();
-      expect(state.error).toBe(
-        "接続がタイムアウトしました。ネットワーク接続を確認してください。"
-      );
-    },
-      40000
-    );
+      expect(state.error).toBeNull();
+      expect(state.isLoading).toBe(false);
+      expect(state.isAuthenticated).toBe(false);
+    });
 
     it("should not surface an error to the user when Supabase query times out", async () => {
       const { supabase } = await import("@/lib/supabase/client");
@@ -338,14 +356,14 @@ describe("authStore - Loading State and Timeout Management", () => {
   });
 
   describe("Real-world Scenario: Session Expiry with Slow Network", () => {
-    it.skip(
-      "should handle session expiry with slow network gracefully",
-      async () => {
-      // Simulate slow network that eventually times out
-      (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(() => {
-        return new Promise(() => {
-          // Simulates hanging request during session expiry
-        });
+    it("should handle session expiry with slow network gracefully", async () => {
+      const { supabase } = await import("@/lib/supabase/client");
+
+      // Simulate slow network that eventually times out.
+      global.fetch = createAbortableNeverFetch();
+      vi.mocked(supabase.auth.getSession).mockResolvedValue({
+        data: { session: null },
+        error: null,
       });
 
       const { initialize } = useAuthStore.getState();
@@ -364,10 +382,8 @@ describe("authStore - Loading State and Timeout Management", () => {
       // User should see error message, not eternal loading
       const state = useAuthStore.getState();
       expect(state.isLoading).toBe(false);
-      expect(state.error).toBeDefined();
-      expect(state.error).toContain("タイムアウト");
-    },
-      40000
-    );
+      expect(state.error).toBeNull();
+      expect(state.isAuthenticated).toBe(false);
+    });
   });
 });
