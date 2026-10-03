@@ -24,7 +24,12 @@ vi.mock("@/hooks/useReflectionMutation", () => ({
 
 import ReflectionForm from "./ReflectionForm";
 import { useFrameworkStore } from "@/stores/frameworkStore";
-import { clearAllDrafts, loadDrafts, saveDrafts } from "@/utils/reflectionDraft";
+import {
+  clearAllDrafts,
+  draftStorageKey,
+  loadDrafts,
+  saveDrafts,
+} from "@/utils/reflectionDraft";
 
 const framework = {
   id: "f1",
@@ -897,6 +902,64 @@ describe("ReflectionForm 下書きの自動保存", () => {
     });
     expect(screen.getByText(/前回の書きかけの下書きがあります/)).toBeInTheDocument();
     expect(loadDrafts("u1")).toEqual({ f2: { a: "前回の別の型" } });
+  });
+
+  it("読み込んだだけの下書きは書き直さず、保存日時（有効期限）を延ばさない", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-10-03T00:00:00Z"));
+      const savedAt = Date.now() - 60_000;
+      saveDrafts("u1", { f1: { y: "前回の入力" } }, savedAt);
+      render(<ReflectionForm />);
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      const raw = JSON.parse(localStorage.getItem(draftStorageKey("u1")) ?? "{}");
+      expect(raw.savedAt).toBe(savedAt);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("別のタブで下書きが消えたら、確認の表示も消える", () => {
+    saveDrafts("u1", { f1: { y: "前回の入力" } });
+    render(<ReflectionForm />);
+    expect(screen.getByText(/前回の書きかけの下書きがあります/)).toBeInTheDocument();
+    localStorage.removeItem(draftStorageKey("u1"));
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: draftStorageKey("u1") })
+      );
+    });
+    expect(screen.queryByText(/前回の書きかけの下書きがあります/)).not.toBeInTheDocument();
+  });
+
+  it("入力の直後にセッションが失効して画面が閉じても、最後の入力は保存される", () => {
+    vi.useFakeTimers();
+    try {
+      const { unmount } = render(<ReflectionForm />);
+      typeInto(/やったこと/, "失効の直前の入力");
+      // 失効：ストアのユーザーが null になってから画面が閉じる（ログアウトのボタンではない）
+      auth.user = null;
+      unmount();
+      expect(loadDrafts("u1")).toEqual({ f1: { y: "失効の直前の入力" } });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("入力の直後にログアウトのボタンが押されたら、画面が閉じても書き戻さない", () => {
+    vi.useFakeTimers();
+    try {
+      const { unmount } = render(<ReflectionForm />);
+      typeInto(/やったこと/, "ログアウトの直前の入力");
+      auth.user = null;
+      clearAllDrafts();
+      unmount();
+      expect(loadDrafts("u1")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("ログインしていなければ、下書きを保存しない", () => {

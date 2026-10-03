@@ -3,6 +3,7 @@ import {
   DRAFT_TTL_MS,
   clearAllDrafts,
   clearDrafts,
+  getClearGeneration,
   loadDrafts,
   saveDrafts,
 } from "./reflectionDraft";
@@ -63,6 +64,14 @@ describe("reflectionDraft", () => {
     clearAllDrafts();
     expect(loadDrafts("u2")).toBeNull();
     expect(localStorage.getItem("sb-session")).toBe("keep");
+  });
+
+  it("clearAllDrafts を呼ぶたびに世代が進み、clearDrafts では進まない", () => {
+    const before = getClearGeneration();
+    clearDrafts("u1");
+    expect(getClearGeneration()).toBe(before);
+    clearAllDrafts();
+    expect(getClearGeneration()).toBe(before + 1);
   });
 
   it("localStorage が使えなくても、例外を出さない", () => {

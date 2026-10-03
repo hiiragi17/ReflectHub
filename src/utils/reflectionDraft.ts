@@ -16,7 +16,13 @@ const STORAGE_VERSION = 1;
 /** 下書きを残しておく期間（7日） */
 export const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-const keyFor = (userId: string) => `${KEY_PREFIX}${userId}`;
+export const draftStorageKey = (userId: string) => `${KEY_PREFIX}${userId}`;
+const keyFor = draftStorageKey;
+
+// clearAllDrafts() を呼ぶたびに増える。保存の途中・入力の待ち時間の途中でログアウトのボタンが
+// 押されたかを、あとから見分けるために使う（セッション失効では増えない）
+let clearGeneration = 0;
+export const getClearGeneration = () => clearGeneration;
 
 const isDrafts = (value: unknown): value is ReflectionDrafts => {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -55,6 +61,7 @@ export const clearDrafts = (userId: string): void => {
 
 /** この端末に残っている、すべてのユーザーの下書きを消す（ログアウト用） */
 export const clearAllDrafts = (): void => {
+  clearGeneration += 1;
   try {
     Object.keys(localStorage)
       .filter((key) => key.startsWith(KEY_PREFIX))

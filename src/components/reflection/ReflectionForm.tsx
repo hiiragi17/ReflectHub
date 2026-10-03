@@ -34,6 +34,8 @@ import {
   type ReflectionDrafts,
   clearDrafts,
   compactDrafts,
+  draftStorageKey,
+  getClearGeneration,
   loadDrafts,
   saveDrafts,
 } from "@/utils/reflectionDraft";
@@ -113,6 +115,7 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
     userId: string;
     drafts: ReflectionDrafts;
     serialized: string;
+    clearGeneration: number;
   } | null>(null);
   // キャッシュ（ref）だけを書き換えたとき、未保存の判定を取り直すための再描画
   const [, forceRender] = useReducer((n: number) => n + 1, 0);
@@ -182,15 +185,33 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
       setDraftLoaded(false);
       return;
     }
-    setPendingDraft(loadDrafts(userId));
+    const stored = loadDrafts(userId);
+    setPendingDraft(stored);
     setDraftLoaded(true);
+    // 読み込んだだけの下書きは、書き直さない（書き直すと保存日時が更新され、有効期限が延び続ける）
+    lastPersistedRef.current = stored ? JSON.stringify(stored) : null;
   }, [userId]);
+
+  // 別のタブで下書きが保存・破棄されたら、確認の表示を読み直す
+  // （古い下書きを復元して、同じ内容を二重に保存しないため）
+  useEffect(() => {
+    if (!userId || !pendingDraft) return;
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== null && event.key !== draftStorageKey(userId)) return;
+      const latest = loadDrafts(userId);
+      setPendingDraft(latest);
+      lastPersistedRef.current = latest ? JSON.stringify(latest) : null;
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [userId, pendingDraft]);
 
   const flushDraft = useCallback(() => {
     const pending = pendingWriteRef.current;
     pendingWriteRef.current = null;
-    // ログアウト後（ユーザーが変わった・いなくなった後）には、書き込まない
-    if (!pending || useAuthStore.getState().user?.id !== pending.userId) return;
+    // ログアウトのボタンで下書きが消された後には、書き戻さない。
+    // セッション失効による自動のログアウトでは消されないので、最後の入力も保存する
+    if (!pending || pending.clearGeneration !== getClearGeneration()) return;
     saveDrafts(pending.userId, pending.drafts);
     lastPersistedRef.current = pending.serialized;
   }, []);
@@ -224,7 +245,12 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
       pendingWriteRef.current = null;
       return;
     }
-    pendingWriteRef.current = { userId, drafts, serialized };
+    pendingWriteRef.current = {
+      userId,
+      drafts,
+      serialized,
+      clearGeneration: getClearGeneration(),
+    };
     const timer = setTimeout(flushDraft, DRAFT_SAVE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   });
@@ -339,6 +365,7 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
     if (isSubmittingRef.current) return;
     if (!selectedFrameworkId || !selectedFramework) return;
     const savedFrameworkId = selectedFrameworkId;
+    const clearGenerationAtStart = getClearGeneration();
 
     const submittedData = pickSchemaFields(formData, currentSchema);
     const isValid = validateFormData(submittedData, currentSchema);
@@ -375,11 +402,11 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
         delete cacheRef.current[savedFrameworkId];
         // 復元の確認に答えないまま保存したとき、保存済みの型の下書きを、確認と保存済みの下書きから外す
         // （残すと、保存した内容を復元して、二重に保存できてしまう）
-        // ただし、保存の途中でログアウトしていたら、何も書かない（下書きを端末に戻さない）
+        // ただし、保存の途中でログアウトのボタンが押されていたら、何も書かない（下書きを端末に戻さない）
         if (
           userId &&
           pendingDraft &&
-          useAuthStore.getState().user?.id === userId
+          getClearGeneration() === clearGenerationAtStart
         ) {
           const remaining = compactDrafts(
             Object.fromEntries(
