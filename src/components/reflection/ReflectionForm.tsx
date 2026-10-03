@@ -42,7 +42,8 @@ interface ReflectionFormProps {
 }
 
 export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps = {}) {
-  const { selectedFrameworkId, selectedFramework } = useFrameworkStore();
+  const { selectedFrameworkId, selectedFramework, frameworks } =
+    useFrameworkStore();
 
   const {
     validateFormData,
@@ -72,11 +73,15 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
   const [, forceRender] = useReducer((n: number) => n + 1, 0);
 
   const hasInput = Object.values(formData).some((value) => value !== "");
-  // 表示中の型だけでなく、切り替え前に書いた別の型の入力（キャッシュ）も未保存として扱う
+  // 表示中の型だけでなく、切り替え前に書いた別の型の入力（キャッシュ）も未保存として扱う。
+  // 再読み込みで一覧から消えた型の下書きは、選べず、保存も消去もできないので数えない
+  // （数えると、離脱の確認が消えなくなる）
   const hasUnsavedInput =
     hasInput ||
-    Object.values(cacheRef.current).some((data) =>
-      Object.values(data).some((value) => value !== "")
+    Object.entries(cacheRef.current).some(
+      ([frameworkId, data]) =>
+        frameworks.some((f) => f.id === frameworkId) &&
+        Object.values(data).some((value) => value !== "")
     );
 
   useEffect(() => {

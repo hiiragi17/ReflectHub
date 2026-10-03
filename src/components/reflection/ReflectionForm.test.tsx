@@ -299,6 +299,26 @@ describe("ReflectionForm 未保存状態の通知と保存済み表示", () => {
     expect(onUnsavedChange).toHaveBeenLastCalledWith(true);
   });
 
+  it("再読み込みで一覧から消えた型の下書きは、未保存として数えない", async () => {
+    const other = { ...framework, id: "f2", name: "KPT", schema: [{ id: "k", label: "Keep", placeholder: "", required: false }] };
+    useFrameworkStore.setState({ frameworks: [framework, other] });
+    const onUnsavedChange = vi.fn();
+    render(<ReflectionForm onUnsavedChange={onUnsavedChange} />);
+    typeInto(/やったこと/, "YWTの下書き");
+
+    act(() => {
+      useFrameworkStore.setState({ selectedFrameworkId: "f2", selectedFramework: other });
+    });
+    await screen.findByLabelText(/Keep/);
+    expect(onUnsavedChange).toHaveBeenLastCalledWith(true);
+
+    // YWT が一覧から消えた（再読み込みの結果）
+    act(() => {
+      useFrameworkStore.setState({ frameworks: [other] });
+    });
+    await waitFor(() => expect(onUnsavedChange).toHaveBeenLastCalledWith(false));
+  });
+
   it("アンマウント時は「未保存なし」を伝える", () => {
     const onUnsavedChange = vi.fn();
     const { unmount } = render(<ReflectionForm onUnsavedChange={onUnsavedChange} />);
