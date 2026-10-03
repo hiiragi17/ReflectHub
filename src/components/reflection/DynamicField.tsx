@@ -11,6 +11,8 @@ interface DynamicFieldProps {
   value: string;
   onChange: (value: string) => void;
   fieldIndex?: number;
+  /** 保存時の検証エラー。指定するとこの項目の下に表示する */
+  error?: string;
 }
 
 export default function DynamicField({
@@ -18,11 +20,15 @@ export default function DynamicField({
   value,
   onChange,
   fieldIndex = 0,
+  error,
 }: DynamicFieldProps) {
   const maxLength =
     field.max_length ?? DYNAMIC_FIELD_CONSTANTS.DEFAULT_MAX_LENGTH;
   const characterCount = value.length;
+  const overBy = characterCount - maxLength;
+  const isOverLimit = overBy > 0;
   const isNearLimit =
+    !isOverLimit &&
     characterCount > maxLength * DYNAMIC_FIELD_CONSTANTS.NEAR_LIMIT_THRESHOLD;
 
   const sanitizeId = (str: string): string => {
@@ -40,13 +46,21 @@ export default function DynamicField({
 
   const countId = `${fieldId}-count`;
   const warningId = `${fieldId}-warning`;
+  const errorId = `${fieldId}-error`;
 
+  // 上限を超える入力（貼り付けなど）を黙って捨てず、そのまま受け付けて
+  // 超過数を表示する。超過したままでは保存時の検証で止まる。
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newValue = e.target.value;
-    if (newValue.length <= maxLength) {
-      onChange(newValue);
-    }
+    onChange(e.target.value);
   };
+
+  const describedBy = [
+    countId,
+    isNearLimit || isOverLimit ? warningId : null,
+    error ? errorId : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className="space-y-2">
@@ -70,7 +84,7 @@ export default function DynamicField({
         <span
           id={countId}
           className={`${DYNAMIC_FIELD_CONSTANTS.CLASS_NAMES.CHARACTER_COUNT} ${
-            isNearLimit
+            isNearLimit || isOverLimit
               ? DYNAMIC_FIELD_CONSTANTS.CLASS_NAMES.CHARACTER_COUNT_NEAR_LIMIT
               : DYNAMIC_FIELD_CONSTANTS.CLASS_NAMES.CHARACTER_COUNT_NORMAL
           }`}
@@ -89,17 +103,27 @@ export default function DynamicField({
         onChange={handleChange}
         className={DYNAMIC_FIELD_CONSTANTS.CLASS_NAMES.TEXTAREA}
         required={field.required}
-        aria-describedby={`${countId}${isNearLimit ? ` ${warningId}` : ""}`}
+        aria-describedby={describedBy}
+        aria-invalid={isOverLimit || !!error}
       />
 
       {/* 警告メッセージ */}
-      {isNearLimit && (
+      {(isNearLimit || isOverLimit) && (
         <p
           id={warningId}
           className={DYNAMIC_FIELD_CONSTANTS.CLASS_NAMES.WARNING_MESSAGE}
           role="alert"
         >
-          {DYNAMIC_FIELD_CONSTANTS.LABELS.NEAR_LIMIT_WARNING}
+          {isOverLimit
+            ? `${overBy}文字超えています。${maxLength}文字以内に減らしてください。`
+            : DYNAMIC_FIELD_CONSTANTS.LABELS.NEAR_LIMIT_WARNING}
+        </p>
+      )}
+
+      {/* 保存時の検証エラー（上限超過は上の警告で説明済みのため重複表示しない） */}
+      {error && !isOverLimit && (
+        <p id={errorId} role="alert" className="text-sm text-red-600">
+          {error}
         </p>
       )}
     </div>

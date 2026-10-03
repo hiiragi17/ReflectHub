@@ -55,7 +55,7 @@ export default function ReflectionPage() {
           <Card className="border border-gray-200">
             <CardHeader className="pb-3 sm:pb-6">
               <CardTitle className="text-lg sm:text-xl">
-                ステップ 1: フレームワークを選択
+                ステップ 1: 振り返りの型（フレームワーク）を選ぶ
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
@@ -67,7 +67,7 @@ export default function ReflectionPage() {
           <Card className="border border-gray-200">
             <CardHeader className="pb-3 sm:pb-6">
               <CardTitle className="text-lg sm:text-xl">
-                ステップ 2: 振り返りを記入
+                ステップ 2: 振り返りを書く
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">

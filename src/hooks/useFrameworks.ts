@@ -18,49 +18,49 @@ export const useFrameworks = () => {
   } = useFrameworkStore();
 
   // 初期化：フレームワーク一覧を取得
-  useEffect(() => {
-    const fetchFrameworks = async () => {
-      // 既に取得済みなら実行しない
-      if (frameworks.length > 0) {
-        return;
-      }
+  const fetchFrameworks = useCallback(async () => {
+    // 既に取得済みなら実行しない
+    if (frameworks.length > 0) {
+      return;
+    }
 
-      try {
-        setLoading(true);
-        setError(null);
+    try {
+      setLoading(true);
+      setError(null);
 
-        const data = await frameworkService.getFrameworks();
-        setFrameworks(data);
+      const data = await frameworkService.getFrameworks();
+      setFrameworks(data);
 
-        // LocalStorageから最後に使用したフレームワークIDを取得
-        if (data.length > 0 && !selectedFrameworkId) {
-          let lastUsedId: string | null = null;
-          try {
-            lastUsedId = localStorage.getItem('lastUsedFrameworkId');
-          } catch (storageError) {
-            // プライベートモードやサンドボックス等でlocalStorageが使えない場合は無視
-            console.warn('Failed to read lastUsedFrameworkId from localStorage:', storageError);
-          }
-
-          // LocalStorageに保存されているIDが有効な場合はそれを選択
-          if (lastUsedId && data.find(f => f.id === lastUsedId)) {
-            setSelectedFramework(lastUsedId);
-          } else {
-            // なければ最初のフレームワークを選択
-            setSelectedFramework(data[0].id);
-          }
+      // LocalStorageから最後に使用したフレームワークIDを取得
+      if (data.length > 0 && !selectedFrameworkId) {
+        let lastUsedId: string | null = null;
+        try {
+          lastUsedId = localStorage.getItem('lastUsedFrameworkId');
+        } catch (storageError) {
+          // プライベートモードやサンドボックス等でlocalStorageが使えない場合は無視
+          console.warn('Failed to read lastUsedFrameworkId from localStorage:', storageError);
         }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'フレームワーク取得エラー';
-        setError(message);
-        console.error('フレームワーク取得失敗:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
 
-    fetchFrameworks();
+        // LocalStorageに保存されているIDが有効な場合はそれを選択
+        if (lastUsedId && data.find(f => f.id === lastUsedId)) {
+          setSelectedFramework(lastUsedId);
+        } else {
+          // なければ最初のフレームワークを選択
+          setSelectedFramework(data[0].id);
+        }
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'フレームワーク取得エラー';
+      setError(message);
+      console.error('フレームワーク取得失敗:', err);
+    } finally {
+      setLoading(false);
+    }
   }, [frameworks.length, selectedFrameworkId, setFrameworks, setSelectedFramework, setLoading, setError]);
+
+  useEffect(() => {
+    fetchFrameworks();
+  }, [fetchFrameworks]);
 
   const selectFramework = useCallback((frameworkId: string) => {
     setSelectedFramework(frameworkId);
@@ -73,5 +73,6 @@ export const useFrameworks = () => {
     isLoading,
     error,
     selectFramework,
+    reload: fetchFrameworks,
   };
 };
