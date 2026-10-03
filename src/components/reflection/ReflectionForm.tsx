@@ -257,6 +257,12 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
 
     const content = sanitizeFormData(submittedData);
     const signature = `${savedFrameworkId}:${JSON.stringify(content)}`;
+    // 同じ型で別の入力を送るなら、前の入力の再試行は終わり。あとで元の内容に戻して送っても、別の振り返りとして扱う
+    for (const previous of idempotencyKeysRef.current.keys()) {
+      if (previous.startsWith(`${savedFrameworkId}:`) && previous !== signature) {
+        idempotencyKeysRef.current.delete(previous);
+      }
+    }
     const idempotencyKey = idempotencyKeysRef.current.get(signature) ?? uuidv4();
     idempotencyKeysRef.current.set(signature, idempotencyKey);
 
