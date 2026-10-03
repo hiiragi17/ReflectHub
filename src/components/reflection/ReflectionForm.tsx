@@ -24,12 +24,6 @@ import { getSaveErrorMessage } from "@/utils/reflectionSaveError";
 // 保存が長引いたときに「止まっていない」ことを伝えるまでの時間
 const SLOW_SAVE_NOTICE_MS = 5000;
 
-/** "2026-10-03" → "10月3日"（タイムゾーン変換を挟まず文字列で整形） */
-const formatSavedDate = (isoDate: string): string => {
-  const [, month, day] = isoDate.split("-");
-  return month && day ? `${Number(month)}月${Number(day)}日` : isoDate;
-};
-
 export default function ReflectionForm() {
   const { selectedFrameworkId, selectedFramework } = useFrameworkStore();
 
@@ -44,7 +38,7 @@ export default function ReflectionForm() {
 
   const cacheRef = useRef<Record<string, Record<string, string>>>({});
   const [formData, setFormData] = useState<Record<string, string>>({});
-  const [savedDate, setSavedDate] = useState<string | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
   const [isSlowSave, setIsSlowSave] = useState(false);
   const previousFrameworkIdRef = useRef<string | null>(null);
   // state の更新は再描画後に反映されるため、連打対策は ref で同期的に行う
@@ -97,7 +91,7 @@ export default function ReflectionForm() {
   }, [hasInput]);
 
   const handleFieldChange = useCallback((fieldId: string, value: string) => {
-    setSavedDate(null);
+    setIsSaved(false);
     setFormData((prev) => ({
       ...prev,
       [fieldId]: value,
@@ -112,7 +106,7 @@ export default function ReflectionForm() {
     if (!isValid) return;
 
     isSubmittingRef.current = true;
-    setSavedDate(null);
+    setIsSaved(false);
     clearError();
 
     try {
@@ -126,7 +120,7 @@ export default function ReflectionForm() {
         cacheRef.current[selectedFrameworkId] = {};
         setFormData({});
         clearErrors();
-        setSavedDate(result.reflection_date);
+        setIsSaved(true);
       }
     } catch {
       // エラー内容は useReflectionMutation の error に保持され、下で表示する
@@ -138,7 +132,7 @@ export default function ReflectionForm() {
   const handleReset = () => {
     setFormData({});
     clearErrors();
-    setSavedDate(null);
+    setIsSaved(false);
     clearError();
   };
 
@@ -234,11 +228,11 @@ export default function ReflectionForm() {
               : "保存しています。このページを閉じずにお待ちください。"}
           </p>
         )}
-        {savedDate && (
+        {isSaved && (
           <div className="mt-4 p-4 rounded text-sm bg-green-50 text-green-900 border border-green-200">
             <p className="flex items-center gap-2 font-medium">
               <CheckCircle2 className="w-4 h-4 shrink-0" aria-hidden="true" />
-              保存しました（{formatSavedDate(savedDate)}の振り返り）
+              保存しました
             </p>
             <p className="mt-1">
               入力欄は空になりました。保存した内容は

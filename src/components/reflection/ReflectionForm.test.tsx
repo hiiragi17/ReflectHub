@@ -71,13 +71,13 @@ describe("ReflectionForm 保存フロー", () => {
     }
   });
 
-  it("成功すると保存日と履歴へのリンクを出し、入力欄を空にする", async () => {
+  it("成功すると履歴へのリンクを出し、入力欄を空にする", async () => {
     mutation.saveReflection.mockResolvedValue({ id: "r1", reflection_date: "2026-10-03" });
     render(<ReflectionForm />);
     typeInto(/やったこと/, "テストを書いた");
     fireEvent.click(screen.getByRole("button", { name: "保存する" }));
 
-    expect(await screen.findByText(/保存しました（10月3日の振り返り）/)).toBeInTheDocument();
+    expect(await screen.findByText(/保存しました/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "履歴" })).toHaveAttribute("href", "/history");
     expect((screen.getByLabelText(/やったこと/) as HTMLTextAreaElement).value).toBe("");
   });
