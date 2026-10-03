@@ -573,3 +573,56 @@ describe("ReflectionForm 入力し直したときのエラーの再検証", () =
     expect(screen.queryByText("どれか1つ以上のフィールドに入力してください")).not.toBeInTheDocument();
   });
 });
+
+describe("ReflectionForm 型の項目が変わったとき（再読み込みの結果）", () => {
+  const before = {
+    ...framework,
+    id: "f4",
+    name: "CHANGING",
+    schema: [
+      { id: "old", label: "古い項目", placeholder: "", required: false },
+      { id: "keep", label: "残る項目", placeholder: "", required: false },
+    ],
+  };
+  // 同じ型で、「古い項目」がなくなった
+  const after = { ...before, schema: [before.schema[1]] };
+
+  const setup = async () => {
+    useFrameworkStore.setState({
+      frameworks: [before],
+      selectedFrameworkId: "f4",
+      selectedFramework: before,
+    });
+    const onUnsavedChange = vi.fn();
+    render(<ReflectionForm onUnsavedChange={onUnsavedChange} />);
+    typeInto(/古い項目/, "消える項目の入力");
+    act(() => {
+      useFrameworkStore.setState({ frameworks: [after], selectedFramework: after });
+    });
+    await waitFor(() => expect(screen.queryByLabelText(/古い項目/)).not.toBeInTheDocument());
+    return onUnsavedChange;
+  };
+
+  it("消えた項目の入力だけでは、保存できない（見えない内容を保存しない）", async () => {
+    await setup();
+    fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+    expect(await screen.findByText("どれか1つ以上のフィールドに入力してください")).toBeInTheDocument();
+    expect(mutation.saveReflection).not.toHaveBeenCalled();
+  });
+
+  it("保存するのは、いま表示している項目の入力だけ", async () => {
+    await setup();
+    mutation.saveReflection.mockResolvedValue({ id: "r1", reflection_date: "2026-10-03" });
+    typeInto(/残る項目/, "残る入力");
+    fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+    await waitFor(() => expect(mutation.saveReflection).toHaveBeenCalledTimes(1));
+    const request = mutation.saveReflection.mock.calls[0][0];
+    expect(request.content).toEqual({ keep: "残る入力" });
+    expect(JSON.stringify(request)).not.toContain("消える項目の入力");
+  });
+
+  it("消えた項目の入力は、未保存として数えない", async () => {
+    const onUnsavedChange = await setup();
+    await waitFor(() => expect(onUnsavedChange).toHaveBeenLastCalledWith(false));
+  });
+});

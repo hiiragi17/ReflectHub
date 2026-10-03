@@ -30,6 +30,19 @@ import { hasAtLeastOneValue } from "@/utils/validation";
 export const LEAVE_CONFIRM_MESSAGE =
   "入力内容はまだ保存されていません。このページを離れると消えます。離れますか？";
 
+/**
+ * 入力のうち、いま表示している型の項目だけを取り出す。
+ * 再読み込みで型の項目が変わると、消えた項目の入力が formData に残る。
+ * それを検証や保存に含めると、画面に見えない内容が保存されてしまう。
+ */
+const pickSchemaFields = (
+  data: Record<string, string>,
+  schema: ReadonlyArray<{ id: string }>
+): Record<string, string> => {
+  const ids = new Set(schema.map((field) => field.id));
+  return Object.fromEntries(Object.entries(data).filter(([id]) => ids.has(id)));
+};
+
 // 保存が長引いたときに「止まっていない」ことを伝えるまでの時間
 const SLOW_SAVE_NOTICE_MS = 5000;
 
@@ -72,7 +85,10 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
   // キャッシュ（ref）だけを書き換えたとき、未保存の判定を取り直すための再描画
   const [, forceRender] = useReducer((n: number) => n + 1, 0);
 
-  const hasInput = Object.values(formData).some((value) => value !== "");
+  // いま表示している型の項目だけを対象にする（消えた項目の入力は、見えないので数えない）
+  const currentSchema = selectedFramework?.schema ?? [];
+  const visibleData = pickSchemaFields(formData, currentSchema);
+  const hasInput = Object.values(visibleData).some((value) => value !== "");
   // 表示中の型だけでなく、切り替え前に書いた別の型の入力（キャッシュ）も未保存として扱う。
   // 再読み込みで一覧から消えた型の下書きは、選べず、保存も消去もできないので数えない
   // （数えると、離脱の確認が消えなくなる）
@@ -199,7 +215,9 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
     // 「どれか1つ以上入力」のエラーは、空白でない入力ができたときに消す
     if (
       errors["__form__"] &&
-      hasAtLeastOneValue({ ...formData, [fieldId]: value })
+      hasAtLeastOneValue(
+        pickSchemaFields({ ...formData, [fieldId]: value }, currentSchema)
+      )
     ) {
       clearFieldError("__form__");
     }
@@ -215,7 +233,8 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
     if (!selectedFrameworkId || !selectedFramework) return;
     const savedFrameworkId = selectedFrameworkId;
 
-    const isValid = validateFormData(formData, selectedFramework.schema || []);
+    const submittedData = pickSchemaFields(formData, currentSchema);
+    const isValid = validateFormData(submittedData, currentSchema);
     if (!isValid) return;
 
     isSubmittingRef.current = true;
@@ -225,7 +244,7 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
     try {
       const result = await saveReflection({
         framework_id: savedFrameworkId,
-        content: sanitizeFormData(formData),
+        content: sanitizeFormData(submittedData),
         reflection_date: new Date().toISOString().split("T")[0],
       });
 
