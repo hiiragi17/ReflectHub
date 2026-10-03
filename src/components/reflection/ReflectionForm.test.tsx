@@ -621,6 +621,36 @@ describe("ReflectionForm 型の項目が変わったとき（再読み込みの�
     expect(JSON.stringify(request)).not.toContain("消える項目の入力");
   });
 
+  it("別の型に切り替えたあとも、キャッシュ中の下書きの、消えた項目は数えない", async () => {
+    const other = {
+      ...framework,
+      id: "f5",
+      name: "OTHER",
+      schema: [{ id: "o", label: "他の型の項目", placeholder: "", required: false }],
+    };
+    useFrameworkStore.setState({
+      frameworks: [before, other],
+      selectedFrameworkId: "f4",
+      selectedFramework: before,
+    });
+    const onUnsavedChange = vi.fn();
+    render(<ReflectionForm onUnsavedChange={onUnsavedChange} />);
+    typeInto(/古い項目/, "消える項目の入力");
+
+    // 別の型に切り替える（元の型の入力は、キャッシュされる）
+    act(() => {
+      useFrameworkStore.setState({ selectedFrameworkId: "f5", selectedFramework: other });
+    });
+    await screen.findByLabelText(/他の型の項目/);
+    expect(onUnsavedChange).toHaveBeenLastCalledWith(true);
+
+    // 再読み込みで、元の型から「古い項目」がなくなった
+    act(() => {
+      useFrameworkStore.setState({ frameworks: [after, other] });
+    });
+    await waitFor(() => expect(onUnsavedChange).toHaveBeenLastCalledWith(false));
+  });
+
   it("消えた項目の入力は、未保存として数えない", async () => {
     const onUnsavedChange = await setup();
     await waitFor(() => expect(onUnsavedChange).toHaveBeenLastCalledWith(false));

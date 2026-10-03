@@ -96,11 +96,16 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
   // （数えると、離脱の確認が消えなくなる）
   const hasUnsavedInput =
     hasInput ||
-    Object.entries(cacheRef.current).some(
-      ([frameworkId, data]) =>
-        frameworks.some((f) => f.id === frameworkId) &&
-        Object.values(data).some((value) => value !== "")
-    );
+    Object.entries(cacheRef.current).some(([frameworkId, data]) => {
+      const cachedFramework = frameworks.find((f) => f.id === frameworkId);
+      // 一覧にない型、または、その型の現在の項目にない入力は、見えないので数えない
+      return (
+        !!cachedFramework &&
+        Object.values(pickSchemaFields(data, cachedFramework.schema ?? [])).some(
+          (value) => value !== ""
+        )
+      );
+    });
 
   useEffect(() => {
     if (!selectedFrameworkId) return;
