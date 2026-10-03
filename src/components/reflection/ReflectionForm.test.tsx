@@ -377,3 +377,85 @@ describe("ReflectionForm 保存時の検証エラーの消去", () => {
     expect(screen.queryByText("どれか1つ以上のフィールドに入力してください")).not.toBeInTheDocument();
   });
 });
+
+describe("ReflectionForm 保存中に型を切り替えたとき", () => {
+  const ywt = framework;
+  const kpt = {
+    ...framework,
+    id: "f2",
+    name: "KPT",
+    schema: [{ id: "k", label: "Keep", placeholder: "", required: false }],
+  };
+  const select = (fw: typeof ywt) =>
+    act(() => {
+      useFrameworkStore.setState({ selectedFrameworkId: fw.id, selectedFramework: fw });
+    });
+
+  beforeEach(() => {
+    useFrameworkStore.setState({
+      frameworks: [ywt, kpt],
+      selectedFrameworkId: "f1",
+      selectedFramework: ywt,
+    });
+  });
+
+  it("保存が終わっても、切り替え先の下書きは消えず、保存済みにも見えない", async () => {
+    let resolveSave: (v: unknown) => void = () => {};
+    mutation.saveReflection.mockImplementation(
+      () => new Promise((r) => { resolveSave = r; })
+    );
+    const onUnsavedChange = vi.fn();
+    render(<ReflectionForm onUnsavedChange={onUnsavedChange} />);
+
+    // KPT に下書きを書いてから YWT に戻り、YWT を保存する
+    select(kpt);
+    await screen.findByLabelText(/Keep/);
+    typeInto(/Keep/, "KPTの下書き");
+    select(ywt);
+    await screen.findByLabelText(/やったこと/);
+    typeInto(/やったこと/, "YWTの内容");
+    fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+
+    // 保存中に KPT へ切り替える（KPT の下書きが復元される）
+    select(kpt);
+    expect(((await screen.findByLabelText(/Keep/)) as HTMLTextAreaElement).value).toBe("KPTの下書き");
+
+    await act(async () => {
+      resolveSave({ id: "r1", reflection_date: "2026-10-03" });
+    });
+
+    expect((screen.getByLabelText(/Keep/) as HTMLTextAreaElement).value).toBe("KPTの下書き");
+    expect(screen.queryByText("保存しました")).not.toBeInTheDocument();
+    // KPT の下書きは未保存のまま
+    expect(onUnsavedChange).toHaveBeenLastCalledWith(true);
+    // 送信したのは YWT の内容
+    expect(mutation.saveReflection).toHaveBeenCalledWith(
+      expect.objectContaining({ framework_id: "f1", content: { y: "YWTの内容" } })
+    );
+  });
+
+  it("保存した型の下書きは保存済みとして消え、未保存の判定も取り直される", async () => {
+    let resolveSave: (v: unknown) => void = () => {};
+    mutation.saveReflection.mockImplementation(
+      () => new Promise((r) => { resolveSave = r; })
+    );
+    const onUnsavedChange = vi.fn();
+    render(<ReflectionForm onUnsavedChange={onUnsavedChange} />);
+
+    await screen.findByLabelText(/やったこと/);
+    typeInto(/やったこと/, "YWTの内容");
+    fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+    select(kpt); // 空の KPT へ切り替え（YWT の内容はキャッシュされる）
+    await screen.findByLabelText(/Keep/);
+    expect(onUnsavedChange).toHaveBeenLastCalledWith(true);
+
+    await act(async () => {
+      resolveSave({ id: "r1", reflection_date: "2026-10-03" });
+    });
+
+    await waitFor(() => expect(onUnsavedChange).toHaveBeenLastCalledWith(false));
+    // YWT に戻っても、保存済みの内容は復元されない
+    select(ywt);
+    expect(((await screen.findByLabelText(/やったこと/)) as HTMLTextAreaElement).value).toBe("");
+  });
+});

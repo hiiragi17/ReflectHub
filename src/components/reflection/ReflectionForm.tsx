@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useReducer,
+  useRef,
+} from "react";
 import { useFrameworkStore } from "@/stores/frameworkStore";
 import { useValidation } from "@/hooks/useValidation";
 import { useReflectionMutation } from "@/hooks/useReflectionMutation";
@@ -59,6 +65,10 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
   const previousFrameworkIdRef = useRef<string | null>(null);
   // state の更新は再描画後に反映されるため、連打対策は ref で同期的に行う
   const isSubmittingRef = useRef(false);
+  // 保存が終わった時点で、どの型を表示しているか（保存中に型を切り替えられるため）
+  const currentFrameworkIdRef = useRef(selectedFrameworkId);
+  // キャッシュ（ref）だけを書き換えたとき、未保存の判定を取り直すための再描画
+  const [, forceRender] = useReducer((n: number) => n + 1, 0);
 
   const hasInput = Object.values(formData).some((value) => value !== "");
   // 表示中の型だけでなく、切り替え前に書いた別の型の入力（キャッシュ）も未保存として扱う
@@ -99,6 +109,10 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
       previousFrameworkIdRef.current = selectedFrameworkId;
     }
   }, [selectedFrameworkId, clearErrors, formData]);
+
+  useEffect(() => {
+    currentFrameworkIdRef.current = selectedFrameworkId;
+  }, [selectedFrameworkId]);
 
   useEffect(() => {
     onUnsavedChange?.(hasUnsavedInput);
@@ -184,6 +198,7 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
   const handleSave = async () => {
     if (isSubmittingRef.current) return;
     if (!selectedFrameworkId || !selectedFramework) return;
+    const savedFrameworkId = selectedFrameworkId;
 
     const isValid = validateFormData(formData, selectedFramework.schema || []);
     if (!isValid) return;
@@ -194,16 +209,22 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
 
     try {
       const result = await saveReflection({
-        framework_id: selectedFrameworkId,
+        framework_id: savedFrameworkId,
         content: sanitizeFormData(formData),
         reflection_date: new Date().toISOString().split("T")[0],
       });
 
       if (result) {
-        cacheRef.current[selectedFrameworkId] = {};
-        setFormData({});
-        clearErrors();
-        setIsSaved(true);
+        // 送信した型の下書きは保存済みなので、キャッシュからも消す
+        delete cacheRef.current[savedFrameworkId];
+        if (currentFrameworkIdRef.current === savedFrameworkId) {
+          setFormData({});
+          clearErrors();
+          setIsSaved(true);
+        } else {
+          // 保存中に別の型へ切り替えた。いま表示中の型の下書きは消さない
+          forceRender();
+        }
       }
     } catch {
       // エラー内容は useReflectionMutation の error に保持され、下で表示する

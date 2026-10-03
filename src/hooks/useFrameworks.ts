@@ -18,9 +18,9 @@ export const useFrameworks = () => {
   } = useFrameworkStore();
 
   // 初期化：フレームワーク一覧を取得
-  const fetchFrameworks = useCallback(async () => {
-    // 既に取得済みなら実行しない
-    if (frameworks.length > 0) {
+  const fetchFrameworks = useCallback(async (force = false) => {
+    // 既に取得済みなら実行しない（再読み込みのボタンからは force で取得し直す）
+    if (!force && frameworks.length > 0) {
       return;
     }
 
@@ -66,6 +66,9 @@ export const useFrameworks = () => {
     setSelectedFramework(frameworkId);
   }, [setSelectedFramework]);
 
+  // onClick に直接渡されてもイベントが force に入らないよう、引数なしで包む
+  const reload = useCallback(() => fetchFrameworks(true), [fetchFrameworks]);
+
   return {
     frameworks,
     selectedFrameworkId,
@@ -73,6 +76,6 @@ export const useFrameworks = () => {
     isLoading,
     error,
     selectFramework,
-    reload: fetchFrameworks,
+    reload,
   };
 };
