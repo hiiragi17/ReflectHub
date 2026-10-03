@@ -718,3 +718,23 @@ describe("ReflectionForm 保存に失敗したとき、保存中に型を切り�
     expect(screen.getByRole("alert")).toHaveTextContent("保存できませんでした");
   });
 });
+
+describe("ReflectionForm 保存する日付（JST）", () => {
+  it("JST の朝（UTC では前日）に保存しても、JST の日付で保存する", async () => {
+    // 2026-10-04 08:30 JST = 2026-10-03 23:30 UTC
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-03T23:30:00Z"));
+    try {
+      mutation.saveReflection.mockResolvedValue({ id: "r1", reflection_date: "2026-10-04" });
+      render(<ReflectionForm />);
+      typeInto(/やったこと/, "朝に書いた");
+      fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+      await waitFor(() => expect(mutation.saveReflection).toHaveBeenCalledTimes(1));
+      expect(mutation.saveReflection).toHaveBeenCalledWith(
+        expect.objectContaining({ reflection_date: "2026-10-04" })
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

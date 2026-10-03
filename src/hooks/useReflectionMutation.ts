@@ -11,6 +11,7 @@ import { reflectionService } from "@/services/reflectionService";
 import { useAuthStore } from "@/stores/authStore";
 import { errorTrackingClient } from "@/lib/errorTracking/client";
 import { classifySaveError } from "@/utils/reflectionSaveError";
+import { getTodayInJst } from "@/utils/reflectionDate";
 
 /**
  * 保存失敗を診断用に記録する。
@@ -76,7 +77,7 @@ export const useReflectionMutation = () => {
           framework_id: request.framework_id,
           content: request.content,
           reflection_date:
-            request.reflection_date || new Date().toISOString().split("T")[0],
+            request.reflection_date || getTodayInJst(),
           created_at: new Date().toISOString(),
         };
 

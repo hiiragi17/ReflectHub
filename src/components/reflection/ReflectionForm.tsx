@@ -26,6 +26,7 @@ import Link from "next/link";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { getSaveErrorMessage } from "@/utils/reflectionSaveError";
 import { hasAtLeastOneValue } from "@/utils/validation";
+import { getTodayInJst } from "@/utils/reflectionDate";
 
 export const LEAVE_CONFIRM_MESSAGE =
   "入力内容はまだ保存されていません。このページを離れると消えます。離れますか？";
@@ -253,7 +254,7 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
       const result = await saveReflection({
         framework_id: savedFrameworkId,
         content: sanitizeFormData(submittedData),
-        reflection_date: new Date().toISOString().split("T")[0],
+        reflection_date: getTodayInJst(),
       });
 
       if (result) {
