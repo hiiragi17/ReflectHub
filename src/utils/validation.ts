@@ -36,7 +36,9 @@ export const checkLength = (
 };
 
 export const containsForbiddenCharacters = (value: string): boolean => {
-  return VALIDATION_CONSTANTS.PATTERNS.CONTROL_CHARS.test(value);
+  // CONTROL_CHARS は g フラグ付きで、共有のまま .test() を呼ぶと lastIndex が残り、
+  // 同じ入力でも結果が交互に変わる。検査のたびに状態を持たない正規表現を作る
+  return new RegExp(VALIDATION_CONSTANTS.PATTERNS.CONTROL_CHARS.source).test(value);
 };
 
 export const containsHtmlContent = (value: string): boolean => {
