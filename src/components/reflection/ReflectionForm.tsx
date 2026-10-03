@@ -21,13 +21,21 @@ import Link from "next/link";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { getSaveErrorMessage } from "@/utils/reflectionSaveError";
 
-const LEAVE_CONFIRM_MESSAGE =
+export const LEAVE_CONFIRM_MESSAGE =
   "入力内容はまだ保存されていません。このページを離れると消えます。離れますか？";
 
 // 保存が長引いたときに「止まっていない」ことを伝えるまでの時間
 const SLOW_SAVE_NOTICE_MS = 5000;
 
-export default function ReflectionForm() {
+interface ReflectionFormProps {
+  /**
+   * 未保存の入力があるかが変わったときに呼ばれる。
+   * ページ側が、リンク以外の離脱（ログアウトのボタンなど）に確認を出すために使う。
+   */
+  onUnsavedChange?: (hasUnsaved: boolean) => void;
+}
+
+export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps = {}) {
   const { selectedFrameworkId, selectedFramework } = useFrameworkStore();
 
   const { validateFormData, sanitizeFormData, errors, clearErrors } =
@@ -73,6 +81,9 @@ export default function ReflectionForm() {
       if (Object.keys(formData).length > 0) {
         cacheRef.current[previousId] = formData;
       }
+      // 別の型に切り替えたら「保存しました」は消す
+      // （戻した型の未保存の下書きが、保存済みに見えないように）
+      setIsSaved(false);
 
       // 戻ってきた型の入力は formData が持つので、キャッシュには残さない
       // （残すと、あとで消しても「未保存の入力あり」と誤判定する）
@@ -83,6 +94,14 @@ export default function ReflectionForm() {
       previousFrameworkIdRef.current = selectedFrameworkId;
     }
   }, [selectedFrameworkId, clearErrors, formData]);
+
+  useEffect(() => {
+    onUnsavedChange?.(hasUnsavedInput);
+  }, [hasUnsavedInput, onUnsavedChange]);
+
+  useEffect(() => {
+    return () => onUnsavedChange?.(false);
+  }, [onUnsavedChange]);
 
   useEffect(() => {
     if (!isLoading) {

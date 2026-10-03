@@ -263,3 +263,56 @@ describe("ReflectionForm アプリ内リンクでの離脱確認", () => {
     confirmSpy.mockRestore();
   });
 });
+
+describe("ReflectionForm 未保存状態の通知と保存済み表示", () => {
+  it("未保存の入力の有無を onUnsavedChange で親に伝える", async () => {
+    const onUnsavedChange = vi.fn();
+    render(<ReflectionForm onUnsavedChange={onUnsavedChange} />);
+    expect(onUnsavedChange).toHaveBeenLastCalledWith(false);
+
+    typeInto(/やったこと/, "書きかけ");
+    expect(onUnsavedChange).toHaveBeenLastCalledWith(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "入力をすべて消す" }));
+    fireEvent.click(await screen.findByRole("button", { name: "すべて消す" }));
+    await waitFor(() => expect(onUnsavedChange).toHaveBeenLastCalledWith(false));
+  });
+
+  it("別の型の未保存の下書きも「未保存あり」として伝える", async () => {
+    const other = { ...framework, id: "f2", name: "KPT", schema: [{ id: "k", label: "Keep", placeholder: "", required: false }] };
+    useFrameworkStore.setState({ frameworks: [framework, other] });
+    const onUnsavedChange = vi.fn();
+    render(<ReflectionForm onUnsavedChange={onUnsavedChange} />);
+    typeInto(/やったこと/, "YWTの下書き");
+
+    act(() => {
+      useFrameworkStore.setState({ selectedFrameworkId: "f2", selectedFramework: other });
+    });
+    await screen.findByLabelText(/Keep/);
+    expect(onUnsavedChange).toHaveBeenLastCalledWith(true);
+  });
+
+  it("アンマウント時は「未保存なし」を伝える", () => {
+    const onUnsavedChange = vi.fn();
+    const { unmount } = render(<ReflectionForm onUnsavedChange={onUnsavedChange} />);
+    typeInto(/やったこと/, "x");
+    unmount();
+    expect(onUnsavedChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("型を切り替えたら「保存しました」を消す（戻した型の下書きが保存済みに見えない）", async () => {
+    const other = { ...framework, id: "f2", name: "KPT", schema: [{ id: "k", label: "Keep", placeholder: "", required: false }] };
+    useFrameworkStore.setState({ frameworks: [framework, other] });
+    mutation.saveReflection.mockResolvedValue({ id: "r1", reflection_date: "2026-10-03" });
+    render(<ReflectionForm />);
+    typeInto(/やったこと/, "保存する内容");
+    fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+    expect(await screen.findByText("保存しました")).toBeInTheDocument();
+
+    act(() => {
+      useFrameworkStore.setState({ selectedFrameworkId: "f2", selectedFramework: other });
+    });
+    await screen.findByLabelText(/Keep/);
+    expect(screen.queryByText("保存しました")).not.toBeInTheDocument();
+  });
+});
