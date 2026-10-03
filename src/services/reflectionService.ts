@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase/client";
+import { getTodayInJst } from "@/utils/reflectionDate";
 import {
   CreateReflectionRequest,
   UpdateReflectionRequest,
@@ -88,7 +89,7 @@ export const createReflection = async (
     }
 
     const reflectionDate =
-      request.reflection_date || new Date().toISOString().split("T")[0];
+      request.reflection_date || getTodayInJst();
 
     const { data, error } = await supabase
       .from("retrospectives")

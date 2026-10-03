@@ -93,15 +93,57 @@ describe('reflectionService', () => {
       expect(mockSupabaseClient.from).toHaveBeenCalledWith('retrospectives');
     });
 
-    it('should use current date when reflection_date is not provided', async () => {
-      const mockContent = { field1: 'value1' };
-      const currentDate = new Date().toISOString().split('T')[0];
+    it('should use today in JST when reflection_date is not provided', async () => {
+      // JST の朝 8:30（UTC では前日 23:30）。UTC の日付だと前日になってしまう時刻
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-10-03T23:30:00Z'));
+      try {
+        const mockContent = { field1: 'value1' };
 
+        mockSupabaseClient.auth.getUser.mockResolvedValue({
+          data: { user: { id: mockUserId } },
+          error: null,
+        });
+
+        const mockInsert = vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: {
+                id: mockReflectionId,
+                user_id: mockUserId,
+                framework_id: mockFrameworkId,
+                content: mockContent,
+                reflection_date: '2026-10-04',
+                created_at: '2026-10-03T23:30:00Z',
+              },
+              error: null,
+            }),
+          }),
+        });
+
+        mockSupabaseClient.from.mockReturnValue({
+          insert: mockInsert,
+        });
+
+        await createReflection(mockUserId, {
+          framework_id: mockFrameworkId,
+          content: mockContent,
+        });
+
+        // DB に送る日付が、JST の日付であること（モックの戻り値ではなく、送った値を確認する）
+        expect(mockInsert).toHaveBeenCalledWith([
+          expect.objectContaining({ reflection_date: '2026-10-04' }),
+        ]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('should keep reflection_date when the caller provides it', async () => {
       mockSupabaseClient.auth.getUser.mockResolvedValue({
         data: { user: { id: mockUserId } },
         error: null,
       });
-
       const mockInsert = vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
           single: vi.fn().mockResolvedValue({
@@ -109,25 +151,25 @@ describe('reflectionService', () => {
               id: mockReflectionId,
               user_id: mockUserId,
               framework_id: mockFrameworkId,
-              content: mockContent,
-              reflection_date: currentDate,
-              created_at: '2025-11-13T10:00:00Z',
+              content: {},
+              reflection_date: '2025-01-02',
+              created_at: '2025-01-02T10:00:00Z',
             },
             error: null,
           }),
         }),
       });
+      mockSupabaseClient.from.mockReturnValue({ insert: mockInsert });
 
-      mockSupabaseClient.from.mockReturnValue({
-        insert: mockInsert,
-      });
-
-      const result = await createReflection(mockUserId, {
+      await createReflection(mockUserId, {
         framework_id: mockFrameworkId,
-        content: mockContent,
+        content: {},
+        reflection_date: '2025-01-02',
       });
 
-      expect(result.reflection_date).toBe(currentDate);
+      expect(mockInsert).toHaveBeenCalledWith([
+        expect.objectContaining({ reflection_date: '2025-01-02' }),
+      ]);
     });
 
     it('should throw AUTH_ERROR when user is not authenticated', async () => {
