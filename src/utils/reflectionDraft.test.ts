@@ -54,6 +54,17 @@ describe("reflectionDraft", () => {
     expect(loadDrafts("u1", t0 + 7 * day + 1)).toEqual({ f2: { a: "新しい入力" } });
   });
 
+  it("期限切れの型が混ざっていたら、読み込んだときに端末からも消える（残る型の保存日時は変わらない）", () => {
+    const t0 = 1_000_000;
+    const day = 24 * 60 * 60 * 1000;
+    saveDrafts("u1", { f1: { y: "古い入力" } }, t0);
+    saveDrafts("u1", { f1: { y: "古い入力" }, f2: { a: "新しい入力" } }, t0 + 6 * day);
+    expect(loadDrafts("u1", t0 + 7 * day + 1)).toEqual({ f2: { a: "新しい入力" } });
+    const raw = JSON.parse(localStorage.getItem("reflecthub:reflection-draft:u1") ?? "{}");
+    expect(raw.drafts).toEqual({ f2: { a: "新しい入力" } });
+    expect(raw.savedAt).toEqual({ f2: t0 + 6 * day });
+  });
+
   it("内容を変えた型は、変えた時刻から数え直す", () => {
     const t0 = 1_000_000;
     const day = 24 * 60 * 60 * 1000;

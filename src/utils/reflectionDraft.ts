@@ -178,6 +178,16 @@ export const loadDrafts = (
       clearDrafts(userId);
       return null;
     }
+    // 期限切れの型が混ざっていたら、端末からも消す（保存日時は変えずに、残る型だけで書き直す）
+    if (Object.keys(drafts).length !== Object.keys(stored.drafts).length) {
+      const savedAt = Object.fromEntries(
+        Object.keys(drafts).map((id) => [id, stored.savedAt[id]])
+      );
+      localStorage.setItem(
+        keyFor(userId),
+        JSON.stringify({ v: STORAGE_VERSION, savedAt, drafts })
+      );
+    }
     return drafts;
   } catch {
     clearDrafts(userId);
