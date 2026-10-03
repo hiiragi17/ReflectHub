@@ -25,6 +25,7 @@ vi.mock("@/hooks/useReflectionMutation", () => ({
 import ReflectionForm from "./ReflectionForm";
 import { useFrameworkStore } from "@/stores/frameworkStore";
 import {
+  CLEAR_EPOCH_KEY,
   clearAllDrafts,
   draftStorageKey,
   loadDrafts,
@@ -956,6 +957,59 @@ describe("ReflectionForm 下書きの自動保存", () => {
       auth.user = null;
       clearAllDrafts();
       unmount();
+      expect(loadDrafts("u1")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("別のタブでログアウトのボタンが押されていたら、画面が閉じても書き戻さない", () => {
+    vi.useFakeTimers();
+    try {
+      const { unmount } = render(<ReflectionForm />);
+      typeInto(/やったこと/, "別タブのログアウトの直前の入力");
+      // 別のタブの clearAllDrafts：印だけがこのタブに伝わる
+      localStorage.setItem(CLEAR_EPOCH_KEY, "other-tab");
+      auth.user = null;
+      unmount();
+      expect(loadDrafts("u1")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("別のタブが保存した、このタブで触っていない型の下書きは、書き換えで消さない", () => {
+    vi.useFakeTimers();
+    try {
+      render(<ReflectionForm />);
+      // 別のタブが、別の型の下書きを保存した
+      saveDrafts("u1", { f2: { a: "別のタブの入力" } });
+      typeInto(/やったこと/, "このタブの入力");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")).toEqual({
+        f1: { y: "このタブの入力" },
+        f2: { a: "別のタブの入力" },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("このタブで入力して消した型は、書き換えで残らない", () => {
+    vi.useFakeTimers();
+    try {
+      render(<ReflectionForm />);
+      typeInto(/やったこと/, "入力");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")).not.toBeNull();
+      typeInto(/やったこと/, "");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
       expect(loadDrafts("u1")).toBeNull();
     } finally {
       vi.useRealTimers();

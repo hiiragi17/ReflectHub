@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
+  CLEAR_EPOCH_KEY,
   DRAFT_TTL_MS,
   clearAllDrafts,
   clearDrafts,
@@ -71,7 +72,16 @@ describe("reflectionDraft", () => {
     clearDrafts("u1");
     expect(getClearGeneration()).toBe(before);
     clearAllDrafts();
-    expect(getClearGeneration()).toBe(before + 1);
+    expect(getClearGeneration()).not.toBe(before);
+  });
+
+  it("別のタブの clearAllDrafts も、世代の変化として分かる。印は下書きの一括削除で消えない", () => {
+    const before = getClearGeneration();
+    localStorage.setItem(CLEAR_EPOCH_KEY, "other-tab");
+    expect(getClearGeneration()).not.toBe(before);
+    saveDrafts("u1", { f1: { y: "a" } });
+    clearAllDrafts();
+    expect(localStorage.getItem(CLEAR_EPOCH_KEY)).not.toBeNull();
   });
 
   it("localStorage が使えなくても、例外を出さない", () => {

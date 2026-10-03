@@ -115,8 +115,10 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
     userId: string;
     drafts: ReflectionDrafts;
     serialized: string;
-    clearGeneration: number;
+    clearGeneration: string;
   } | null>(null);
+  // このタブで入力した（または復元・確認した）型。ほかのタブが書いた型を、書き換えで消さないために使う
+  const touchedFrameworksRef = useRef<Set<string>>(new Set());
   // キャッシュ（ref）だけを書き換えたとき、未保存の判定を取り直すための再描画
   const [, forceRender] = useReducer((n: number) => n + 1, 0);
 
@@ -180,6 +182,7 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
   useEffect(() => {
     lastPersistedRef.current = null;
     pendingWriteRef.current = null;
+    touchedFrameworksRef.current = new Set();
     if (!userId) {
       setPendingDraft(null);
       setDraftLoaded(false);
@@ -212,7 +215,15 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
     // ログアウトのボタンで下書きが消された後には、書き戻さない。
     // セッション失効による自動のログアウトでは消されないので、最後の入力も保存する
     if (!pending || pending.clearGeneration !== getClearGeneration()) return;
-    saveDrafts(pending.userId, pending.drafts);
+    // ほかのタブが書いた、このタブでは触っていない型の下書きは、残す
+    const merged: ReflectionDrafts = { ...pending.drafts };
+    const stored = loadDrafts(pending.userId);
+    for (const [frameworkId, data] of Object.entries(stored ?? {})) {
+      if (!touchedFrameworksRef.current.has(frameworkId) && !(frameworkId in merged)) {
+        merged[frameworkId] = data;
+      }
+    }
+    saveDrafts(pending.userId, merged);
     lastPersistedRef.current = pending.serialized;
   }, []);
 
@@ -240,6 +251,7 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
       merged[frameworkId] = { ...merged[frameworkId], ...data };
     }
     const drafts = compactDrafts(merged);
+    Object.keys(drafts).forEach((id) => touchedFrameworksRef.current.add(id));
     const serialized = JSON.stringify(drafts);
     if (serialized === lastPersistedRef.current) {
       pendingWriteRef.current = null;
