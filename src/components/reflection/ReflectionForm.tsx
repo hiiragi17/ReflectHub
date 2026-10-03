@@ -38,8 +38,13 @@ interface ReflectionFormProps {
 export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps = {}) {
   const { selectedFrameworkId, selectedFramework } = useFrameworkStore();
 
-  const { validateFormData, sanitizeFormData, errors, clearErrors } =
-    useValidation();
+  const {
+    validateFormData,
+    sanitizeFormData,
+    errors,
+    clearErrors,
+    clearFieldError,
+  } = useValidation();
   const {
     saveReflection,
     isLoading,
@@ -161,13 +166,20 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
     };
   }, [hasUnsavedInput]);
 
-  const handleFieldChange = useCallback((fieldId: string, value: string) => {
-    setIsSaved(false);
-    setFormData((prev) => ({
-      ...prev,
-      [fieldId]: value,
-    }));
-  }, []);
+  const handleFieldChange = useCallback(
+    (fieldId: string, value: string) => {
+      setIsSaved(false);
+      // 保存時の検証エラーは、入力し直したら消す（直したのに古いエラーが残らないように）。
+      // フォーム全体のエラー（「どれか1つ以上入力」）も、入力があれば不要になる
+      clearFieldError(fieldId);
+      clearFieldError("__form__");
+      setFormData((prev) => ({
+        ...prev,
+        [fieldId]: value,
+      }));
+    },
+    [clearFieldError]
+  );
 
   const handleSave = async () => {
     if (isSubmittingRef.current) return;

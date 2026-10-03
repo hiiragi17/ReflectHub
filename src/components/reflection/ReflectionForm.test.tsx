@@ -316,3 +316,64 @@ describe("ReflectionForm 未保存状態の通知と保存済み表示", () => {
     expect(screen.queryByText("保存しました")).not.toBeInTheDocument();
   });
 });
+
+describe("ReflectionForm 保存時の検証エラーの消去", () => {
+  const strict = {
+    ...framework,
+    id: "f3",
+    name: "STRICT",
+    schema: [
+      { id: "a", label: "必須項目", placeholder: "", required: true, max_length: 5 },
+      { id: "b", label: "任意項目", placeholder: "", required: false },
+    ],
+  };
+
+  beforeEach(() => {
+    useFrameworkStore.setState({
+      frameworks: [strict],
+      selectedFrameworkId: "f3",
+      selectedFramework: strict,
+    });
+  });
+
+  it("上限超過で保存を止められたあと、文字を減らして上限内にしたらエラーも消える", async () => {
+    render(<ReflectionForm />);
+    typeInto(/必須項目/, "123456");
+    fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+    await waitFor(() =>
+      expect(screen.getByLabelText(/必須項目/)).toHaveAttribute("aria-invalid", "true")
+    );
+    expect(mutation.saveReflection).not.toHaveBeenCalled();
+
+    typeInto(/必須項目/, "123");
+    expect(screen.queryByText("5文字以内で入力してください")).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/必須項目/)).toHaveAttribute("aria-invalid", "false");
+  });
+
+  it("必須エラーは、その項目に入力したら消える（他の項目のエラーは残る）", async () => {
+    render(<ReflectionForm />);
+    typeInto(/任意項目/, "x");
+    fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+    expect(await screen.findByText("この項目は必須です")).toBeInTheDocument();
+
+    typeInto(/任意項目/, "xy");
+    expect(screen.getByText("この項目は必須です")).toBeInTheDocument();
+
+    typeInto(/必須項目/, "ok");
+    expect(screen.queryByText("この項目は必須です")).not.toBeInTheDocument();
+  });
+
+  it("「どれか1つ以上入力」のエラーは、入力したら消える", async () => {
+    useFrameworkStore.setState({
+      frameworks: [framework],
+      selectedFrameworkId: "f1",
+      selectedFramework: framework,
+    });
+    render(<ReflectionForm />);
+    fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+    expect(await screen.findByText("どれか1つ以上のフィールドに入力してください")).toBeInTheDocument();
+
+    typeInto(/やったこと/, "書いた");
+    expect(screen.queryByText("どれか1つ以上のフィールドに入力してください")).not.toBeInTheDocument();
+  });
+});
