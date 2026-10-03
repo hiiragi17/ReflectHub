@@ -27,6 +27,7 @@ import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { getSaveErrorMessage } from "@/utils/reflectionSaveError";
 import { hasAtLeastOneValue } from "@/utils/validation";
 import { getTodayInJst } from "@/utils/reflectionDate";
+import { v4 as uuidv4 } from "uuid";
 
 export const LEAVE_CONFIRM_MESSAGE =
   "入力内容はまだ保存されていません。このページを離れると消えます。離れますか？";
@@ -83,6 +84,10 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
   const previousFrameworkIdRef = useRef<string | null>(null);
   // state の更新は再描画後に反映されるため、連打対策は ref で同期的に行う
   const isSubmittingRef = useRef(false);
+  // 冪等性キー。失敗後の再試行では同じキーを送り、サーバーに届いていた保存が二重にならないようにする。
+  // 型と入力内容の組ごとに保持する（別の型の保存を挟んでも、元の型の再試行で同じキーを使える）。
+  // 入力内容か型が変わったら別の振り返りとして扱うので、別のキーになる
+  const idempotencyKeysRef = useRef<Map<string, string>>(new Map());
   // 保存が終わった時点で、どの型を表示しているか（保存中に型を切り替えられるため）
   const currentFrameworkIdRef = useRef(selectedFrameworkId);
   // キャッシュ（ref）だけを書き換えたとき、未保存の判定を取り直すための再描画
@@ -250,14 +255,28 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
     setSubmittedFrameworkId(savedFrameworkId);
     clearError();
 
+    const content = sanitizeFormData(submittedData);
+    const signature = `${savedFrameworkId}:${JSON.stringify(content)}`;
+    // 同じ型で別の入力を送るなら、前の入力の再試行は終わり。あとで元の内容に戻して送っても、別の振り返りとして扱う
+    for (const previous of idempotencyKeysRef.current.keys()) {
+      if (previous.startsWith(`${savedFrameworkId}:`) && previous !== signature) {
+        idempotencyKeysRef.current.delete(previous);
+      }
+    }
+    const idempotencyKey = idempotencyKeysRef.current.get(signature) ?? uuidv4();
+    idempotencyKeysRef.current.set(signature, idempotencyKey);
+
     try {
       const result = await saveReflection({
         framework_id: savedFrameworkId,
-        content: sanitizeFormData(submittedData),
+        content,
         reflection_date: getTodayInJst(),
+        idempotency_key: idempotencyKey,
       });
 
       if (result) {
+        // 保存できたので、次の振り返りは別のキーにする
+        idempotencyKeysRef.current.delete(signature);
         // 送信した型の下書きは保存済みなので、キャッシュからも消す
         delete cacheRef.current[savedFrameworkId];
         if (currentFrameworkIdRef.current === savedFrameworkId) {
@@ -277,6 +296,13 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
   };
 
   const handleReset = () => {
+    // 消去は、いま表示中の型の、それまでの送信の再試行を終えること。同じ内容を入れ直しても、別の振り返りとして扱う。
+    // 別の型の下書き（キャッシュ）に残る再試行のキーは、消さない
+    for (const signature of idempotencyKeysRef.current.keys()) {
+      if (signature.startsWith(`${selectedFrameworkId}:`)) {
+        idempotencyKeysRef.current.delete(signature);
+      }
+    }
     setFormData({});
     clearErrors();
     setIsSaved(false);

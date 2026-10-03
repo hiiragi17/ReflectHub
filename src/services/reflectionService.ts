@@ -99,26 +99,44 @@ export const createReflection = async (
           framework_id: request.framework_id,
           content: request.content,
           reflection_date: reflectionDate,
+          ...(request.idempotency_key
+            ? { idempotency_key: request.idempotency_key }
+            : {}),
         },
       ])
       .select()
       .single();
 
+    let row = data;
     if (error) {
-      throw error;
+      // 同じキーで登録済み（前回の送信が届いていた）。新規登録せず、登録済みの行を返す
+      if (error.code === "23505" && request.idempotency_key) {
+        const { data: existing, error: fetchError } = await supabase
+          .from("retrospectives")
+          .select()
+          .eq("user_id", userId)
+          .eq("idempotency_key", request.idempotency_key)
+          .single();
+        if (fetchError) {
+          throw fetchError;
+        }
+        row = existing;
+      } else {
+        throw error;
+      }
     }
 
-    if (!data) {
+    if (!row) {
       throw new Error("No data returned from server");
     }
 
     return {
-      id: data.id,
-      user_id: data.user_id,
-      framework_id: data.framework_id,
-      content: data.content,
-      reflection_date: data.reflection_date, // UTC のまま返す（フロント側で変換）
-      created_at: data.created_at,
+      id: row.id,
+      user_id: row.user_id,
+      framework_id: row.framework_id,
+      content: row.content,
+      reflection_date: row.reflection_date, // UTC のまま返す（フロント側で変換）
+      created_at: row.created_at,
     };
   } catch (error) {
     throw formatError(error);
