@@ -8,12 +8,29 @@ const mutation = {
   clearError: vi.fn(),
 };
 
+const auth = vi.hoisted(() => ({ user: null as null | { id: string } }));
+
+vi.mock("@/stores/authStore", () => ({
+  useAuthStore: Object.assign(
+    (selector: (state: { user: typeof auth.user }) => unknown) =>
+      selector({ user: auth.user }),
+    { getState: () => ({ user: auth.user }) }
+  ),
+}));
+
 vi.mock("@/hooks/useReflectionMutation", () => ({
   useReflectionMutation: () => mutation,
 }));
 
 import ReflectionForm from "./ReflectionForm";
 import { useFrameworkStore } from "@/stores/frameworkStore";
+import {
+  CLEAR_EPOCH_KEY,
+  clearAllDrafts,
+  draftStorageKey,
+  loadDrafts,
+  saveDrafts,
+} from "@/utils/reflectionDraft";
 
 const framework = {
   id: "f1",
@@ -36,6 +53,8 @@ const typeInto = (label: RegExp, value: string) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
+  auth.user = null;
   mutation.isLoading = false;
   mutation.error = null;
   mutation.saveReflection = vi.fn();
@@ -733,6 +752,458 @@ describe("ReflectionForm 保存する日付（JST）", () => {
       expect(mutation.saveReflection).toHaveBeenCalledWith(
         expect.objectContaining({ reflection_date: "2026-10-04" })
       );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("ReflectionForm 下書きの自動保存", () => {
+  beforeEach(() => {
+    auth.user = { id: "u1" };
+  });
+
+  it("入力すると、少し待ってから下書きが保存される", () => {
+    vi.useFakeTimers();
+    try {
+      render(<ReflectionForm />);
+      typeInto(/やったこと/, "走った");
+      expect(loadDrafts("u1")).toBeNull();
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")).toEqual({ f1: { y: "走った" } });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("前回の下書きがあれば確認が出て、復元すると入力欄に戻る", () => {
+    saveDrafts("u1", { f1: { y: "前回の入力" } });
+    render(<ReflectionForm />);
+    expect(screen.getByText(/前回の書きかけの下書きがあります/)).toBeInTheDocument();
+    // 確認するまでは、入力欄に入れない
+    expect(screen.getByLabelText(/やったこと/)).toHaveValue("");
+    fireEvent.click(screen.getByRole("button", { name: "復元する" }));
+    expect(screen.getByLabelText(/やったこと/)).toHaveValue("前回の入力");
+    expect(screen.queryByText(/前回の書きかけの下書きがあります/)).not.toBeInTheDocument();
+  });
+
+  it("破棄すると、入力欄は空のまま、保存済みの下書きも消える", () => {
+    saveDrafts("u1", { f1: { y: "前回の入力" } });
+    render(<ReflectionForm />);
+    fireEvent.click(screen.getByRole("button", { name: "破棄する" }));
+    expect(screen.getByLabelText(/やったこと/)).toHaveValue("");
+    expect(loadDrafts("u1")).toBeNull();
+  });
+
+  it("確認に答える前の入力も保存され、前回の下書きと重ねて残る（新しい入力が優先）", () => {
+    vi.useFakeTimers();
+    try {
+      saveDrafts("u1", { f1: { y: "前回のやったこと", w: "前回の気づき" } });
+      render(<ReflectionForm />);
+      typeInto(/やったこと/, "新しいやったこと");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")).toEqual({
+        f1: { y: "新しいやったこと", w: "前回の気づき" },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("確認の前に入力して「破棄する」と、前回の下書きだけが消え、新しい入力は残る", () => {
+    vi.useFakeTimers();
+    try {
+      saveDrafts("u1", { f1: { w: "前回の気づき" } });
+      render(<ReflectionForm />);
+      typeInto(/やったこと/, "新しい入力");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      fireEvent.click(screen.getByRole("button", { name: "破棄する" }));
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")).toEqual({ f1: { y: "新しい入力" } });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("保存の途中でログアウトしたら、保存が終わっても下書きを書き戻さない", async () => {
+    let resolveSave: (value: unknown) => void = () => {};
+    mutation.saveReflection = vi.fn(
+      () => new Promise((resolve) => (resolveSave = resolve))
+    );
+    saveDrafts("u1", { f1: { y: "前回の入力" }, f2: { a: "前回の別の型" } });
+    render(<ReflectionForm />);
+    typeInto(/やったこと/, "新しい入力");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+    });
+    // ログアウト（ボタンの signOut は、端末の下書きをすべて消す）
+    auth.user = null;
+    clearAllDrafts();
+    await act(async () => {
+      resolveSave({ id: "r1" });
+    });
+    expect(loadDrafts("u1")).toBeNull();
+  });
+
+  it("別のユーザーの下書きは、確認にも出ない", () => {
+    saveDrafts("u2", { f1: { y: "他人の入力" } });
+    render(<ReflectionForm />);
+    expect(screen.queryByText(/前回の書きかけの下書きがあります/)).not.toBeInTheDocument();
+  });
+
+  it("保存に成功すると、下書きも消える", async () => {
+    vi.useFakeTimers();
+    try {
+      mutation.saveReflection = vi.fn().mockResolvedValue({ id: "r1" });
+      render(<ReflectionForm />);
+      typeInto(/やったこと/, "走った");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")).not.toBeNull();
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+      });
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("確認に答えないまま保存すると、その型の下書きは確認からも保存先からも消える", async () => {
+    mutation.saveReflection = vi.fn().mockResolvedValue({ id: "r1" });
+    saveDrafts("u1", { f1: { y: "前回の入力" } });
+    render(<ReflectionForm />);
+    typeInto(/やったこと/, "新しい入力");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+    });
+    expect(screen.queryByText(/前回の書きかけの下書きがあります/)).not.toBeInTheDocument();
+    expect(loadDrafts("u1")).toBeNull();
+  });
+
+  it("確認に答えないまま保存しても、別の型の下書きは残る", async () => {
+    mutation.saveReflection = vi.fn().mockResolvedValue({ id: "r1" });
+    saveDrafts("u1", { f1: { y: "前回のYWT" }, f2: { a: "前回の別の型" } });
+    render(<ReflectionForm />);
+    typeInto(/やったこと/, "新しい入力");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+    });
+    expect(screen.getByText(/前回の書きかけの下書きがあります/)).toBeInTheDocument();
+    expect(loadDrafts("u1")).toEqual({ f2: { a: "前回の別の型" } });
+  });
+
+  it("読み込んだだけの下書きは書き直さず、保存日時（有効期限）を延ばさない", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-10-03T00:00:00Z"));
+      const savedAt = Date.now() - 60_000;
+      saveDrafts("u1", { f1: { y: "前回の入力" } }, savedAt);
+      render(<ReflectionForm />);
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      const raw = JSON.parse(localStorage.getItem(draftStorageKey("u1")) ?? "{}");
+      expect(raw.savedAt.f1).toBe(savedAt);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("別のタブで下書きが消えたら、確認の表示も消える", () => {
+    saveDrafts("u1", { f1: { y: "前回の入力" } });
+    render(<ReflectionForm />);
+    expect(screen.getByText(/前回の書きかけの下書きがあります/)).toBeInTheDocument();
+    localStorage.removeItem(draftStorageKey("u1"));
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: draftStorageKey("u1") })
+      );
+    });
+    expect(screen.queryByText(/前回の書きかけの下書きがあります/)).not.toBeInTheDocument();
+  });
+
+  it("入力の直後にセッションが失効して画面が閉じても、最後の入力は保存される", () => {
+    vi.useFakeTimers();
+    try {
+      const { unmount } = render(<ReflectionForm />);
+      typeInto(/やったこと/, "失効の直前の入力");
+      // 失効：ストアのユーザーが null になってから画面が閉じる（ログアウトのボタンではない）
+      auth.user = null;
+      unmount();
+      expect(loadDrafts("u1")).toEqual({ f1: { y: "失効の直前の入力" } });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("入力の直後にログアウトのボタンが押されたら、画面が閉じても書き戻さない", () => {
+    vi.useFakeTimers();
+    try {
+      const { unmount } = render(<ReflectionForm />);
+      typeInto(/やったこと/, "ログアウトの直前の入力");
+      auth.user = null;
+      clearAllDrafts();
+      unmount();
+      expect(loadDrafts("u1")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("別のタブでログアウトのボタンが押されていたら、画面が閉じても書き戻さない", () => {
+    vi.useFakeTimers();
+    try {
+      const { unmount } = render(<ReflectionForm />);
+      typeInto(/やったこと/, "別タブのログアウトの直前の入力");
+      // 別のタブの clearAllDrafts：印だけがこのタブに伝わる
+      localStorage.setItem(CLEAR_EPOCH_KEY, "other-tab");
+      auth.user = null;
+      unmount();
+      expect(loadDrafts("u1")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("別のタブが保存した、このタブで触っていない型の下書きは、書き換えで消さない", () => {
+    vi.useFakeTimers();
+    try {
+      render(<ReflectionForm />);
+      // 別のタブが、別の型の下書きを保存した
+      saveDrafts("u1", { f2: { a: "別のタブの入力" } });
+      typeInto(/やったこと/, "このタブの入力");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")).toEqual({
+        f1: { y: "このタブの入力" },
+        f2: { a: "別のタブの入力" },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("このタブで入力して消した型は、書き換えで残らない", () => {
+    vi.useFakeTimers();
+    try {
+      render(<ReflectionForm />);
+      typeInto(/やったこと/, "入力");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")).not.toBeNull();
+      typeInto(/やったこと/, "");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("確認が出ていなくても、保存に成功したら、保存済みの下書きから外す（セッション失効後でも）", async () => {
+    vi.useFakeTimers();
+    try {
+      let resolveSave: (value: unknown) => void = () => {};
+      mutation.saveReflection = vi.fn(
+        () => new Promise((resolve) => (resolveSave = resolve))
+      );
+      render(<ReflectionForm />);
+      typeInto(/やったこと/, "保存する入力");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")).toEqual({ f1: { y: "保存する入力" } });
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+      });
+      // 保存の途中でセッションが失効（ログアウトのボタンではない）
+      auth.user = null;
+      await act(async () => {
+        resolveSave({ id: "r1" });
+      });
+      expect(loadDrafts("u1")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("保存の途中で別のタブが同じ型に新しく書いた下書きは、保存が終わっても消えない", async () => {
+    vi.useFakeTimers();
+    try {
+      let resolveSave: (value: unknown) => void = () => {};
+      mutation.saveReflection = vi.fn(
+        () => new Promise((resolve) => (resolveSave = resolve))
+      );
+      render(<ReflectionForm />);
+      typeInto(/やったこと/, "このタブの入力");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+      });
+      // 保存の途中で、別のタブが同じ型に新しい入力を保存した
+      saveDrafts("u1", { f1: { y: "別のタブの新しい入力" } });
+      await act(async () => {
+        resolveSave({ id: "r1" });
+      });
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")).toEqual({ f1: { y: "別のタブの新しい入力" } });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("確認の表示中に別のタブが書いた下書きは、このタブで保存しても消さない", async () => {
+    mutation.saveReflection = vi.fn().mockResolvedValue({ id: "r1" });
+    saveDrafts("u1", { f1: { y: "前回の入力" } });
+    render(<ReflectionForm />);
+    typeInto(/やったこと/, "このタブの入力");
+    // 別のタブが、同じ型に新しい下書きを書いた（待ち時間のうちに、このタブは保存する）
+    saveDrafts("u1", { f1: { y: "別のタブの入力" } });
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: draftStorageKey("u1") })
+      );
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+    });
+    expect(loadDrafts("u1")).toEqual({ f1: { y: "別のタブの入力" } });
+  });
+
+  it("前回の下書きと同じ内容を入力して「破棄する」を押しても、入力は下書きとして残る", () => {
+    vi.useFakeTimers();
+    try {
+      saveDrafts("u1", { f1: { y: "同じ入力" } });
+      render(<ReflectionForm />);
+      typeInto(/やったこと/, "同じ入力");
+      fireEvent.click(screen.getByRole("button", { name: "破棄する" }));
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")).toEqual({ f1: { y: "同じ入力" } });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("保存の途中で別のタブが別の型を更新しても、確認の表示は最新の内容から作り直される", async () => {
+    vi.useFakeTimers();
+    try {
+      const framework2 = {
+        ...framework,
+        id: "f2",
+        name: "KPT",
+        display_name: "KPT",
+        schema: [{ id: "a", label: "別の型の項目", placeholder: "", required: false }],
+      };
+      useFrameworkStore.setState({
+        frameworks: [framework, framework2],
+        selectedFrameworkId: "f1",
+        selectedFramework: framework,
+      });
+      let resolveSave: (value: unknown) => void = () => {};
+      mutation.saveReflection = vi.fn(
+        () => new Promise((resolve) => (resolveSave = resolve))
+      );
+      saveDrafts("u1", { f1: { y: "前回" }, f2: { a: "前回の別の型" } });
+      render(<ReflectionForm />);
+      typeInto(/やったこと/, "このタブの入力");
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+      });
+      // 保存の途中で、別のタブが別の型の下書きを更新した
+      saveDrafts("u1", { f1: { y: "前回" }, f2: { a: "別のタブの新しい入力" } });
+      act(() => {
+        window.dispatchEvent(
+          new StorageEvent("storage", { key: draftStorageKey("u1") })
+        );
+      });
+      await act(async () => {
+        resolveSave({ id: "r1" });
+      });
+      // 残った確認から復元すると、別のタブの新しい内容になる
+      fireEvent.click(screen.getByRole("button", { name: "復元する" }));
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")?.f2).toEqual({ a: "別のタブの新しい入力" });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("切り替え前の型のキャッシュが古くても、別のタブが新しく書いたその型の下書きを上書きしない", () => {
+    vi.useFakeTimers();
+    try {
+      const framework2 = {
+        ...framework,
+        id: "f2",
+        name: "KPT",
+        display_name: "KPT",
+        schema: [{ id: "a", label: "別の型の項目", placeholder: "", required: false }],
+      };
+      useFrameworkStore.setState({
+        frameworks: [framework, framework2],
+        selectedFrameworkId: "f1",
+        selectedFramework: framework,
+      });
+      render(<ReflectionForm />);
+      typeInto(/やったこと/, "このタブの入力");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      // 別の型に切り替える（f1 の入力はキャッシュに残る）
+      act(() => {
+        useFrameworkStore.setState({
+          selectedFrameworkId: "f2",
+          selectedFramework: framework2,
+        });
+      });
+      // 別のタブが、f1 に新しい入力を保存した
+      saveDrafts("u1", { f1: { y: "別のタブの新しい入力" } });
+      typeInto(/別の型の項目/, "f2 の入力");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")).toEqual({
+        f1: { y: "別のタブの新しい入力" },
+        f2: { a: "f2 の入力" },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("ログインしていなければ、下書きを保存しない", () => {
+    vi.useFakeTimers();
+    try {
+      auth.user = null;
+      render(<ReflectionForm />);
+      typeInto(/やったこと/, "走った");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(localStorage.length).toBe(0);
     } finally {
       vi.useRealTimers();
     }
