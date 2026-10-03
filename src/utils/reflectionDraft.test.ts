@@ -131,6 +131,27 @@ describe("reflectionDraft", () => {
     expect(localStorage.getItem(CLEAR_EPOCH_KEY)).not.toBeNull();
   });
 
+  it("容量がいっぱいで印を書けなくても、下書きを消してから印を書き直す", () => {
+    saveDrafts("u1", { f1: { y: "a" } });
+    const original = Storage.prototype.setItem;
+    let failedOnce = false;
+    Storage.prototype.setItem = function (key: string, value: string) {
+      if (key === CLEAR_EPOCH_KEY && !failedOnce) {
+        failedOnce = true;
+        throw new Error("QuotaExceededError");
+      }
+      return original.call(this, key, value);
+    };
+    try {
+      clearAllDrafts();
+    } finally {
+      Storage.prototype.setItem = original;
+    }
+    expect(failedOnce).toBe(true);
+    expect(loadDrafts("u1")).toBeNull();
+    expect(localStorage.getItem(CLEAR_EPOCH_KEY)).not.toBeNull();
+  });
+
   it("localStorage が使えなくても、例外を出さない", () => {
     const original = Storage.prototype.setItem;
     Storage.prototype.setItem = () => {

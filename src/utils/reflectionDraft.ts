@@ -73,21 +73,32 @@ export const clearDrafts = (userId: string): void => {
 /** この端末に残っている、すべてのユーザーの下書きを消す（ログアウト用） */
 export const clearAllDrafts = (): void => {
   clearGeneration += 1;
-  try {
-    localStorage.setItem(
-      CLEAR_EPOCH_KEY,
-      `${Date.now()}-${Math.random().toString(36).slice(2)}`
-    );
-  } catch {
-    // 使えないときは何もしない
+  const epoch = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const writeEpoch = (): boolean => {
+    try {
+      localStorage.setItem(CLEAR_EPOCH_KEY, epoch);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const removeDraftKeys = () => {
+    try {
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith(KEY_PREFIX))
+        .forEach((key) => localStorage.removeItem(key));
+    } catch {
+      // 使えないときは何もしない
+    }
+  };
+
+  // 容量がいっぱいで印を書けないときは、下書きを消して空きを作ってから、書き直す
+  // （印がないと、別のタブの待ち時間中の入力が、消したあとに書き戻されてしまう）
+  if (!writeEpoch()) {
+    removeDraftKeys();
+    writeEpoch();
   }
-  try {
-    Object.keys(localStorage)
-      .filter((key) => key.startsWith(KEY_PREFIX))
-      .forEach((key) => localStorage.removeItem(key));
-  } catch {
-    // 使えないときは何もしない
-  }
+  removeDraftKeys();
 };
 
 interface StoredDrafts {
