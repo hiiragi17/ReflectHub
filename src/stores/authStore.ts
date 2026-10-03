@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { supabase } from "@/lib/supabase/client";
 import { apiFetch } from "@/lib/api/apiClient";
+import { clearAllDrafts } from "@/utils/reflectionDraft";
 import type {
   User,
   AuthState,
@@ -75,6 +76,10 @@ export const useAuthStore = create<AuthStore>()(
           if (error) {
             console.error("Signout error:", error);
           }
+
+          // ログアウトのボタンを押したときは、書きかけの下書きもこの端末から消す
+          // （共用の端末に入力内容を残さない。セッション失効による自動のログアウトでは消さない）
+          clearAllDrafts();
 
           // ローカルストレージを明示的にクリア
           try {

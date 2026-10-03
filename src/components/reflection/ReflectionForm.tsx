@@ -5,8 +5,10 @@ import React, {
   useState,
   useReducer,
   useRef,
+  useCallback,
 } from "react";
 import { useFrameworkStore } from "@/stores/frameworkStore";
+import { useAuthStore } from "@/stores/authStore";
 import { useValidation } from "@/hooks/useValidation";
 import { useReflectionMutation } from "@/hooks/useReflectionMutation";
 import DynamicField from "./DynamicField";
@@ -28,6 +30,13 @@ import { getSaveErrorMessage } from "@/utils/reflectionSaveError";
 import { hasAtLeastOneValue } from "@/utils/validation";
 import { getTodayInJst } from "@/utils/reflectionDate";
 import { v4 as uuidv4 } from "uuid";
+import {
+  type ReflectionDrafts,
+  clearDrafts,
+  compactDrafts,
+  loadDrafts,
+  saveDrafts,
+} from "@/utils/reflectionDraft";
 
 export const LEAVE_CONFIRM_MESSAGE =
   "入力内容はまだ保存されていません。このページを離れると消えます。離れますか？";
@@ -44,6 +53,9 @@ const pickSchemaFields = (
   const ids = new Set(schema.map((field) => field.id));
   return Object.fromEntries(Object.entries(data).filter(([id]) => ids.has(id)));
 };
+
+// 入力が止まってから、下書きをブラウザに保存するまでの時間
+const DRAFT_SAVE_DEBOUNCE_MS = 500;
 
 // 保存が長引いたときに「止まっていない」ことを伝えるまでの時間
 const SLOW_SAVE_NOTICE_MS = 5000;
@@ -90,6 +102,18 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
   const idempotencyKeysRef = useRef<Map<string, string>>(new Map());
   // 保存が終わった時点で、どの型を表示しているか（保存中に型を切り替えられるため）
   const currentFrameworkIdRef = useRef(selectedFrameworkId);
+  // 下書きの自動保存（ブラウザの localStorage）。ユーザーごとに分けて保存する
+  const userId = useAuthStore((state) => state.user?.id);
+  // 前回の下書きが残っているとき、復元するか確認するまで入れておく
+  const [pendingDraft, setPendingDraft] = useState<ReflectionDrafts | null>(null);
+  // 前回の下書きの扱い（復元・破棄）が決まるまでは、自動保存で上書きしない
+  const [draftReady, setDraftReady] = useState(false);
+  const lastPersistedRef = useRef<string | null>(null);
+  const pendingWriteRef = useRef<{
+    userId: string;
+    drafts: ReflectionDrafts;
+    serialized: string;
+  } | null>(null);
   // キャッシュ（ref）だけを書き換えたとき、未保存の判定を取り直すための再描画
   const [, forceRender] = useReducer((n: number) => n + 1, 0);
 
@@ -148,6 +172,71 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
   useEffect(() => {
     currentFrameworkIdRef.current = selectedFrameworkId;
   }, [selectedFrameworkId]);
+
+  // ユーザーが決まったら、前回の下書きがあるか調べる
+  useEffect(() => {
+    lastPersistedRef.current = null;
+    pendingWriteRef.current = null;
+    if (!userId) {
+      setPendingDraft(null);
+      setDraftReady(false);
+      return;
+    }
+    const stored = loadDrafts(userId);
+    setPendingDraft(stored);
+    setDraftReady(!stored);
+  }, [userId]);
+
+  const flushDraft = useCallback(() => {
+    const pending = pendingWriteRef.current;
+    pendingWriteRef.current = null;
+    // ログアウト後（ユーザーが変わった・いなくなった後）には、書き込まない
+    if (!pending || useAuthStore.getState().user?.id !== pending.userId) return;
+    saveDrafts(pending.userId, pending.drafts);
+    lastPersistedRef.current = pending.serialized;
+  }, []);
+
+  // 入力のたびに、少し待ってから下書きを保存する（毎回の描画で、変化があるときだけ）
+  useEffect(() => {
+    if (!userId || !draftReady || frameworks.length === 0 || !selectedFrameworkId) {
+      return;
+    }
+    const all: ReflectionDrafts = {
+      ...cacheRef.current,
+      [selectedFrameworkId]: formData,
+    };
+    // 一覧にない型・いまの項目にない入力は、見えないので残さない
+    const visible: ReflectionDrafts = {};
+    for (const [frameworkId, data] of Object.entries(all)) {
+      const framework = frameworks.find((f) => f.id === frameworkId);
+      if (framework) {
+        visible[frameworkId] = pickSchemaFields(data, framework.schema ?? []);
+      }
+    }
+    const drafts = compactDrafts(visible);
+    const serialized = JSON.stringify(drafts);
+    if (serialized === lastPersistedRef.current) {
+      pendingWriteRef.current = null;
+      return;
+    }
+    pendingWriteRef.current = { userId, drafts, serialized };
+    const timer = setTimeout(flushDraft, DRAFT_SAVE_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  });
+
+  // タブを隠す・閉じる・ページを離れるときは、待たずに保存する
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "hidden") flushDraft();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("pagehide", flushDraft);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("pagehide", flushDraft);
+      flushDraft();
+    };
+  }, [flushDraft]);
 
   useEffect(() => {
     onUnsavedChange?.(hasUnsavedInput);
@@ -295,6 +384,30 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
     }
   };
 
+  const handleRestoreDraft = () => {
+    if (!pendingDraft) return;
+    for (const [frameworkId, data] of Object.entries(pendingDraft)) {
+      if (frameworkId === selectedFrameworkId) {
+        // 確認を待つ間に入力した内容を優先し、空の項目だけ下書きで埋める
+        setFormData((prev) => ({ ...data, ...compactDrafts({ _: prev })._ }));
+      } else {
+        cacheRef.current[frameworkId] = {
+          ...data,
+          ...cacheRef.current[frameworkId],
+        };
+      }
+    }
+    setPendingDraft(null);
+    setDraftReady(true);
+    forceRender();
+  };
+
+  const handleDiscardDraft = () => {
+    if (userId) clearDrafts(userId);
+    setPendingDraft(null);
+    setDraftReady(true);
+  };
+
   const handleReset = () => {
     // 消去は、いま表示中の型の、それまでの送信の再試行を終えること。同じ内容を入れ直しても、別の振り返りとして扱う。
     // 別の型の下書き（キャッシュ）に残る再試行のキーは、消さない
@@ -319,6 +432,39 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
 
   return (
     <div className="w-full max-w-2xl mx-auto">
+      {/* 前回の下書きの復元 */}
+      {pendingDraft && (
+        <div
+          role="region"
+          aria-label="前回の下書き"
+          className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded text-sm"
+        >
+          <p className="font-medium text-blue-900">
+            前回の書きかけの下書きがあります
+            {(() => {
+              const names = Object.keys(pendingDraft)
+                .map((id) => frameworks.find((f) => f.id === id)?.name)
+                .filter(Boolean);
+              return names.length > 0 ? `（${names.join("、")}）` : "";
+            })()}
+          </p>
+          <p className="mt-1 text-blue-900">復元しますか？</p>
+          <div className="mt-3 flex gap-3">
+            <Button type="button" size="sm" onClick={handleRestoreDraft}>
+              復元する
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleDiscardDraft}
+            >
+              破棄する
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* 入力フォーム */}
       <div className="space-y-6">
         {selectedFramework.schema?.map((field, index) => (

@@ -8,12 +8,23 @@ const mutation = {
   clearError: vi.fn(),
 };
 
+const auth = vi.hoisted(() => ({ user: null as null | { id: string } }));
+
+vi.mock("@/stores/authStore", () => ({
+  useAuthStore: Object.assign(
+    (selector: (state: { user: typeof auth.user }) => unknown) =>
+      selector({ user: auth.user }),
+    { getState: () => ({ user: auth.user }) }
+  ),
+}));
+
 vi.mock("@/hooks/useReflectionMutation", () => ({
   useReflectionMutation: () => mutation,
 }));
 
 import ReflectionForm from "./ReflectionForm";
 import { useFrameworkStore } from "@/stores/frameworkStore";
+import { loadDrafts, saveDrafts } from "@/utils/reflectionDraft";
 
 const framework = {
   id: "f1",
@@ -36,6 +47,8 @@ const typeInto = (label: RegExp, value: string) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
+  auth.user = null;
   mutation.isLoading = false;
   mutation.error = null;
   mutation.saveReflection = vi.fn();
@@ -733,6 +746,104 @@ describe("ReflectionForm 保存する日付（JST）", () => {
       expect(mutation.saveReflection).toHaveBeenCalledWith(
         expect.objectContaining({ reflection_date: "2026-10-04" })
       );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("ReflectionForm 下書きの自動保存", () => {
+  beforeEach(() => {
+    auth.user = { id: "u1" };
+  });
+
+  it("入力すると、少し待ってから下書きが保存される", () => {
+    vi.useFakeTimers();
+    try {
+      render(<ReflectionForm />);
+      typeInto(/やったこと/, "走った");
+      expect(loadDrafts("u1")).toBeNull();
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")).toEqual({ f1: { y: "走った" } });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("前回の下書きがあれば確認が出て、復元すると入力欄に戻る", () => {
+    saveDrafts("u1", { f1: { y: "前回の入力" } });
+    render(<ReflectionForm />);
+    expect(screen.getByText(/前回の書きかけの下書きがあります/)).toBeInTheDocument();
+    // 確認するまでは、入力欄に入れない
+    expect(screen.getByLabelText(/やったこと/)).toHaveValue("");
+    fireEvent.click(screen.getByRole("button", { name: "復元する" }));
+    expect(screen.getByLabelText(/やったこと/)).toHaveValue("前回の入力");
+    expect(screen.queryByText(/前回の書きかけの下書きがあります/)).not.toBeInTheDocument();
+  });
+
+  it("破棄すると、入力欄は空のまま、保存済みの下書きも消える", () => {
+    saveDrafts("u1", { f1: { y: "前回の入力" } });
+    render(<ReflectionForm />);
+    fireEvent.click(screen.getByRole("button", { name: "破棄する" }));
+    expect(screen.getByLabelText(/やったこと/)).toHaveValue("");
+    expect(loadDrafts("u1")).toBeNull();
+  });
+
+  it("確認に答えるまでは、保存済みの下書きを上書きしない", () => {
+    vi.useFakeTimers();
+    try {
+      saveDrafts("u1", { f1: { y: "前回の入力" } });
+      render(<ReflectionForm />);
+      typeInto(/わかったこと/, "新しい入力");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")).toEqual({ f1: { y: "前回の入力" } });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("別のユーザーの下書きは、確認にも出ない", () => {
+    saveDrafts("u2", { f1: { y: "他人の入力" } });
+    render(<ReflectionForm />);
+    expect(screen.queryByText(/前回の書きかけの下書きがあります/)).not.toBeInTheDocument();
+  });
+
+  it("保存に成功すると、下書きも消える", async () => {
+    vi.useFakeTimers();
+    try {
+      mutation.saveReflection = vi.fn().mockResolvedValue({ id: "r1" });
+      render(<ReflectionForm />);
+      typeInto(/やったこと/, "走った");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")).not.toBeNull();
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+      });
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("ログインしていなければ、下書きを保存しない", () => {
+    vi.useFakeTimers();
+    try {
+      auth.user = null;
+      render(<ReflectionForm />);
+      typeInto(/やったこと/, "走った");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(localStorage.length).toBe(0);
     } finally {
       vi.useRealTimers();
     }
