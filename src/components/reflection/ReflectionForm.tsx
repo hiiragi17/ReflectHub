@@ -229,7 +229,17 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
     const merged: ReflectionDrafts = { ...pending.drafts };
     const stored = loadDrafts(pending.userId) ?? {};
     for (const [frameworkId, data] of Object.entries(stored)) {
-      if (frameworkId in merged) continue;
+      if (frameworkId in merged) {
+        // このタブが前回の書き込みから変えていない型（切り替え前の型のキャッシュなど）は、
+        // 別のタブが新しく書いた内容があれば、そちらを優先する
+        const changedHere =
+          JSON.stringify(merged[frameworkId]) !==
+          JSON.stringify(ownedDraftsRef.current[frameworkId]);
+        if (!changedHere && !ownsStoredDraft(stored, frameworkId)) {
+          merged[frameworkId] = data;
+        }
+        continue;
+      }
       const ownedByThisTab =
         touchedFrameworksRef.current.has(frameworkId) &&
         ownsStoredDraft(stored, frameworkId);

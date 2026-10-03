@@ -1152,6 +1152,48 @@ describe("ReflectionForm 下書きの自動保存", () => {
     }
   });
 
+  it("切り替え前の型のキャッシュが古くても、別のタブが新しく書いたその型の下書きを上書きしない", () => {
+    vi.useFakeTimers();
+    try {
+      const framework2 = {
+        ...framework,
+        id: "f2",
+        name: "KPT",
+        display_name: "KPT",
+        schema: [{ id: "a", label: "別の型の項目", placeholder: "", required: false }],
+      };
+      useFrameworkStore.setState({
+        frameworks: [framework, framework2],
+        selectedFrameworkId: "f1",
+        selectedFramework: framework,
+      });
+      render(<ReflectionForm />);
+      typeInto(/やったこと/, "このタブの入力");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      // 別の型に切り替える（f1 の入力はキャッシュに残る）
+      act(() => {
+        useFrameworkStore.setState({
+          selectedFrameworkId: "f2",
+          selectedFramework: framework2,
+        });
+      });
+      // 別のタブが、f1 に新しい入力を保存した
+      saveDrafts("u1", { f1: { y: "別のタブの新しい入力" } });
+      typeInto(/別の型の項目/, "f2 の入力");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")).toEqual({
+        f1: { y: "別のタブの新しい入力" },
+        f2: { a: "f2 の入力" },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("ログインしていなければ、下書きを保存しない", () => {
     vi.useFakeTimers();
     try {
