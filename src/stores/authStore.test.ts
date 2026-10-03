@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { useAuthStore } from "./authStore";
+import { loadDrafts, saveDrafts } from "@/utils/reflectionDraft";
 
 // Mock dependencies
 vi.mock("@/lib/supabase/client", () => ({
@@ -385,5 +386,35 @@ describe("authStore - Loading State and Timeout Management", () => {
       expect(state.error).toBeNull();
       expect(state.isAuthenticated).toBe(false);
     });
+  });
+});
+
+describe("authStore - signOut と書きかけの下書き", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+    global.fetch = vi.fn().mockResolvedValue({ ok: true } as Response);
+  });
+
+  it("ログアウトのボタンで、端末の下書きがすべて消える", async () => {
+    const { supabase } = await import("@/lib/supabase/client");
+    vi.mocked(supabase.auth.signOut).mockResolvedValue({ error: null });
+    saveDrafts("u1", { f1: { y: "a" } });
+    saveDrafts("u2", { f1: { y: "b" } });
+
+    await useAuthStore.getState().signOut();
+
+    expect(loadDrafts("u1")).toBeNull();
+    expect(loadDrafts("u2")).toBeNull();
+  });
+
+  it("サインアウトの通信が失敗しても、端末の下書きは消える", async () => {
+    const { supabase } = await import("@/lib/supabase/client");
+    vi.mocked(supabase.auth.signOut).mockRejectedValue(new Error("network"));
+    saveDrafts("u1", { f1: { y: "a" } });
+
+    await useAuthStore.getState().signOut();
+
+    expect(loadDrafts("u1")).toBeNull();
   });
 });

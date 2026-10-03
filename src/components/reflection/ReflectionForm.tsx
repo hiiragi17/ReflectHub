@@ -426,6 +426,24 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
         idempotencyKeysRef.current.delete(signature);
         // 送信した型の下書きは保存済みなので、キャッシュからも消す
         delete cacheRef.current[savedFrameworkId];
+        // 書き込みの順番待ちの下書きからも、保存した型を外す
+        // （待ち時間のうちにページを閉じたとき、保存前の下書きが書き戻されないように）
+        const queued = pendingWriteRef.current;
+        if (queued && queued.userId === userId) {
+          const remainingQueued = compactDrafts(
+            Object.fromEntries(
+              Object.entries(queued.drafts).filter(([id]) => id !== savedFrameworkId)
+            )
+          );
+          pendingWriteRef.current =
+            Object.keys(remainingQueued).length > 0
+              ? {
+                  ...queued,
+                  drafts: remainingQueued,
+                  serialized: JSON.stringify(remainingQueued),
+                }
+              : null;
+        }
         // 保存した型の下書きを、保存済みの下書きと確認の表示から外す
         // （残すと、保存した内容を復元して、二重に保存できてしまう。復元の確認に答える前でも、
         // セッションが失効して自動保存が止まっていても同じ）

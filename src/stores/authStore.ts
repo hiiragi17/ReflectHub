@@ -57,6 +57,11 @@ export const useAuthStore = create<AuthStore>()(
       signOut: async () => {
         set({ isLoading: true });
 
+        // ログアウトのボタンを押したときは、書きかけの下書きもこの端末から消す
+        // （共用の端末に入力内容を残さない。セッション失効による自動のログアウトでは消さない）。
+        // 通信が失敗しても消えるよう、最初に行う
+        clearAllDrafts();
+
         try {
           // サーバー側のセッションもクリア
           try {
@@ -76,10 +81,6 @@ export const useAuthStore = create<AuthStore>()(
           if (error) {
             console.error("Signout error:", error);
           }
-
-          // ログアウトのボタンを押したときは、書きかけの下書きもこの端末から消す
-          // （共用の端末に入力内容を残さない。セッション失効による自動のログアウトでは消さない）
-          clearAllDrafts();
 
           // ローカルストレージを明示的にクリア
           try {
