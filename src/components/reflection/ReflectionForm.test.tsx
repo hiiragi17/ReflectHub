@@ -1072,6 +1072,24 @@ describe("ReflectionForm 下書きの自動保存", () => {
     }
   });
 
+  it("確認の表示中に別のタブが書いた下書きは、このタブで保存しても消さない", async () => {
+    mutation.saveReflection = vi.fn().mockResolvedValue({ id: "r1" });
+    saveDrafts("u1", { f1: { y: "前回の入力" } });
+    render(<ReflectionForm />);
+    typeInto(/やったこと/, "このタブの入力");
+    // 別のタブが、同じ型に新しい下書きを書いた（待ち時間のうちに、このタブは保存する）
+    saveDrafts("u1", { f1: { y: "別のタブの入力" } });
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: draftStorageKey("u1") })
+      );
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+    });
+    expect(loadDrafts("u1")).toEqual({ f1: { y: "別のタブの入力" } });
+  });
+
   it("ログインしていなければ、下書きを保存しない", () => {
     vi.useFakeTimers();
     try {

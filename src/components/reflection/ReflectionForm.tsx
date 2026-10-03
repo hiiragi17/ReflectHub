@@ -212,7 +212,7 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
       const latest = loadDrafts(userId);
       setPendingDraft(latest);
       lastPersistedRef.current = latest ? JSON.stringify(latest) : null;
-      ownedDraftsRef.current = latest ?? {};
+      // 別のタブが書いた下書きは、このタブのものにはしない（ownedDraftsRef は更新しない）
     };
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
