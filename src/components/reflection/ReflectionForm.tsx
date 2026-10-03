@@ -368,6 +368,22 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
         idempotencyKeysRef.current.delete(signature);
         // 送信した型の下書きは保存済みなので、キャッシュからも消す
         delete cacheRef.current[savedFrameworkId];
+        // 復元の確認に答えないまま保存したとき、保存済みの型の下書きを、確認と保存済みの下書きから外す
+        // （残すと、保存した内容を復元して、二重に保存できてしまう）
+        if (userId && pendingDraft) {
+          const remaining = compactDrafts(
+            Object.fromEntries(
+              Object.entries(pendingDraft).filter(([id]) => id !== savedFrameworkId)
+            )
+          );
+          saveDrafts(userId, remaining);
+          if (Object.keys(remaining).length > 0) {
+            setPendingDraft(remaining);
+          } else {
+            setPendingDraft(null);
+            setDraftReady(true);
+          }
+        }
         if (currentFrameworkIdRef.current === savedFrameworkId) {
           setFormData({});
           clearErrors();

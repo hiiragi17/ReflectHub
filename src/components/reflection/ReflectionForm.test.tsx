@@ -834,6 +834,30 @@ describe("ReflectionForm 下書きの自動保存", () => {
     }
   });
 
+  it("確認に答えないまま保存すると、その型の下書きは確認からも保存先からも消える", async () => {
+    mutation.saveReflection = vi.fn().mockResolvedValue({ id: "r1" });
+    saveDrafts("u1", { f1: { y: "前回の入力" } });
+    render(<ReflectionForm />);
+    typeInto(/やったこと/, "新しい入力");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+    });
+    expect(screen.queryByText(/前回の書きかけの下書きがあります/)).not.toBeInTheDocument();
+    expect(loadDrafts("u1")).toBeNull();
+  });
+
+  it("確認に答えないまま保存しても、別の型の下書きは残る", async () => {
+    mutation.saveReflection = vi.fn().mockResolvedValue({ id: "r1" });
+    saveDrafts("u1", { f1: { y: "前回のYWT" }, f2: { a: "前回の別の型" } });
+    render(<ReflectionForm />);
+    typeInto(/やったこと/, "新しい入力");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+    });
+    expect(screen.getByText(/前回の書きかけの下書きがあります/)).toBeInTheDocument();
+    expect(loadDrafts("u1")).toEqual({ f2: { a: "前回の別の型" } });
+  });
+
   it("ログインしていなければ、下書きを保存しない", () => {
     vi.useFakeTimers();
     try {
