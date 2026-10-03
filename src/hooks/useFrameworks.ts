@@ -4,6 +4,11 @@ import { useEffect, useCallback } from 'react';
 import { useFrameworkStore } from '@/stores/frameworkStore';
 import { frameworkService } from '@/services/frameworkService';
 
+// 同時に走った取得のうち、最後に始めたものだけを反映する。
+// 画面を離れて戻ったときなどに取得が重なっても、遅く終わった古い応答が、
+// 新しい一覧・選択・エラー・読み込み中の状態を上書きしないようにする。
+let latestFetchId = 0;
+
 export const useFrameworks = () => {
   const {
     frameworks,
@@ -24,11 +29,15 @@ export const useFrameworks = () => {
       return;
     }
 
+    const fetchId = ++latestFetchId;
+    const isCurrent = () => fetchId === latestFetchId;
+
     try {
       setLoading(true);
       setError(null);
 
       const data = await frameworkService.getFrameworks();
+      if (!isCurrent()) return;
       setFrameworks(data);
 
       // 選択中の型がない、または再読み込みで一覧から消えていたら、選び直す
@@ -53,11 +62,12 @@ export const useFrameworks = () => {
         }
       }
     } catch (err) {
+      if (!isCurrent()) return;
       const message = err instanceof Error ? err.message : 'フレームワーク取得エラー';
       setError(message);
       console.error('フレームワーク取得失敗:', err);
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }, [frameworks.length, setFrameworks, setSelectedFramework, setLoading, setError]);
 

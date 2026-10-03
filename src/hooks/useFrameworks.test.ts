@@ -103,4 +103,54 @@ describe("useFrameworks", () => {
     expect(result.current.selectedFrameworkId).toBe("b");
     expect(result.current.frameworks).toHaveLength(3);
   });
+
+  it("取得が重なっても、最後に始めた取得の結果だけを反映する（古い応答が上書きしない）", async () => {
+    let resolveOld: (v: unknown) => void = () => {};
+    let resolveNew: (v: unknown) => void = () => {};
+    getFrameworks
+      .mockImplementationOnce(() => new Promise((r) => { resolveOld = r; }))
+      .mockImplementationOnce(() => new Promise((r) => { resolveNew = r; }));
+
+    // 1回目: 画面を開いて取得を始める
+    const first = renderHook(() => useFrameworks());
+    // 一覧がまだ空のまま画面を離れて戻り、2回目の取得が始まる
+    first.unmount();
+    const second = renderHook(() => useFrameworks());
+    await waitFor(() => expect(getFrameworks).toHaveBeenCalledTimes(2));
+
+    // 新しい取得が先に終わり、古い取得があとから終わる
+    await act(async () => {
+      resolveNew([fw("new-a"), fw("new-b")]);
+    });
+    await act(async () => {
+      resolveOld([fw("old-a")]);
+    });
+
+    expect(second.result.current.frameworks.map((f) => f.id)).toEqual(["new-a", "new-b"]);
+    expect(second.result.current.selectedFrameworkId).toBe("new-a");
+    expect(second.result.current.isLoading).toBe(false);
+  });
+
+  it("古い取得の失敗は、新しい取得の結果を壊さない", async () => {
+    let rejectOld: (e: unknown) => void = () => {};
+    let resolveNew: (v: unknown) => void = () => {};
+    getFrameworks
+      .mockImplementationOnce(() => new Promise((_, rej) => { rejectOld = rej; }))
+      .mockImplementationOnce(() => new Promise((r) => { resolveNew = r; }));
+
+    const first = renderHook(() => useFrameworks());
+    first.unmount();
+    const second = renderHook(() => useFrameworks());
+    await waitFor(() => expect(getFrameworks).toHaveBeenCalledTimes(2));
+
+    await act(async () => {
+      resolveNew([fw("a")]);
+    });
+    await act(async () => {
+      rejectOld(new Error("old failed"));
+    });
+
+    expect(second.result.current.error).toBeNull();
+    expect(second.result.current.frameworks).toHaveLength(1);
+  });
 });
