@@ -916,7 +916,7 @@ describe("ReflectionForm 下書きの自動保存", () => {
         vi.advanceTimersByTime(2000);
       });
       const raw = JSON.parse(localStorage.getItem(draftStorageKey("u1")) ?? "{}");
-      expect(raw.savedAt).toBe(savedAt);
+      expect(raw.savedAt.f1).toBe(savedAt);
     } finally {
       vi.useRealTimers();
     }

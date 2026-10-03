@@ -90,7 +90,37 @@ export const clearAllDrafts = (): void => {
   }
 };
 
-/** 下書きを保存する。入力が何もなければ、保存済みの下書きも消す */
+interface StoredDrafts {
+  v: number;
+  /** 型の ID → その型の下書きを最後に変更した時刻（有効期限は、型ごとに数える） */
+  savedAt: Record<string, number>;
+  drafts: ReflectionDrafts;
+}
+
+/** 保存されている形式を検証して読む。副作用はない。無い・壊れている場合は null */
+const readStored = (userId: string): StoredDrafts | null => {
+  const raw = localStorage.getItem(keyFor(userId));
+  if (!raw) return null;
+  const parsed = JSON.parse(raw) as Partial<StoredDrafts> | null;
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    parsed.v !== STORAGE_VERSION ||
+    typeof parsed.savedAt !== "object" ||
+    parsed.savedAt === null ||
+    !Object.values(parsed.savedAt).every((t) => typeof t === "number") ||
+    !isDrafts(parsed.drafts)
+  ) {
+    return null;
+  }
+  return parsed as StoredDrafts;
+};
+
+/**
+ * 下書きを保存する。入力が何もなければ、保存済みの下書きも消す。
+ * 保存日時は型ごとに持ち、内容が変わっていない型は、前の日時のまま残す
+ * （別の型を書き換えるたびに、ほかの型の有効期限が延び続けないようにする）
+ */
 export const saveDrafts = (
   userId: string,
   drafts: ReflectionDrafts,
@@ -102,36 +132,48 @@ export const saveDrafts = (
     return;
   }
   try {
+    let previous: StoredDrafts | null = null;
+    try {
+      previous = readStored(userId);
+    } catch {
+      previous = null;
+    }
+    const savedAt: Record<string, number> = {};
+    for (const [frameworkId, fields] of Object.entries(compacted)) {
+      const unchanged =
+        JSON.stringify(previous?.drafts[frameworkId]) === JSON.stringify(fields);
+      const previousTime = previous?.savedAt[frameworkId];
+      savedAt[frameworkId] =
+        unchanged && typeof previousTime === "number" ? previousTime : now;
+    }
     localStorage.setItem(
       keyFor(userId),
-      JSON.stringify({ v: STORAGE_VERSION, savedAt: now, drafts: compacted })
+      JSON.stringify({ v: STORAGE_VERSION, savedAt, drafts: compacted })
     );
   } catch {
     // 容量超過・保存禁止など。入力は止めない
   }
 };
 
-/** 下書きを読み込む。無い・期限切れ・壊れている場合は null（不要な保存は消す） */
+/** 下書きを読み込む。無い・壊れている場合は null。期限切れの型は外す（何も残らなければ消す） */
 export const loadDrafts = (
   userId: string,
   now: number = Date.now()
 ): ReflectionDrafts | null => {
   try {
-    const raw = localStorage.getItem(keyFor(userId));
-    if (!raw) return null;
-    const parsed: unknown = JSON.parse(raw);
-    if (
-      typeof parsed !== "object" ||
-      parsed === null ||
-      (parsed as { v?: unknown }).v !== STORAGE_VERSION ||
-      typeof (parsed as { savedAt?: unknown }).savedAt !== "number" ||
-      now - (parsed as { savedAt: number }).savedAt > DRAFT_TTL_MS ||
-      !isDrafts((parsed as { drafts?: unknown }).drafts)
-    ) {
+    const stored = readStored(userId);
+    if (!stored) {
       clearDrafts(userId);
       return null;
     }
-    const drafts = compactDrafts((parsed as { drafts: ReflectionDrafts }).drafts);
+    const alive: ReflectionDrafts = {};
+    for (const [frameworkId, fields] of Object.entries(stored.drafts)) {
+      const savedAt = stored.savedAt[frameworkId];
+      if (typeof savedAt === "number" && now - savedAt <= DRAFT_TTL_MS) {
+        alive[frameworkId] = fields;
+      }
+    }
+    const drafts = compactDrafts(alive);
     if (Object.keys(drafts).length === 0) {
       clearDrafts(userId);
       return null;

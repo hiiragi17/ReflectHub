@@ -44,12 +44,30 @@ describe("reflectionDraft", () => {
     expect(localStorage.length).toBe(0);
   });
 
+  it("有効期限は型ごとに数え、ほかの型を書き換えても延びない", () => {
+    const t0 = 1_000_000;
+    const day = 24 * 60 * 60 * 1000;
+    saveDrafts("u1", { f1: { y: "古い入力" } }, t0);
+    // 6日後に、別の型を足して保存（f1 は変わっていない）
+    saveDrafts("u1", { f1: { y: "古い入力" }, f2: { a: "新しい入力" } }, t0 + 6 * day);
+    // f1 は最初の保存から7日を過ぎ、f2 はまだ有効
+    expect(loadDrafts("u1", t0 + 7 * day + 1)).toEqual({ f2: { a: "新しい入力" } });
+  });
+
+  it("内容を変えた型は、変えた時刻から数え直す", () => {
+    const t0 = 1_000_000;
+    const day = 24 * 60 * 60 * 1000;
+    saveDrafts("u1", { f1: { y: "入力" } }, t0);
+    saveDrafts("u1", { f1: { y: "入力を直した" } }, t0 + 6 * day);
+    expect(loadDrafts("u1", t0 + 7 * day + 1)).toEqual({ f1: { y: "入力を直した" } });
+  });
+
   it("壊れたデータは null を返して消す", () => {
     localStorage.setItem("reflecthub:reflection-draft:u1", "{not json");
     expect(loadDrafts("u1")).toBeNull();
     localStorage.setItem(
       "reflecthub:reflection-draft:u1",
-      JSON.stringify({ v: 1, savedAt: Date.now(), drafts: { f1: { y: 1 } } })
+      JSON.stringify({ v: 1, savedAt: { f1: Date.now() }, drafts: { f1: { y: 1 } } })
     );
     expect(loadDrafts("u1")).toBeNull();
     expect(localStorage.length).toBe(0);
