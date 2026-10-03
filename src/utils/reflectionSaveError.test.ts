@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getSaveErrorMessage } from "./reflectionSaveError";
+import { getSaveErrorMessage, classifySaveError } from "./reflectionSaveError";
 
 describe("getSaveErrorMessage", () => {
   it("認証エラーでは再ログインの案内を出す", () => {
@@ -30,5 +30,22 @@ describe("getSaveErrorMessage", () => {
   it("null / undefined でも落ちない", () => {
     expect(getSaveErrorMessage(null)).toContain("保存できませんでした");
     expect(getSaveErrorMessage(undefined)).toContain("保存できませんでした");
+  });
+});
+
+describe("classifySaveError", () => {
+  it("認証エラーは authentication", () => {
+    expect(classifySaveError({ code: "AUTH_ERROR" })).toBe("authentication");
+    expect(classifySaveError({ code: "USER_NOT_AUTHENTICATED" })).toBe("authentication");
+  });
+
+  it("オフラインは offline、fetch 失敗は network", () => {
+    expect(classifySaveError({ message: "x" }, false)).toBe("offline");
+    expect(classifySaveError({ message: "TypeError: Failed to fetch" })).toBe("network");
+  });
+
+  it("その他は server", () => {
+    expect(classifySaveError({ code: "23505", message: "duplicate key" })).toBe("server");
+    expect(classifySaveError(null)).toBe("server");
   });
 });

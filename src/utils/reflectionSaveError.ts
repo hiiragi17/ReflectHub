@@ -1,6 +1,9 @@
+import type { ErrorCategory } from "@/types/errorTracking";
+
 /**
  * 振り返り保存の失敗を、利用者向けの文言（原因 + 次の行動）に変換する。
- * 生のエラーメッセージや詳細 JSON は画面に出さない（ログには残る）。
+ * 生のエラーメッセージや詳細 JSON は画面に出さない。
+ * 診断用の記録は useReflectionMutation が errorTrackingClient へ送る。
  */
 
 const KEEP_NOTE = "入力内容は画面に残っています。";
@@ -14,15 +17,28 @@ interface SaveErrorLike {
   message?: string;
 }
 
+/** 失敗の種類。画面の文言とエラー記録の分類を、同じ判定にそろえる */
+export function classifySaveError(
+  error: SaveErrorLike | null | undefined,
+  isOnline: boolean = true
+): Extract<ErrorCategory, "authentication" | "offline" | "network" | "server"> {
+  if (error?.code && AUTH_CODES.has(error.code)) return "authentication";
+  if (!isOnline) return "offline";
+  if (error?.message && NETWORK_PATTERN.test(error.message)) return "network";
+  return "server";
+}
+
 export function getSaveErrorMessage(
   error: SaveErrorLike | null | undefined,
   isOnline: boolean = true
 ): string {
-  if (error?.code && AUTH_CODES.has(error.code)) {
+  const kind = classifySaveError(error, isOnline);
+
+  if (kind === "authentication") {
     return `ログイン状態を確認できませんでした。${KEEP_NOTE}もう一度「保存する」を押してください。それでも失敗する場合は、内容をコピーしてからページを再読み込みし、ログインし直してください。`;
   }
 
-  if (!isOnline || (error?.message && NETWORK_PATTERN.test(error.message))) {
+  if (kind === "offline" || kind === "network") {
     return `通信に失敗しました。${KEEP_NOTE}接続を確認して、もう一度「保存する」を押してください。`;
   }
 

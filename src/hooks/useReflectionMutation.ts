@@ -9,6 +9,24 @@ import {
 } from "@/types/reflection";
 import { reflectionService } from "@/services/reflectionService";
 import { useAuthStore } from "@/stores/authStore";
+import { errorTrackingClient } from "@/lib/errorTracking/client";
+import { classifySaveError } from "@/utils/reflectionSaveError";
+
+/**
+ * 保存失敗を診断用に記録する。
+ * 振り返りの内容や、値を含み得る details は送らない（code と message だけ）。
+ */
+const recordSaveFailure = (error: ReflectionError): void => {
+  const isOnline = typeof navigator === "undefined" ? true : navigator.onLine;
+  errorTrackingClient.capture(
+    error.message || "Failed to save reflection",
+    classifySaveError(error, isOnline),
+    {
+      metadata: { code: error.code },
+      context: { action: "save_reflection" },
+    }
+  );
+};
 
 interface SaveState {
   isLoading: boolean;
@@ -33,14 +51,12 @@ export const useReflectionMutation = () => {
       onOptimisticRollback?: (tempId: string) => void
     ): Promise<ReflectionResponse | null> => {
       if (!user?.id) {
-        setState({
-          isLoading: false,
-          isSuccess: false,
-          error: {
-            code: "USER_NOT_AUTHENTICATED",
-            message: "認証されていません。ログインしてください。",
-          },
-        });
+        const authError: ReflectionError = {
+          code: "USER_NOT_AUTHENTICATED",
+          message: "認証されていません。ログインしてください。",
+        };
+        recordSaveFailure(authError);
+        setState({ isLoading: false, isSuccess: false, error: authError });
         return null;
       }
 
@@ -79,6 +95,7 @@ export const useReflectionMutation = () => {
           onOptimisticRollback(tempId);
         }
         const reflectionError = error as ReflectionError;
+        recordSaveFailure(reflectionError);
         setState({
           isLoading: false,
           isSuccess: false,
