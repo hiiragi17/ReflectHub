@@ -119,6 +119,12 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
   } | null>(null);
   // このタブで入力した（または復元・確認した）型。ほかのタブが書いた型を、書き換えで消さないために使う
   const touchedFrameworksRef = useRef<Set<string>>(new Set());
+  // このタブが最後に書いた（または読み込んだ）型ごとの下書き。保存済みの下書きがこれと同じなら、
+  // その型の下書きはこのタブのもの。違えば、ほかのタブが新しく書いたものなので、消さない
+  const ownedDraftsRef = useRef<ReflectionDrafts>({});
+  const ownsStoredDraft = (stored: ReflectionDrafts, frameworkId: string) =>
+    JSON.stringify(stored[frameworkId]) ===
+    JSON.stringify(ownedDraftsRef.current[frameworkId]);
   // キャッシュ（ref）だけを書き換えたとき、未保存の判定を取り直すための再描画
   const [, forceRender] = useReducer((n: number) => n + 1, 0);
 
@@ -183,6 +189,7 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
     lastPersistedRef.current = null;
     pendingWriteRef.current = null;
     touchedFrameworksRef.current = new Set();
+    ownedDraftsRef.current = {};
     if (!userId) {
       setPendingDraft(null);
       setDraftLoaded(false);
@@ -193,6 +200,7 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
     setDraftLoaded(true);
     // 読み込んだだけの下書きは、書き直さない（書き直すと保存日時が更新され、有効期限が延び続ける）
     lastPersistedRef.current = stored ? JSON.stringify(stored) : null;
+    ownedDraftsRef.current = stored ?? {};
   }, [userId]);
 
   // 別のタブで下書きが保存・破棄されたら、確認の表示を読み直す
@@ -204,6 +212,7 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
       const latest = loadDrafts(userId);
       setPendingDraft(latest);
       lastPersistedRef.current = latest ? JSON.stringify(latest) : null;
+      ownedDraftsRef.current = latest ?? {};
     };
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
@@ -215,16 +224,21 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
     // ログアウトのボタンで下書きが消された後には、書き戻さない。
     // セッション失効による自動のログアウトでは消されないので、最後の入力も保存する
     if (!pending || pending.clearGeneration !== getClearGeneration()) return;
-    // ほかのタブが書いた、このタブでは触っていない型の下書きは、残す
+    // ほかのタブが書いた下書きは、残す：
+    // このタブで触っていない型、または、このタブが最後に書いた内容から変わっている型（ほかのタブが新しく書いた）
     const merged: ReflectionDrafts = { ...pending.drafts };
-    const stored = loadDrafts(pending.userId);
-    for (const [frameworkId, data] of Object.entries(stored ?? {})) {
-      if (!touchedFrameworksRef.current.has(frameworkId) && !(frameworkId in merged)) {
-        merged[frameworkId] = data;
-      }
+    const stored = loadDrafts(pending.userId) ?? {};
+    for (const [frameworkId, data] of Object.entries(stored)) {
+      if (frameworkId in merged) continue;
+      const ownedByThisTab =
+        touchedFrameworksRef.current.has(frameworkId) &&
+        ownsStoredDraft(stored, frameworkId);
+      if (!ownedByThisTab) merged[frameworkId] = data;
     }
     saveDrafts(pending.userId, merged);
     lastPersistedRef.current = pending.serialized;
+    // このタブが書いた内容として覚えるのは、このタブの入力だけ（残した他のタブの下書きは含めない）
+    ownedDraftsRef.current = pending.drafts;
   }, []);
 
   // 入力のたびに、少し待ってから下書きを保存する（毎回の描画で、変化があるときだけ）
@@ -418,8 +432,13 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
         // ただし、保存の途中でログアウトのボタンが押されていたら、何も書かない（下書きを端末に戻さない）
         if (userId && getClearGeneration() === clearGenerationAtStart) {
           const stored = loadDrafts(userId) ?? {};
-          delete stored[savedFrameworkId];
-          saveDrafts(userId, stored);
+          // ほかのタブが同じ型に新しく書いた下書きは、消さない
+          if (savedFrameworkId in stored && ownsStoredDraft(stored, savedFrameworkId)) {
+            delete stored[savedFrameworkId];
+            saveDrafts(userId, stored);
+          }
+          const { [savedFrameworkId]: _removed, ...ownedRest } = ownedDraftsRef.current;
+          ownedDraftsRef.current = ownedRest;
           lastPersistedRef.current = null;
           if (pendingDraft) {
             const remaining = compactDrafts(
