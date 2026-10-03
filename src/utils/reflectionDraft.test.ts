@@ -65,6 +65,24 @@ describe("reflectionDraft", () => {
     expect(raw.savedAt).toEqual({ f2: t0 + 6 * day });
   });
 
+  it("期限切れの型の片付け（書き直し）に失敗しても、有効な下書きは返す", () => {
+    const t0 = 1_000_000;
+    const day = 24 * 60 * 60 * 1000;
+    saveDrafts("u1", { f1: { y: "古い入力" } }, t0);
+    saveDrafts("u1", { f1: { y: "古い入力" }, f2: { a: "新しい入力" } }, t0 + 6 * day);
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = () => {
+      throw new Error("write restricted");
+    };
+    try {
+      expect(loadDrafts("u1", t0 + 7 * day + 1)).toEqual({ f2: { a: "新しい入力" } });
+    } finally {
+      Storage.prototype.setItem = original;
+    }
+    // 保存済みの記録は消えていない
+    expect(localStorage.getItem("reflecthub:reflection-draft:u1")).not.toBeNull();
+  });
+
   it("内容を変えた型は、変えた時刻から数え直す", () => {
     const t0 = 1_000_000;
     const day = 24 * 60 * 60 * 1000;

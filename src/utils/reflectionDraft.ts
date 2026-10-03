@@ -183,10 +183,14 @@ export const loadDrafts = (
       const savedAt = Object.fromEntries(
         Object.keys(drafts).map((id) => [id, stored.savedAt[id]])
       );
-      localStorage.setItem(
-        keyFor(userId),
-        JSON.stringify({ v: STORAGE_VERSION, savedAt, drafts })
-      );
+      try {
+        localStorage.setItem(
+          keyFor(userId),
+          JSON.stringify({ v: STORAGE_VERSION, savedAt, drafts })
+        );
+      } catch {
+        // 書き直せなくても、有効な下書きは返す（片付けは、できたときだけ行う）
+      }
     }
     return drafts;
   } catch {
