@@ -256,7 +256,7 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
     clearError();
 
     const content = sanitizeFormData(submittedData);
-    const signature = JSON.stringify([savedFrameworkId, content]);
+    const signature = `${savedFrameworkId}:${JSON.stringify(content)}`;
     const idempotencyKey = idempotencyKeysRef.current.get(signature) ?? uuidv4();
     idempotencyKeysRef.current.set(signature, idempotencyKey);
 
@@ -290,8 +290,13 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
   };
 
   const handleReset = () => {
-    // 消去は、それまでの送信の再試行を終えること。同じ内容を入れ直しても、別の振り返りとして扱う
-    idempotencyKeysRef.current.clear();
+    // 消去は、いま表示中の型の、それまでの送信の再試行を終えること。同じ内容を入れ直しても、別の振り返りとして扱う。
+    // 別の型の下書き（キャッシュ）に残る再試行のキーは、消さない
+    for (const signature of idempotencyKeysRef.current.keys()) {
+      if (signature.startsWith(`${selectedFrameworkId}:`)) {
+        idempotencyKeysRef.current.delete(signature);
+      }
+    }
     setFormData({});
     clearErrors();
     setIsSaved(false);
