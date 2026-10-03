@@ -412,21 +412,23 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
         idempotencyKeysRef.current.delete(signature);
         // 送信した型の下書きは保存済みなので、キャッシュからも消す
         delete cacheRef.current[savedFrameworkId];
-        // 復元の確認に答えないまま保存したとき、保存済みの型の下書きを、確認と保存済みの下書きから外す
-        // （残すと、保存した内容を復元して、二重に保存できてしまう）
+        // 保存した型の下書きを、保存済みの下書きと確認の表示から外す
+        // （残すと、保存した内容を復元して、二重に保存できてしまう。復元の確認に答える前でも、
+        // セッションが失効して自動保存が止まっていても同じ）
         // ただし、保存の途中でログアウトのボタンが押されていたら、何も書かない（下書きを端末に戻さない）
-        if (
-          userId &&
-          pendingDraft &&
-          getClearGeneration() === clearGenerationAtStart
-        ) {
-          const remaining = compactDrafts(
-            Object.fromEntries(
-              Object.entries(pendingDraft).filter(([id]) => id !== savedFrameworkId)
-            )
-          );
-          saveDrafts(userId, remaining);
-          setPendingDraft(Object.keys(remaining).length > 0 ? remaining : null);
+        if (userId && getClearGeneration() === clearGenerationAtStart) {
+          const stored = loadDrafts(userId) ?? {};
+          delete stored[savedFrameworkId];
+          saveDrafts(userId, stored);
+          lastPersistedRef.current = null;
+          if (pendingDraft) {
+            const remaining = compactDrafts(
+              Object.fromEntries(
+                Object.entries(pendingDraft).filter(([id]) => id !== savedFrameworkId)
+              )
+            );
+            setPendingDraft(Object.keys(remaining).length > 0 ? remaining : null);
+          }
         }
         if (currentFrameworkIdRef.current === savedFrameworkId) {
           setFormData({});

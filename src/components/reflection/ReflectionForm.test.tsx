@@ -1016,6 +1016,33 @@ describe("ReflectionForm 下書きの自動保存", () => {
     }
   });
 
+  it("確認が出ていなくても、保存に成功したら、保存済みの下書きから外す（セッション失効後でも）", async () => {
+    vi.useFakeTimers();
+    try {
+      let resolveSave: (value: unknown) => void = () => {};
+      mutation.saveReflection = vi.fn(
+        () => new Promise((resolve) => (resolveSave = resolve))
+      );
+      render(<ReflectionForm />);
+      typeInto(/やったこと/, "保存する入力");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")).toEqual({ f1: { y: "保存する入力" } });
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+      });
+      // 保存の途中でセッションが失効（ログアウトのボタンではない）
+      auth.user = null;
+      await act(async () => {
+        resolveSave({ id: "r1" });
+      });
+      expect(loadDrafts("u1")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("ログインしていなければ、下書きを保存しない", () => {
     vi.useFakeTimers();
     try {
