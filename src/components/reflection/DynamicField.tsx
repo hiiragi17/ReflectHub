@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { FrameworkField } from "@/types/framework";
 import { DYNAMIC_FIELD_CONSTANTS } from "@/constants/dynamicField";
+import { countGraphemes } from "@/utils/validation";
 
 interface DynamicFieldProps {
   field: FrameworkField;
@@ -24,7 +25,8 @@ export default function DynamicField({
 }: DynamicFieldProps) {
   const maxLength =
     field.max_length ?? DYNAMIC_FIELD_CONSTANTS.DEFAULT_MAX_LENGTH;
-  const characterCount = value.length;
+  // 保存時の検証（checkLength）と同じ数え方にそろえる
+  const characterCount = countGraphemes(value);
   const overBy = characterCount - maxLength;
   const isOverLimit = overBy > 0;
   const isNearLimit =

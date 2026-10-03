@@ -38,4 +38,13 @@ describe("DynamicField", () => {
     render(<DynamicField field={field} value="abc" onChange={() => {}} />);
     expect(screen.getByLabelText(/やったこと/)).toHaveAttribute("aria-invalid", "false");
   });
+
+  it("絵文字は保存時の検証と同じ数え方（見た目1文字=1）で、超過と判定しない", () => {
+    // UTF-16 では 2 文字ぶんだが、見た目は 1 文字
+    const emoji = "😀".repeat(6);
+    render(<DynamicField field={field} value={emoji} onChange={() => {}} />);
+    expect(screen.getByText("6 / 10")).toBeInTheDocument();
+    expect(screen.queryByText(/文字超えています/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/やったこと/)).toHaveAttribute("aria-invalid", "false");
+  });
 });

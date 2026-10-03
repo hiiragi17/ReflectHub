@@ -174,4 +174,92 @@ describe("ReflectionForm 入力を消す操作", () => {
     expect(add.mock.calls.some(([t]) => t === "beforeunload")).toBe(true);
     add.mockRestore();
   });
+
+  it("別の型に切り替えても、元の型の未保存入力があるあいだは確認を残す", async () => {
+    const other = { ...framework, id: "f2", name: "KPT", schema: [{ id: "k", label: "Keep", placeholder: "", required: false }] };
+    useFrameworkStore.setState({ frameworks: [framework, other] });
+    const add = vi.spyOn(window, "addEventListener");
+    const remove = vi.spyOn(window, "removeEventListener");
+    render(<ReflectionForm />);
+    typeInto(/やったこと/, "YWTの下書き");
+
+    act(() => {
+      useFrameworkStore.setState({ selectedFrameworkId: "f2", selectedFramework: other });
+    });
+    await screen.findByLabelText(/Keep/);
+    // 表示中の KPT は空だが、YWT の入力は未保存のまま
+    const unloadAdds = add.mock.calls.filter(([t]) => t === "beforeunload").length;
+    const unloadRemoves = remove.mock.calls.filter(([t]) => t === "beforeunload").length;
+    expect(unloadAdds).toBeGreaterThan(unloadRemoves);
+    add.mockRestore();
+    remove.mockRestore();
+  });
+});
+
+describe("ReflectionForm アプリ内リンクでの離脱確認", () => {
+  const renderWithLink = () => {
+    render(
+      <>
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- ルーターなしでクリックを検証するため素の <a> を使う */}
+        <a href="/history">履歴へ</a>
+        <a href="https://example.com/" target="_blank" rel="noreferrer">外部</a>
+        <ReflectionForm />
+      </>
+    );
+    // jsdom の未実装ナビゲーションを避けるため、最後に既定動作を止めておく
+    const stop = (e: Event) => e.preventDefault();
+    document.addEventListener("click", stop);
+    return () => document.removeEventListener("click", stop);
+  };
+
+  it("入力があるときにリンクを押すと確認を出し、キャンセルなら遷移を止める", () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const cleanup = renderWithLink();
+    typeInto(/やったこと/, "書きかけ");
+
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 });
+    const stopSpy = vi.spyOn(event, "stopPropagation");
+    screen.getByRole("link", { name: "履歴へ" }).dispatchEvent(event);
+
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(confirmSpy.mock.calls[0][0]).toContain("保存されていません");
+    expect(event.defaultPrevented).toBe(true);
+    expect(stopSpy).toHaveBeenCalled();
+    cleanup();
+    confirmSpy.mockRestore();
+  });
+
+  it("確認で「離れる」を選んだときは止めない", () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const cleanup = renderWithLink();
+    typeInto(/やったこと/, "書きかけ");
+
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 });
+    const stopSpy = vi.spyOn(event, "stopPropagation");
+    screen.getByRole("link", { name: "履歴へ" }).dispatchEvent(event);
+
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(stopSpy).not.toHaveBeenCalled();
+    cleanup();
+    confirmSpy.mockRestore();
+  });
+
+  it("入力がなければ確認を出さない", () => {
+    const confirmSpy = vi.spyOn(window, "confirm");
+    const cleanup = renderWithLink();
+    fireEvent.click(screen.getByRole("link", { name: "履歴へ" }));
+    expect(confirmSpy).not.toHaveBeenCalled();
+    cleanup();
+    confirmSpy.mockRestore();
+  });
+
+  it("新しいタブで開くリンクは対象外", () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const cleanup = renderWithLink();
+    typeInto(/やったこと/, "書きかけ");
+    fireEvent.click(screen.getByRole("link", { name: "外部" }));
+    expect(confirmSpy).not.toHaveBeenCalled();
+    cleanup();
+    confirmSpy.mockRestore();
+  });
 });

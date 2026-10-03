@@ -16,11 +16,15 @@ export const isRequired = (value: string | undefined): boolean => {
   return !!value && value.trim().length > 0;
 };
 
+/** 文字数（見た目の1文字 = 1。絵文字や結合文字も1文字として数える） */
+export const countGraphemes = (value: string): number =>
+  splitter.countGraphemes(value);
+
 export const checkLength = (
   value: string,
   maxLength: number
 ): { isValid: boolean; message?: string } => {
-  const graphemeLength = splitter.countGraphemes(value);
+  const graphemeLength = countGraphemes(value);
 
   if (graphemeLength > maxLength) {
     return {

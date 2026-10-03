@@ -21,6 +21,9 @@ import Link from "next/link";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { getSaveErrorMessage } from "@/utils/reflectionSaveError";
 
+const LEAVE_CONFIRM_MESSAGE =
+  "入力内容はまだ保存されていません。このページを離れると消えます。離れますか？";
+
 // 保存が長引いたときに「止まっていない」ことを伝えるまでの時間
 const SLOW_SAVE_NOTICE_MS = 5000;
 
@@ -45,6 +48,12 @@ export default function ReflectionForm() {
   const isSubmittingRef = useRef(false);
 
   const hasInput = Object.values(formData).some((value) => value !== "");
+  // 表示中の型だけでなく、切り替え前に書いた別の型の入力（キャッシュ）も未保存として扱う
+  const hasUnsavedInput =
+    hasInput ||
+    Object.values(cacheRef.current).some((data) =>
+      Object.values(data).some((value) => value !== "")
+    );
 
   useEffect(() => {
     if (!selectedFrameworkId) return;
@@ -53,6 +62,7 @@ export default function ReflectionForm() {
 
     if (!previousId) {
       const cached = cacheRef.current[selectedFrameworkId];
+      delete cacheRef.current[selectedFrameworkId];
       setFormData(cached || {});
       clearErrors();
       previousFrameworkIdRef.current = selectedFrameworkId;
@@ -64,7 +74,10 @@ export default function ReflectionForm() {
         cacheRef.current[previousId] = formData;
       }
 
+      // 戻ってきた型の入力は formData が持つので、キャッシュには残さない
+      // （残すと、あとで消しても「未保存の入力あり」と誤判定する）
       const cached = cacheRef.current[selectedFrameworkId];
+      delete cacheRef.current[selectedFrameworkId];
       setFormData(cached || {});
       clearErrors();
       previousFrameworkIdRef.current = selectedFrameworkId;
@@ -80,15 +93,54 @@ export default function ReflectionForm() {
     return () => clearTimeout(timer);
   }, [isLoading]);
 
-  // 未保存の入力があるままページを離れようとしたとき、ブラウザの確認を出す
+  // 未保存の入力があるままページを離れようとしたとき、確認を出す。
+  // beforeunload は再読み込み・タブを閉じる・外部サイトへの移動だけが対象で、
+  // Next.js のリンク遷移（ヘッダーの履歴・統計など）では発火しないため、
+  // アプリ内リンクのクリックも別途検知する。
   useEffect(() => {
-    if (!hasInput) return;
+    if (!hasUnsavedInput) return;
+
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
     };
+
+    const handleLinkClick = (event: MouseEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+      const anchor = (event.target as Element | null)?.closest?.("a[href]") as
+        | HTMLAnchorElement
+        | null;
+      if (!anchor || anchor.target === "_blank" || anchor.hasAttribute("download")) {
+        return;
+      }
+      const url = new URL(anchor.href, window.location.href);
+      const isSamePage =
+        url.pathname === window.location.pathname &&
+        url.search === window.location.search;
+      if (url.origin !== window.location.origin || isSamePage) return;
+
+      if (!window.confirm(LEAVE_CONFIRM_MESSAGE)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+
     window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [hasInput]);
+    // キャプチャ段階で受けて、Next.js の Link による遷移より先に止める
+    document.addEventListener("click", handleLinkClick, true);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("click", handleLinkClick, true);
+    };
+  }, [hasUnsavedInput]);
 
   const handleFieldChange = useCallback((fieldId: string, value: string) => {
     setIsSaved(false);
