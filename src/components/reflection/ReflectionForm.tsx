@@ -76,6 +76,8 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
   const cacheRef = useRef<Record<string, Record<string, string>>>({});
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [isSaved, setIsSaved] = useState(false);
+  // 保存を試した型。保存中に別の型へ切り替えても、失敗の案内を別の型の下に出さないために使う
+  const [submittedFrameworkId, setSubmittedFrameworkId] = useState<string | null>(null);
   const [isSlowSave, setIsSlowSave] = useState(false);
   const previousFrameworkIdRef = useRef<string | null>(null);
   // state の更新は再描画後に反映されるため、連打対策は ref で同期的に行う
@@ -239,6 +241,7 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
 
     isSubmittingRef.current = true;
     setIsSaved(false);
+    setSubmittedFrameworkId(savedFrameworkId);
     clearError();
 
     try {
@@ -385,7 +388,9 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
       </div>
 
       {/* 保存失敗（原因と次の行動。詳細は画面に出さない） */}
-      {mutationError && (
+      {mutationError &&
+        (submittedFrameworkId === null ||
+          submittedFrameworkId === selectedFrameworkId) && (
         <div
           role="alert"
           className="mt-4 p-4 bg-red-50 border border-red-200 rounded text-sm"

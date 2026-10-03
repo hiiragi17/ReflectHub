@@ -626,3 +626,65 @@ describe("ReflectionForm 型の項目が変わったとき（再読み込みの�
     await waitFor(() => expect(onUnsavedChange).toHaveBeenLastCalledWith(false));
   });
 });
+
+describe("ReflectionForm 保存に失敗したとき、保存中に型を切り替えていた場合", () => {
+  const ywt = framework;
+  const kpt = {
+    ...framework,
+    id: "f2",
+    name: "KPT",
+    schema: [{ id: "k", label: "Keep", placeholder: "", required: false }],
+  };
+  const select = (fw: typeof ywt) =>
+    act(() => {
+      useFrameworkStore.setState({ selectedFrameworkId: fw.id, selectedFramework: fw });
+    });
+
+  beforeEach(() => {
+    useFrameworkStore.setState({
+      frameworks: [ywt, kpt],
+      selectedFrameworkId: "f1",
+      selectedFramework: ywt,
+    });
+  });
+
+  it("失敗の案内は、失敗した型を表示しているときだけ出す（別の型の下には出さない）", async () => {
+    let rejectSave: (e: unknown) => void = () => {};
+    mutation.saveReflection.mockImplementation(
+      () => new Promise((_, reject) => { rejectSave = reject; })
+    );
+    const { rerender } = render(<ReflectionForm />);
+    typeInto(/やったこと/, "YWTの内容");
+    fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+
+    // 保存中に KPT へ切り替える
+    select(kpt);
+    await screen.findByLabelText(/Keep/);
+
+    // その後、YWT の保存が失敗する
+    mutation.error = { code: "X", message: "boom" };
+    await act(async () => {
+      rejectSave({ code: "X", message: "boom" });
+    });
+    rerender(<ReflectionForm />);
+
+    // KPT の下には、失敗の案内を出さない
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    // YWT に戻ると、案内が出る（YWT の下書きも残っている）
+    select(ywt);
+    expect(await screen.findByRole("alert")).toHaveTextContent("保存できませんでした");
+    expect((screen.getByLabelText(/やったこと/) as HTMLTextAreaElement).value).toBe("YWTの内容");
+  });
+
+  it("切り替えていなければ、これまでどおり失敗の案内を出す", async () => {
+    mutation.saveReflection.mockRejectedValue({ code: "X", message: "boom" });
+    const { rerender } = render(<ReflectionForm />);
+    typeInto(/やったこと/, "YWTの内容");
+    fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+    await waitFor(() => expect(mutation.saveReflection).toHaveBeenCalled());
+    mutation.error = { code: "X", message: "boom" };
+    rerender(<ReflectionForm />);
+    expect(screen.getByRole("alert")).toHaveTextContent("保存できませんでした");
+  });
+});
