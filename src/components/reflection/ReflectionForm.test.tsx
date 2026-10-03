@@ -54,6 +54,13 @@ describe("ReflectionForm 保存フロー", () => {
     expect(button).toBeDisabled();
     expect(screen.getByText(/保存しています。このページを閉じずに/)).toBeInTheDocument();
     expect(screen.queryByText(/保存しました/)).not.toBeInTheDocument();
+    // 送信済みの内容を、保存中に書き換えさせない
+    expect(screen.getByLabelText(/やったこと/)).toHaveAttribute("readonly");
+  });
+
+  it("保存中でなければ、入力欄は編集できる", () => {
+    render(<ReflectionForm />);
+    expect(screen.getByLabelText(/やったこと/)).not.toHaveAttribute("readonly");
   });
 
   it("保存が5秒以上かかると、止まっていないことを伝える", () => {

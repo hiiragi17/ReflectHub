@@ -57,4 +57,14 @@ describe("DynamicField", () => {
       expect(document.getElementById(id)).not.toBeNull();
     }
   });
+
+  it("readOnly のときは、入力欄を読み取り専用にする", () => {
+    render(<DynamicField field={field} value="abc" onChange={() => {}} readOnly />);
+    expect(screen.getByLabelText(/やったこと/)).toHaveAttribute("readonly");
+  });
+
+  it("既定では編集できる", () => {
+    render(<DynamicField field={field} value="abc" onChange={() => {}} />);
+    expect(screen.getByLabelText(/やったこと/)).not.toHaveAttribute("readonly");
+  });
 });

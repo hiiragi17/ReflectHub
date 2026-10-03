@@ -67,4 +67,40 @@ describe("useFrameworks", () => {
     });
     expect(getFrameworks).toHaveBeenCalledTimes(1);
   });
+
+  it("再読み込みで選択中の型が一覧から消えていたら、別の型を選び直す", async () => {
+    useFrameworkStore.setState({
+      frameworks: [fw("a"), fw("gone")],
+      selectedFrameworkId: "gone",
+      selectedFramework: fw("gone"),
+      error: "boom",
+    });
+    getFrameworks.mockResolvedValueOnce([fw("a"), fw("b")]);
+    const { result } = renderHook(() => useFrameworks());
+
+    await act(async () => {
+      await result.current.reload();
+    });
+
+    expect(result.current.selectedFrameworkId).toBe("a");
+    expect(result.current.selectedFramework?.id).toBe("a");
+  });
+
+  it("再読み込みのあとも、選択中の型が残っていれば選択は変えない", async () => {
+    useFrameworkStore.setState({
+      frameworks: [fw("a"), fw("b")],
+      selectedFrameworkId: "b",
+      selectedFramework: fw("b"),
+      error: "boom",
+    });
+    getFrameworks.mockResolvedValueOnce([fw("a"), fw("b"), fw("c")]);
+    const { result } = renderHook(() => useFrameworks());
+
+    await act(async () => {
+      await result.current.reload();
+    });
+
+    expect(result.current.selectedFrameworkId).toBe("b");
+    expect(result.current.frameworks).toHaveLength(3);
+  });
 });

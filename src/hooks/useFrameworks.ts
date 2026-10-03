@@ -31,8 +31,11 @@ export const useFrameworks = () => {
       const data = await frameworkService.getFrameworks();
       setFrameworks(data);
 
-      // LocalStorageから最後に使用したフレームワークIDを取得
-      if (data.length > 0 && !selectedFrameworkId) {
+      // 選択中の型がない、または再読み込みで一覧から消えていたら、選び直す
+      // （await のあいだに変わり得るので、ストアの最新の値で判定する）
+      const currentId = useFrameworkStore.getState().selectedFrameworkId;
+      if (data.length > 0 && (!currentId || !data.some((f) => f.id === currentId))) {
+        // LocalStorageから最後に使用したフレームワークIDを取得
         let lastUsedId: string | null = null;
         try {
           lastUsedId = localStorage.getItem('lastUsedFrameworkId');
@@ -56,7 +59,7 @@ export const useFrameworks = () => {
     } finally {
       setLoading(false);
     }
-  }, [frameworks.length, selectedFrameworkId, setFrameworks, setSelectedFramework, setLoading, setError]);
+  }, [frameworks.length, setFrameworks, setSelectedFramework, setLoading, setError]);
 
   useEffect(() => {
     fetchFrameworks();

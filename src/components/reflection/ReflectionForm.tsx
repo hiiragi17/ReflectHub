@@ -270,6 +270,7 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
               onChange={(value) => handleFieldChange(field.id, value)}
               fieldIndex={index}
               error={errors[field.id]}
+              readOnly={isLoading}
             />
           </div>
         ))}

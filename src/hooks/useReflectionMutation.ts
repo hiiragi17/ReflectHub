@@ -14,12 +14,13 @@ import { classifySaveError } from "@/utils/reflectionSaveError";
 
 /**
  * 保存失敗を診断用に記録する。
- * 振り返りの内容や、値を含み得る details は送らない（code と message だけ）。
+ * エラー文（message）には、DB の診断や、拒否された入力値が混ざり得るため送らない。
+ * 固定の文言に、code と分類だけを添える。
  */
 const recordSaveFailure = (error: ReflectionError): void => {
   const isOnline = typeof navigator === "undefined" ? true : navigator.onLine;
   errorTrackingClient.capture(
-    error.message || "Failed to save reflection",
+    "Failed to save reflection",
     classifySaveError(error, isOnline),
     {
       metadata: { code: error.code },

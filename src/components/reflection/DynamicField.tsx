@@ -14,6 +14,8 @@ interface DynamicFieldProps {
   fieldIndex?: number;
   /** 保存時の検証エラー。指定するとこの項目の下に表示する */
   error?: string;
+  /** 読み取り専用にする（保存中に、送信済みの内容を書き換えさせない） */
+  readOnly?: boolean;
 }
 
 export default function DynamicField({
@@ -22,6 +24,7 @@ export default function DynamicField({
   onChange,
   fieldIndex = 0,
   error,
+  readOnly = false,
 }: DynamicFieldProps) {
   const maxLength =
     field.max_length ?? DYNAMIC_FIELD_CONSTANTS.DEFAULT_MAX_LENGTH;
@@ -103,7 +106,8 @@ export default function DynamicField({
         placeholder={field.placeholder}
         value={value}
         onChange={handleChange}
-        className={DYNAMIC_FIELD_CONSTANTS.CLASS_NAMES.TEXTAREA}
+        className={`${DYNAMIC_FIELD_CONSTANTS.CLASS_NAMES.TEXTAREA} read-only:bg-gray-50 read-only:text-gray-600`}
+        readOnly={readOnly}
         required={field.required}
         aria-describedby={describedBy}
         aria-invalid={isOverLimit || !!error}

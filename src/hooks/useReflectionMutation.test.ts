@@ -38,7 +38,7 @@ describe("useReflectionMutation の失敗記録", () => {
     });
 
     expect(capture).toHaveBeenCalledTimes(1);
-    expect(capture).toHaveBeenCalledWith("duplicate key", "server", {
+    expect(capture).toHaveBeenCalledWith("Failed to save reflection", "server", {
       metadata: { code: "23505" },
       context: { action: "save_reflection" },
     });
@@ -54,6 +54,22 @@ describe("useReflectionMutation の失敗記録", () => {
     const logged = JSON.stringify(capture.mock.calls);
     expect(logged).not.toContain("人に見せたくない本文");
     expect(logged).not.toContain("secret");
+  });
+
+  it("エラー文に拒否された入力値が含まれていても、記録には送らない", async () => {
+    create.mockRejectedValue({
+      code: "22P02",
+      message: 'invalid input syntax for type uuid: "人に見せたくない入力値"',
+    });
+    const { result } = renderHook(() => useReflectionMutation());
+    await act(async () => {
+      await result.current.saveReflection(request).catch(() => {});
+    });
+    expect(JSON.stringify(capture.mock.calls)).not.toContain("人に見せたくない入力値");
+    expect(capture).toHaveBeenCalledWith("Failed to save reflection", "server", {
+      metadata: { code: "22P02" },
+      context: { action: "save_reflection" },
+    });
   });
 
   it("通信失敗は network として記録する", async () => {
