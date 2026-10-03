@@ -24,7 +24,7 @@ vi.mock("@/hooks/useReflectionMutation", () => ({
 
 import ReflectionForm from "./ReflectionForm";
 import { useFrameworkStore } from "@/stores/frameworkStore";
-import { loadDrafts, saveDrafts } from "@/utils/reflectionDraft";
+import { clearAllDrafts, loadDrafts, saveDrafts } from "@/utils/reflectionDraft";
 
 const framework = {
   id: "f1",
@@ -791,19 +791,60 @@ describe("ReflectionForm 下書きの自動保存", () => {
     expect(loadDrafts("u1")).toBeNull();
   });
 
-  it("確認に答えるまでは、保存済みの下書きを上書きしない", () => {
+  it("確認に答える前の入力も保存され、前回の下書きと重ねて残る（新しい入力が優先）", () => {
     vi.useFakeTimers();
     try {
-      saveDrafts("u1", { f1: { y: "前回の入力" } });
+      saveDrafts("u1", { f1: { y: "前回のやったこと", w: "前回の気づき" } });
       render(<ReflectionForm />);
-      typeInto(/わかったこと/, "新しい入力");
+      typeInto(/やったこと/, "新しいやったこと");
       act(() => {
         vi.advanceTimersByTime(600);
       });
-      expect(loadDrafts("u1")).toEqual({ f1: { y: "前回の入力" } });
+      expect(loadDrafts("u1")).toEqual({
+        f1: { y: "新しいやったこと", w: "前回の気づき" },
+      });
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("確認の前に入力して「破棄する」と、前回の下書きだけが消え、新しい入力は残る", () => {
+    vi.useFakeTimers();
+    try {
+      saveDrafts("u1", { f1: { w: "前回の気づき" } });
+      render(<ReflectionForm />);
+      typeInto(/やったこと/, "新しい入力");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      fireEvent.click(screen.getByRole("button", { name: "破棄する" }));
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")).toEqual({ f1: { y: "新しい入力" } });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("保存の途中でログアウトしたら、保存が終わっても下書きを書き戻さない", async () => {
+    let resolveSave: (value: unknown) => void = () => {};
+    mutation.saveReflection = vi.fn(
+      () => new Promise((resolve) => (resolveSave = resolve))
+    );
+    saveDrafts("u1", { f1: { y: "前回の入力" }, f2: { a: "前回の別の型" } });
+    render(<ReflectionForm />);
+    typeInto(/やったこと/, "新しい入力");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+    });
+    // ログアウト（ボタンの signOut は、端末の下書きをすべて消す）
+    auth.user = null;
+    clearAllDrafts();
+    await act(async () => {
+      resolveSave({ id: "r1" });
+    });
+    expect(loadDrafts("u1")).toBeNull();
   });
 
   it("別のユーザーの下書きは、確認にも出ない", () => {

@@ -106,8 +106,8 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
   const userId = useAuthStore((state) => state.user?.id);
   // 前回の下書きが残っているとき、復元するか確認するまで入れておく
   const [pendingDraft, setPendingDraft] = useState<ReflectionDrafts | null>(null);
-  // 前回の下書きの扱い（復元・破棄）が決まるまでは、自動保存で上書きしない
-  const [draftReady, setDraftReady] = useState(false);
+  // 前回の下書きを調べ終えたか（調べる前に、空の入力で保存済みの下書きを消さないため）
+  const [draftLoaded, setDraftLoaded] = useState(false);
   const lastPersistedRef = useRef<string | null>(null);
   const pendingWriteRef = useRef<{
     userId: string;
@@ -179,12 +179,11 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
     pendingWriteRef.current = null;
     if (!userId) {
       setPendingDraft(null);
-      setDraftReady(false);
+      setDraftLoaded(false);
       return;
     }
-    const stored = loadDrafts(userId);
-    setPendingDraft(stored);
-    setDraftReady(!stored);
+    setPendingDraft(loadDrafts(userId));
+    setDraftLoaded(true);
   }, [userId]);
 
   const flushDraft = useCallback(() => {
@@ -198,7 +197,7 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
 
   // 入力のたびに、少し待ってから下書きを保存する（毎回の描画で、変化があるときだけ）
   useEffect(() => {
-    if (!userId || !draftReady || frameworks.length === 0 || !selectedFrameworkId) {
+    if (!userId || !draftLoaded || frameworks.length === 0 || !selectedFrameworkId) {
       return;
     }
     const all: ReflectionDrafts = {
@@ -213,7 +212,13 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
         visible[frameworkId] = pickSchemaFields(data, framework.schema ?? []);
       }
     }
-    const drafts = compactDrafts(visible);
+    // 復元の確認に答えるまでは、前回の下書きを残したまま、新しい入力を重ねて保存する
+    // （新しい入力が優先。確認の前に閉じても、どちらも失わない）
+    const merged: ReflectionDrafts = { ...(pendingDraft ?? {}) };
+    for (const [frameworkId, data] of Object.entries(compactDrafts(visible))) {
+      merged[frameworkId] = { ...merged[frameworkId], ...data };
+    }
+    const drafts = compactDrafts(merged);
     const serialized = JSON.stringify(drafts);
     if (serialized === lastPersistedRef.current) {
       pendingWriteRef.current = null;
@@ -370,19 +375,19 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
         delete cacheRef.current[savedFrameworkId];
         // 復元の確認に答えないまま保存したとき、保存済みの型の下書きを、確認と保存済みの下書きから外す
         // （残すと、保存した内容を復元して、二重に保存できてしまう）
-        if (userId && pendingDraft) {
+        // ただし、保存の途中でログアウトしていたら、何も書かない（下書きを端末に戻さない）
+        if (
+          userId &&
+          pendingDraft &&
+          useAuthStore.getState().user?.id === userId
+        ) {
           const remaining = compactDrafts(
             Object.fromEntries(
               Object.entries(pendingDraft).filter(([id]) => id !== savedFrameworkId)
             )
           );
           saveDrafts(userId, remaining);
-          if (Object.keys(remaining).length > 0) {
-            setPendingDraft(remaining);
-          } else {
-            setPendingDraft(null);
-            setDraftReady(true);
-          }
+          setPendingDraft(Object.keys(remaining).length > 0 ? remaining : null);
         }
         if (currentFrameworkIdRef.current === savedFrameworkId) {
           setFormData({});
@@ -414,14 +419,12 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
       }
     }
     setPendingDraft(null);
-    setDraftReady(true);
     forceRender();
   };
 
   const handleDiscardDraft = () => {
     if (userId) clearDrafts(userId);
     setPendingDraft(null);
-    setDraftReady(true);
   };
 
   const handleReset = () => {
