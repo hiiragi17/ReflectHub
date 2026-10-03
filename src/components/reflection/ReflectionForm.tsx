@@ -3,7 +3,6 @@
 import React, {
   useEffect,
   useState,
-  useCallback,
   useReducer,
   useRef,
 } from "react";
@@ -26,6 +25,7 @@ import {
 import Link from "next/link";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { getSaveErrorMessage } from "@/utils/reflectionSaveError";
+import { hasAtLeastOneValue } from "@/utils/validation";
 
 export const LEAVE_CONFIRM_MESSAGE =
   "入力内容はまだ保存されていません。このページを離れると消えます。離れますか？";
@@ -46,6 +46,7 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
 
   const {
     validateFormData,
+    validateSingleField,
     sanitizeFormData,
     errors,
     clearErrors,
@@ -180,20 +181,29 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
     };
   }, [hasUnsavedInput]);
 
-  const handleFieldChange = useCallback(
-    (fieldId: string, value: string) => {
-      setIsSaved(false);
-      // 保存時の検証エラーは、入力し直したら消す（直したのに古いエラーが残らないように）。
-      // フォーム全体のエラー（「どれか1つ以上入力」）も、入力があれば不要になる
-      clearFieldError(fieldId);
+  const handleFieldChange = (fieldId: string, value: string) => {
+    setIsSaved(false);
+
+    // 保存時のエラーが出ている項目だけ、入力のたびに検証し直す。
+    // 直れば消え、まだ不正（空白だけ・HTML・使えない文字など）なら残る。
+    // エラーのない項目は、入力途中で検証しない（保存時に検証する）
+    const fieldSchema = selectedFramework?.schema?.find((f) => f.id === fieldId);
+    if (errors[fieldId] && fieldSchema) {
+      validateSingleField(fieldId, value, fieldSchema);
+    }
+    // 「どれか1つ以上入力」のエラーは、空白でない入力ができたときに消す
+    if (
+      errors["__form__"] &&
+      hasAtLeastOneValue({ ...formData, [fieldId]: value })
+    ) {
       clearFieldError("__form__");
-      setFormData((prev) => ({
-        ...prev,
-        [fieldId]: value,
-      }));
-    },
-    [clearFieldError]
-  );
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      [fieldId]: value,
+    }));
+  };
 
   const handleSave = async () => {
     if (isSubmittingRef.current) return;

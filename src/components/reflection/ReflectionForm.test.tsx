@@ -459,3 +459,90 @@ describe("ReflectionForm 保存中に型を切り替えたとき", () => {
     expect(((await screen.findByLabelText(/やったこと/)) as HTMLTextAreaElement).value).toBe("");
   });
 });
+
+describe("ReflectionForm 入力し直したときのエラーの再検証", () => {
+  const strict = {
+    ...framework,
+    id: "f3",
+    name: "STRICT",
+    schema: [
+      { id: "a", label: "必須項目", placeholder: "", required: true, max_length: 5 },
+      { id: "b", label: "任意項目", placeholder: "", required: false },
+    ],
+  };
+
+  beforeEach(() => {
+    useFrameworkStore.setState({
+      frameworks: [strict],
+      selectedFrameworkId: "f3",
+      selectedFramework: strict,
+    });
+  });
+
+  it("まだ不正な値（空白だけ）では、必須エラーを消さない", async () => {
+    render(<ReflectionForm />);
+    typeInto(/任意項目/, "x");
+    fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+    expect(await screen.findByText("この項目は必須です")).toBeInTheDocument();
+
+    typeInto(/必須項目/, "   ");
+    expect(screen.getByText("この項目は必須です")).toBeInTheDocument();
+    expect(screen.getByLabelText(/必須項目/)).toHaveAttribute("aria-invalid", "true");
+
+    typeInto(/必須項目/, "ok");
+    expect(screen.queryByText("この項目は必須です")).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/必須項目/)).toHaveAttribute("aria-invalid", "false");
+  });
+
+  it("上限超過のエラーは、上限内に戻したときだけ消える", async () => {
+    render(<ReflectionForm />);
+    typeInto(/必須項目/, "123456");
+    fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+    await waitFor(() =>
+      expect(screen.getByLabelText(/必須項目/)).toHaveAttribute("aria-invalid", "true")
+    );
+
+    typeInto(/必須項目/, "1234567");
+    expect(screen.getByLabelText(/必須項目/)).toHaveAttribute("aria-invalid", "true");
+
+    typeInto(/必須項目/, "123");
+    expect(screen.getByLabelText(/必須項目/)).toHaveAttribute("aria-invalid", "false");
+  });
+
+  it("HTMLを含む値のエラーは、HTMLが残るあいだは消えない", async () => {
+    render(<ReflectionForm />);
+    typeInto(/必須項目/, "<b>");
+    fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+    expect(await screen.findByText("HTML タグは使用できません")).toBeInTheDocument();
+
+    typeInto(/必須項目/, "<i>");
+    expect(screen.getByText("HTML タグは使用できません")).toBeInTheDocument();
+
+    typeInto(/必須項目/, "abc");
+    expect(screen.queryByText("HTML タグは使用できません")).not.toBeInTheDocument();
+  });
+
+  it("エラーのない項目は、入力途中では検証しない", () => {
+    render(<ReflectionForm />);
+    typeInto(/必須項目/, "   ");
+    expect(screen.queryByText("この項目は必須です")).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/必須項目/)).toHaveAttribute("aria-invalid", "false");
+  });
+
+  it("「どれか1つ以上入力」のエラーは、空白だけの入力では消えない", async () => {
+    useFrameworkStore.setState({
+      frameworks: [framework],
+      selectedFrameworkId: "f1",
+      selectedFramework: framework,
+    });
+    render(<ReflectionForm />);
+    fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+    expect(await screen.findByText("どれか1つ以上のフィールドに入力してください")).toBeInTheDocument();
+
+    typeInto(/やったこと/, "   ");
+    expect(screen.getByText("どれか1つ以上のフィールドに入力してください")).toBeInTheDocument();
+
+    typeInto(/やったこと/, "書いた");
+    expect(screen.queryByText("どれか1つ以上のフィールドに入力してください")).not.toBeInTheDocument();
+  });
+});
