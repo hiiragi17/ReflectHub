@@ -458,14 +458,17 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
           const { [savedFrameworkId]: _removed, ...ownedRest } = ownedDraftsRef.current;
           ownedDraftsRef.current = ownedRest;
           lastPersistedRef.current = null;
-          if (pendingDraft) {
+          // 確認の表示は、保存を始めたときの内容ではなく、いまの内容から作り直す
+          // （保存の途中で、別のタブが書いた内容を巻き戻さない）
+          setPendingDraft((current) => {
+            if (!current) return current;
             const remaining = compactDrafts(
               Object.fromEntries(
-                Object.entries(pendingDraft).filter(([id]) => id !== savedFrameworkId)
+                Object.entries(current).filter(([id]) => id !== savedFrameworkId)
               )
             );
-            setPendingDraft(Object.keys(remaining).length > 0 ? remaining : null);
-          }
+            return Object.keys(remaining).length > 0 ? remaining : null;
+          });
         }
         if (currentFrameworkIdRef.current === savedFrameworkId) {
           setFormData({});
@@ -502,6 +505,8 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
 
   const handleDiscardDraft = () => {
     if (userId) clearDrafts(userId);
+    // 保存済みの印をやめる：確認の前に入力した内容が、前回の下書きと同じでも、次の自動保存で書き直す
+    lastPersistedRef.current = null;
     setPendingDraft(null);
   };
 

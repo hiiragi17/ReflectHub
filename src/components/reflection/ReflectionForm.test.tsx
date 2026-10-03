@@ -1090,6 +1090,68 @@ describe("ReflectionForm 下書きの自動保存", () => {
     expect(loadDrafts("u1")).toEqual({ f1: { y: "別のタブの入力" } });
   });
 
+  it("前回の下書きと同じ内容を入力して「破棄する」を押しても、入力は下書きとして残る", () => {
+    vi.useFakeTimers();
+    try {
+      saveDrafts("u1", { f1: { y: "同じ入力" } });
+      render(<ReflectionForm />);
+      typeInto(/やったこと/, "同じ入力");
+      fireEvent.click(screen.getByRole("button", { name: "破棄する" }));
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")).toEqual({ f1: { y: "同じ入力" } });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("保存の途中で別のタブが別の型を更新しても、確認の表示は最新の内容から作り直される", async () => {
+    vi.useFakeTimers();
+    try {
+      const framework2 = {
+        ...framework,
+        id: "f2",
+        name: "KPT",
+        display_name: "KPT",
+        schema: [{ id: "a", label: "別の型の項目", placeholder: "", required: false }],
+      };
+      useFrameworkStore.setState({
+        frameworks: [framework, framework2],
+        selectedFrameworkId: "f1",
+        selectedFramework: framework,
+      });
+      let resolveSave: (value: unknown) => void = () => {};
+      mutation.saveReflection = vi.fn(
+        () => new Promise((resolve) => (resolveSave = resolve))
+      );
+      saveDrafts("u1", { f1: { y: "前回" }, f2: { a: "前回の別の型" } });
+      render(<ReflectionForm />);
+      typeInto(/やったこと/, "このタブの入力");
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+      });
+      // 保存の途中で、別のタブが別の型の下書きを更新した
+      saveDrafts("u1", { f1: { y: "前回" }, f2: { a: "別のタブの新しい入力" } });
+      act(() => {
+        window.dispatchEvent(
+          new StorageEvent("storage", { key: draftStorageKey("u1") })
+        );
+      });
+      await act(async () => {
+        resolveSave({ id: "r1" });
+      });
+      // 残った確認から復元すると、別のタブの新しい内容になる
+      fireEvent.click(screen.getByRole("button", { name: "復元する" }));
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(loadDrafts("u1")?.f2).toEqual({ a: "別のタブの新しい入力" });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("ログインしていなければ、下書きを保存しない", () => {
     vi.useFakeTimers();
     try {
