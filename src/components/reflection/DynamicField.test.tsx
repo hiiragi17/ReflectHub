@@ -47,4 +47,14 @@ describe("DynamicField", () => {
     expect(screen.queryByText(/文字超えています/)).not.toBeInTheDocument();
     expect(screen.getByLabelText(/やったこと/)).toHaveAttribute("aria-invalid", "false");
   });
+
+  it("上限超過時は、描画しないエラー要素のIDを aria-describedby に含めない", () => {
+    render(
+      <DynamicField field={field} value="12345678901234" onChange={() => {}} error="10文字以内で入力してください" />
+    );
+    const describedBy = screen.getByLabelText(/やったこと/).getAttribute("aria-describedby") ?? "";
+    for (const id of describedBy.split(" ")) {
+      expect(document.getElementById(id)).not.toBeNull();
+    }
+  });
 });

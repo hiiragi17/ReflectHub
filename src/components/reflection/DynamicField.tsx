@@ -59,7 +59,7 @@ export default function DynamicField({
   const describedBy = [
     countId,
     isNearLimit || isOverLimit ? warningId : null,
-    error ? errorId : null,
+    error && !isOverLimit ? errorId : null,
   ]
     .filter(Boolean)
     .join(" ");
