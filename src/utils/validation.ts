@@ -16,11 +16,15 @@ export const isRequired = (value: string | undefined): boolean => {
   return !!value && value.trim().length > 0;
 };
 
+/** 文字数（見た目の1文字 = 1。絵文字や結合文字も1文字として数える） */
+export const countGraphemes = (value: string): number =>
+  splitter.countGraphemes(value);
+
 export const checkLength = (
   value: string,
   maxLength: number
 ): { isValid: boolean; message?: string } => {
-  const graphemeLength = splitter.countGraphemes(value);
+  const graphemeLength = countGraphemes(value);
 
   if (graphemeLength > maxLength) {
     return {
@@ -32,7 +36,9 @@ export const checkLength = (
 };
 
 export const containsForbiddenCharacters = (value: string): boolean => {
-  return VALIDATION_CONSTANTS.PATTERNS.CONTROL_CHARS.test(value);
+  // CONTROL_CHARS は g フラグ付きで、共有のまま .test() を呼ぶと lastIndex が残り、
+  // 同じ入力でも結果が交互に変わる。検査のたびに状態を持たない正規表現を作る
+  return new RegExp(VALIDATION_CONSTANTS.PATTERNS.CONTROL_CHARS.source).test(value);
 };
 
 export const containsHtmlContent = (value: string): boolean => {

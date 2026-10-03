@@ -150,6 +150,19 @@ describe('containsForbiddenCharacters', () => {
   it('should handle Japanese text', () => {
     expect(containsForbiddenCharacters('こんにちは')).toBe(false);
   });
+
+  it('should give the same answer every time for the same input (no regex state)', () => {
+    const results = Array.from({ length: 6 }, () => containsForbiddenCharacters('abc\x01'));
+    expect(results).toEqual([true, true, true, true, true, true]);
+  });
+
+  it('should not be affected by a previous call on a different input', () => {
+    // 制御文字が前の呼び出しの lastIndex より前にあっても検出する
+    expect(containsForbiddenCharacters('xxxxxxxx\x01')).toBe(true);
+    expect(containsForbiddenCharacters('\x01')).toBe(true);
+    expect(containsForbiddenCharacters('clean')).toBe(false);
+    expect(containsForbiddenCharacters('\x02abc')).toBe(true);
+  });
 });
 
 describe('containsHtmlContent', () => {

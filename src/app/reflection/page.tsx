@@ -2,16 +2,23 @@
 
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import DashboardLoading from "../dashboard/loading";
 import FrameworkSelector from "@/components/reflection/FrameworkSelector";
-import ReflectionForm from "@/components/reflection/ReflectionForm";
+import ReflectionForm, {
+  LEAVE_CONFIRM_MESSAGE,
+} from "@/components/reflection/ReflectionForm";
 import Header from "@/components/layout/Header";
 
 export default function ReflectionPage() {
   const { user, signOut, isLoading } = useAuth();
   const router = useRouter();
+  // 未保存の入力があるか（フォームから通知される。再描画は不要なので ref で持つ）
+  const hasUnsavedRef = useRef(false);
+  const handleUnsavedChange = useCallback((hasUnsaved: boolean) => {
+    hasUnsavedRef.current = hasUnsaved;
+  }, []);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -29,6 +36,11 @@ export default function ReflectionPage() {
   }
 
   const handleSignOut = async () => {
+    // ログアウトはリンクではなくボタンなので、フォーム側のリンク検知が効かない。
+    // 未保存の入力があるときは、ここで同じ確認を出す。
+    if (hasUnsavedRef.current && !window.confirm(LEAVE_CONFIRM_MESSAGE)) {
+      return;
+    }
     try {
       await signOut();
       router.push("/auth");
@@ -55,7 +67,7 @@ export default function ReflectionPage() {
           <Card className="border border-gray-200">
             <CardHeader className="pb-3 sm:pb-6">
               <CardTitle className="text-lg sm:text-xl">
-                ステップ 1: フレームワークを選択
+                ステップ 1: 振り返りの型（フレームワーク）を選ぶ
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
@@ -67,11 +79,11 @@ export default function ReflectionPage() {
           <Card className="border border-gray-200">
             <CardHeader className="pb-3 sm:pb-6">
               <CardTitle className="text-lg sm:text-xl">
-                ステップ 2: 振り返りを記入
+                ステップ 2: 振り返りを書く
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-              <ReflectionForm />
+              <ReflectionForm onUnsavedChange={handleUnsavedChange} />
             </CardContent>
           </Card>
         </div>
