@@ -172,6 +172,74 @@ describe('reflectionService', () => {
       ]);
     });
 
+    it('should send idempotency_key and return the existing row on duplicate key', async () => {
+      const key = '11111111-1111-4111-8111-111111111111';
+      const existingRow = {
+        id: mockReflectionId,
+        user_id: mockUserId,
+        framework_id: mockFrameworkId,
+        content: { a: 'b' },
+        reflection_date: '2025-01-02',
+        created_at: '2025-01-02T10:00:00Z',
+      };
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: { id: mockUserId } },
+        error: null,
+      });
+      const mockInsert = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: null,
+            error: { code: '23505', message: 'duplicate key' },
+          }),
+        }),
+      });
+      const eqKey = vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({ data: existingRow, error: null }),
+      });
+      const eqUser = vi.fn().mockReturnValue({ eq: eqKey });
+      const mockSelect = vi.fn().mockReturnValue({ eq: eqUser });
+      mockSupabaseClient.from.mockReturnValue({
+        insert: mockInsert,
+        select: mockSelect,
+      });
+
+      const result = await createReflection(mockUserId, {
+        framework_id: mockFrameworkId,
+        content: { a: 'b' },
+        reflection_date: '2025-01-02',
+        idempotency_key: key,
+      });
+
+      expect(mockInsert).toHaveBeenCalledWith([
+        expect.objectContaining({ idempotency_key: key }),
+      ]);
+      expect(eqUser).toHaveBeenCalledWith('user_id', mockUserId);
+      expect(eqKey).toHaveBeenCalledWith('idempotency_key', key);
+      expect(result.id).toBe(mockReflectionId);
+    });
+
+    it('should still throw a duplicate error when no idempotency_key was sent', async () => {
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: { id: mockUserId } },
+        error: null,
+      });
+      mockSupabaseClient.from.mockReturnValue({
+        insert: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: null,
+              error: { code: '23505', message: 'duplicate key' },
+            }),
+          }),
+        }),
+      });
+
+      await expect(
+        createReflection(mockUserId, { framework_id: mockFrameworkId, content: {} })
+      ).rejects.toMatchObject({ code: '23505' });
+    });
+
     it('should throw AUTH_ERROR when user is not authenticated', async () => {
       mockSupabaseClient.auth.getUser.mockResolvedValue({
         data: { user: null },

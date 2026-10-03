@@ -17,6 +17,8 @@ export interface CreateReflectionRequest {
   framework_id: string;
   content: Record<string, string>;
   reflection_date?: string; // デフォルト: 今日
+  // 同じ送信が2回届いても1件しか登録しないためのキー（再試行では同じ値を送る）
+  idempotency_key?: string;
 }
 
 export interface UpdateReflectionRequest {
