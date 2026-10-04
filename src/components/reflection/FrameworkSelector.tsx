@@ -103,7 +103,10 @@ export default function FrameworkSelector() {
 
                     {/* 何に使う型か（初めてでも選べるように） */}
                     {framework.description && (
-                      <p className="text-xs text-gray-600">
+                      <p
+                        className="text-xs text-gray-600 line-clamp-3"
+                        title={framework.description}
+                      >
                         {framework.description}
                       </p>
                     )}
@@ -141,7 +144,8 @@ export default function FrameworkSelector() {
                   {selectedFramework.name}
                 </h4>
                 <p className="text-sm text-gray-700">
-                  この型で書く項目は次のとおりです。
+                  {selectedFramework.description ||
+                    'この型で書く項目は次のとおりです。'}
                 </p>
               </div>
             </div>
