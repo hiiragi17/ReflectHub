@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 
 const hook = {
   frameworks: [] as unknown[],
@@ -32,7 +32,8 @@ beforeEach(() => {
 describe("FrameworkSelector", () => {
   it("各カードに何に使う型かの説明を出す（説明がない型は空欄にしない）", () => {
     render(<FrameworkSelector />);
-    expect(screen.getAllByText("やったこと・わかったこと・次にやることで整理")).toHaveLength(1);
+    // カード＋選択中の詳細欄の2か所
+    expect(screen.getAllByText("やったこと・わかったこと・次にやることで整理")).toHaveLength(2);
     expect(screen.getByRole("radio", { name: /KPT/ })).toBeInTheDocument();
   });
 
@@ -69,5 +70,37 @@ describe("FrameworkSelector", () => {
     rerender(<FrameworkSelector />);
     expect(screen.getByText(/まだ登録されていません/)).toBeInTheDocument();
     expect(screen.queryByText(/読み込めませんでした/)).not.toBeInTheDocument();
+  });
+
+  it("項目数の行を押しても、そのカードが選択される", () => {
+    render(<FrameworkSelector />);
+    const kpt = screen.getByRole("radio", { name: /KPT/ });
+    fireEvent.click(within(kpt).getByText("1項目"));
+    expect(hook.selectFramework).toHaveBeenCalledWith("2");
+  });
+
+  describe("もっと見る", () => {
+    const mockClamped = (clamped: boolean) => {
+      vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(clamped ? 100 : 10);
+      vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(40);
+    };
+
+    it("3行に収まらない説明にだけ出て、押すと全文が開閉する", () => {
+      mockClamped(true);
+      render(<FrameworkSelector />);
+      const toggle = screen.getByRole("button", { name: /もっと見る/ });
+      expect(toggle).toHaveAttribute("aria-expanded", "false");
+      fireEvent.click(toggle);
+      expect(screen.getByRole("button", { name: /閉じる/ })).toHaveAttribute("aria-expanded", "true");
+      expect(hook.selectFramework).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: /閉じる/ }));
+      expect(screen.getByRole("button", { name: /もっと見る/ })).toBeInTheDocument();
+    });
+
+    it("説明が収まっているカードには出さない", () => {
+      mockClamped(false);
+      render(<FrameworkSelector />);
+      expect(screen.queryByRole("button", { name: /もっと見る/ })).not.toBeInTheDocument();
+    });
   });
 });
