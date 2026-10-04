@@ -44,15 +44,15 @@ function FrameworkCard({
         }
       `}
     >
-      {/* カード全体を押すと選択。「もっと見る」は入れ子にできないので外に置く */}
+      {/* カード全体を押すと選択。「もっと見る」は入れ子にできないので外（カード下端）に置く */}
       <button
         type="button"
         role="radio"
         aria-checked={isSelected}
         onClick={() => onSelect(framework.id)}
-        className="flex-1 flex items-start text-left rounded-lg cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+        className="flex-1 flex flex-col text-left rounded-lg cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
       >
-        <div className="w-full p-4 text-center space-y-2">
+        <div className="w-full p-4 pb-2 text-center space-y-2">
           {/* アイコン */}
           <div className="text-4xl mb-2">{framework.icon || '📋'}</div>
 
@@ -70,6 +70,18 @@ function FrameworkCard({
             </p>
           )}
         </div>
+        {/* 項目数・選択状態（色だけに頼らず文字でも示す） */}
+        <div className="mx-4 mt-auto mb-4 pt-2 border-t border-gray-200 flex items-center justify-center gap-2 text-xs">
+          {framework.schema && framework.schema.length > 0 && (
+            <span className="text-gray-500">{framework.schema.length}項目</span>
+          )}
+          {isSelected && (
+            <span className="inline-flex items-center gap-1 font-medium text-blue-700">
+              <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
+              選択中
+            </span>
+          )}
+        </div>
       </button>
 
       {framework.description && (isClamped || expanded) && (
@@ -78,7 +90,7 @@ function FrameworkCard({
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
           aria-controls={descriptionId}
-          className="mx-auto mb-1 inline-flex items-center gap-0.5 px-2 py-1 text-xs text-blue-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+          className="mx-auto mb-2 -mt-2 inline-flex items-center gap-0.5 px-2 py-1 text-xs text-blue-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
         >
           {expanded ? '閉じる' : 'もっと見る'}
           {expanded ? (
@@ -88,19 +100,6 @@ function FrameworkCard({
           )}
         </button>
       )}
-
-      {/* 項目数・選択状態（色だけに頼らず文字でも示す） */}
-      <div className="mx-4 mb-4 pt-2 border-t border-gray-200 flex items-center justify-center gap-2 text-xs">
-        {framework.schema && framework.schema.length > 0 && (
-          <span className="text-gray-500">{framework.schema.length}項目</span>
-        )}
-        {isSelected && (
-          <span className="inline-flex items-center gap-1 font-medium text-blue-700">
-            <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
-            選択中
-          </span>
-        )}
-      </div>
     </Card>
   );
 }

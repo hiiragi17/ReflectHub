@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 
 const hook = {
   frameworks: [] as unknown[],
@@ -70,6 +70,13 @@ describe("FrameworkSelector", () => {
     rerender(<FrameworkSelector />);
     expect(screen.getByText(/まだ登録されていません/)).toBeInTheDocument();
     expect(screen.queryByText(/読み込めませんでした/)).not.toBeInTheDocument();
+  });
+
+  it("項目数の行を押しても、そのカードが選択される", () => {
+    render(<FrameworkSelector />);
+    const kpt = screen.getByRole("radio", { name: /KPT/ });
+    fireEvent.click(within(kpt).getByText("1項目"));
+    expect(hook.selectFramework).toHaveBeenCalledWith("2");
   });
 
   describe("もっと見る", () => {
