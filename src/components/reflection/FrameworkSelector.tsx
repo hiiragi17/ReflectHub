@@ -1,10 +1,109 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useFrameworks } from '@/hooks/useFrameworks';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
+import type { Framework } from '@/types/framework';
+
+function FrameworkCard({
+  framework,
+  isSelected,
+  onSelect,
+}: {
+  framework: Framework;
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+}) {
+  const descriptionRef = useRef<HTMLParagraphElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [isClamped, setIsClamped] = useState(false);
+
+  // 3行に収まらない説明だけ「もっと見る」を出す（画面幅の変化にも追従）
+  useEffect(() => {
+    const el = descriptionRef.current;
+    if (!el || expanded) return;
+    const check = () => setIsClamped(el.scrollHeight > el.clientHeight + 1);
+    check();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(check);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [expanded, framework.description]);
+
+  const descriptionId = `framework-desc-${framework.id}`;
+
+  return (
+    <Card
+      className={`
+        h-full flex flex-col transition-all duration-200 hover:shadow-md
+        ${isSelected
+          ? 'border-2 border-blue-500 bg-blue-50 shadow-lg'
+          : 'border border-gray-200 hover:border-blue-300'
+        }
+      `}
+    >
+      {/* カード全体を押すと選択。「もっと見る」は入れ子にできないので外に置く */}
+      <button
+        type="button"
+        role="radio"
+        aria-checked={isSelected}
+        onClick={() => onSelect(framework.id)}
+        className="flex-1 flex items-start text-left rounded-lg cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+      >
+        <div className="w-full p-4 text-center space-y-2">
+          {/* アイコン */}
+          <div className="text-4xl mb-2">{framework.icon || '📋'}</div>
+
+          {/* フレームワーク名 */}
+          <h4 className="font-semibold text-gray-900">{framework.name}</h4>
+
+          {/* 何に使う型か（初めてでも選べるように） */}
+          {framework.description && (
+            <p
+              ref={descriptionRef}
+              id={descriptionId}
+              className={`text-xs text-gray-600 ${expanded ? '' : 'line-clamp-3'}`}
+            >
+              {framework.description}
+            </p>
+          )}
+        </div>
+      </button>
+
+      {framework.description && (isClamped || expanded) && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          aria-controls={descriptionId}
+          className="mx-auto mb-1 inline-flex items-center gap-0.5 px-2 py-1 text-xs text-blue-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+        >
+          {expanded ? '閉じる' : 'もっと見る'}
+          {expanded ? (
+            <ChevronUp className="w-3.5 h-3.5" aria-hidden="true" />
+          ) : (
+            <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
+          )}
+        </button>
+      )}
+
+      {/* 項目数・選択状態（色だけに頼らず文字でも示す） */}
+      <div className="mx-4 mb-4 pt-2 border-t border-gray-200 flex items-center justify-center gap-2 text-xs">
+        {framework.schema && framework.schema.length > 0 && (
+          <span className="text-gray-500">{framework.schema.length}項目</span>
+        )}
+        {isSelected && (
+          <span className="inline-flex items-center gap-1 font-medium text-blue-700">
+            <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
+            選択中
+          </span>
+        )}
+      </div>
+    </Card>
+  );
+}
 
 export default function FrameworkSelector() {
   const {
@@ -69,67 +168,14 @@ export default function FrameworkSelector() {
           aria-label="振り返りフレームワーク"
           className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4"
         >
-          {frameworks.map((framework) => {
-            const isSelected = selectedFrameworkId === framework.id;
-
-            return (
-              <button
-                key={framework.id}
-                type="button"
-                role="radio"
-                aria-checked={isSelected}
-                onClick={() => selectFramework(framework.id)}
-                className="h-full text-left rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-              >
-                <Card
-                  className={`
-                    h-full cursor-pointer transition-all duration-200 hover:shadow-md
-                    ${isSelected
-                      ? 'border-2 border-blue-500 bg-blue-50 shadow-lg'
-                      : 'border border-gray-200 hover:border-blue-300'
-                    }
-                  `}
-                >
-                  <div className="p-4 text-center space-y-2">
-                    {/* アイコン */}
-                    <div className="text-4xl mb-2">
-                      {framework.icon || '📋'}
-                    </div>
-
-                    {/* フレームワーク名 */}
-                    <h4 className="font-semibold text-gray-900">
-                      {framework.name}
-                    </h4>
-
-                    {/* 何に使う型か（初めてでも選べるように） */}
-                    {framework.description && (
-                      <p
-                        className="text-xs text-gray-600 line-clamp-3"
-                        title={framework.description}
-                      >
-                        {framework.description}
-                      </p>
-                    )}
-
-                    {/* 項目数・選択状態（色だけに頼らず文字でも示す） */}
-                    <div className="pt-2 border-t border-gray-200 flex items-center justify-center gap-2 text-xs">
-                      {framework.schema && framework.schema.length > 0 && (
-                        <span className="text-gray-500">
-                          {framework.schema.length}項目
-                        </span>
-                      )}
-                      {isSelected && (
-                        <span className="inline-flex items-center gap-1 font-medium text-blue-700">
-                          <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
-                          選択中
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              </button>
-            );
-          })}
+          {frameworks.map((framework) => (
+            <FrameworkCard
+              key={framework.id}
+              framework={framework}
+              isSelected={selectedFrameworkId === framework.id}
+              onSelect={selectFramework}
+            />
+          ))}
         </div>
       </div>
 
