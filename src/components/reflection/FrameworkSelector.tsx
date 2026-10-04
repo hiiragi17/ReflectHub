@@ -103,7 +103,7 @@ export default function FrameworkSelector() {
 
                     {/* 何に使う型か（初めてでも選べるように） */}
                     {framework.description && (
-                      <p className="text-xs text-gray-600 line-clamp-3">
+                      <p className="text-xs text-gray-600">
                         {framework.description}
                       </p>
                     )}
