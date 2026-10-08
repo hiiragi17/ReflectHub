@@ -1,11 +1,24 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
+import { Trash2, AlertTriangle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface DeleteConfirmDialogProps {
   reflectionDate: string;
+  /** 削除する振り返りの型の名前。同じ日に複数あっても見分けるために表示する */
+  frameworkName?: string;
+  /** 削除する振り返りの冒頭。どの記録かを内容で見分けるために表示する */
+  preview?: string;
   isLoading?: boolean;
   error?: string | null;
   onConfirm: () => Promise<void>;
@@ -13,18 +26,17 @@ interface DeleteConfirmDialogProps {
 }
 
 /**
- * DeleteConfirmDialog - Modal for confirming reflection deletion
+ * DeleteConfirmDialog - 振り返りの削除を確認するダイアログ
  *
- * Features:
- * - Warning icon and message
- * - Display reflection date to be deleted
- * - Confirm and cancel buttons
- * - Loading state during deletion
- * - Error message display for permission issues
- * - Prevents accidental deletion
+ * - 日付・型・冒頭を示し、同じ日に複数あっても対象を見分けられる
+ * - 取り消せないことを、実行前に伝える
+ * - 削除中は閉じられず、二重に実行できない
+ * - Escape・フォーカスの移動は、既存の AlertDialog（Radix）に任せる
  */
 export const DeleteConfirmDialog: React.FC<DeleteConfirmDialogProps> = ({
   reflectionDate,
+  frameworkName,
+  preview,
   isLoading = false,
   error = null,
   onConfirm,
@@ -33,6 +45,7 @@ export const DeleteConfirmDialog: React.FC<DeleteConfirmDialogProps> = ({
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleConfirm = async () => {
+    if (isDeleting) return;
     try {
       setIsDeleting(true);
       await onConfirm();
@@ -44,93 +57,76 @@ export const DeleteConfirmDialog: React.FC<DeleteConfirmDialogProps> = ({
   const isDisabled = isDeleting || isLoading;
 
   return (
-    <>
-      {/* Modal overlay */}
-      <div
-        className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
-        onClick={onCancel}
-      />
+    <AlertDialog
+      open
+      onOpenChange={(open) => {
+        // 削除中は閉じない（結果が分からなくなるため）
+        if (!open && !isDisabled) onCancel();
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2">
+            <AlertTriangle
+              className="w-5 h-5 text-red-600 shrink-0"
+              aria-hidden="true"
+            />
+            削除確認
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            以下の振り返りを削除しようとしています。
+          </AlertDialogDescription>
+        </AlertDialogHeader>
 
-      {/* Modal content */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-        <div
-          className="bg-white w-full max-w-sm rounded-lg shadow-xl"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="border-b border-gray-200 p-6 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-red-100">
-                <AlertTriangle className="w-6 h-6 text-red-600" />
-              </div>
-              <h2 className="text-lg font-semibold text-gray-900">
-                削除確認
-              </h2>
-            </div>
-            <button
-              onClick={onCancel}
-              className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
-              disabled={isDisabled}
-              aria-label="Close dialog"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-
-          {/* Content */}
-          <div className="p-6 space-y-4">
-            {/* Warning message */}
-            <div className="space-y-2">
-              <p className="text-sm text-gray-700">
-                以下の振り返りを削除しようとしています：
-              </p>
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                <p className="text-sm font-medium text-gray-900">
-                  {reflectionDate}
-                </p>
-              </div>
-            </div>
-
-            {/* Warning text */}
-            <div className="rounded-lg bg-red-50 border border-red-200 p-4">
-              <p className="text-sm text-red-700">
-                この操作は取り消せません。この振り返りデータを本当に削除してもよろしいですか？
-              </p>
-            </div>
-
-            {/* Error message if permission denied */}
-            {error && (
-              <div className="rounded-lg bg-red-50 border border-red-200 p-4">
-                <p className="text-sm text-red-700">{error}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Footer with actions */}
-          <div className="border-t border-gray-200 p-6 bg-gray-50 rounded-b-lg space-y-3">
-            <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
-              <Button
-                variant="outline"
-                onClick={onCancel}
-                disabled={isDisabled}
-                className="w-full sm:w-auto"
-              >
-                キャンセル
-              </Button>
-
-              <button
-                onClick={handleConfirm}
-                disabled={isDisabled}
-                className="flex items-center justify-center gap-2 bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto px-4 py-2 rounded-lg transition-colors"
-              >
-                {isDeleting && <Loader2 className="w-4 h-4 animate-spin" />}
-                <Trash2 className="w-4 h-4" />
-                <span>{isDeleting ? '削除中...' : '削除'}</span>
-              </button>
-            </div>
-          </div>
+        {/* 削除する対象（日付・型・冒頭の順に、見分けに使う） */}
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-1">
+          <p className="text-sm font-medium text-gray-900">{reflectionDate}</p>
+          {frameworkName && (
+            <p className="text-sm text-gray-700">{frameworkName}</p>
+          )}
+          {preview && (
+            <p className="text-sm text-gray-600 break-words">「{preview}」</p>
+          )}
         </div>
-      </div>
-    </>
+
+        <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+          <p className="text-sm text-red-900">
+            この操作は取り消せません。削除した振り返りは元に戻せません。
+          </p>
+        </div>
+
+        {error && (
+          <div role="alert" className="rounded-lg bg-red-50 border border-red-200 p-3">
+            <p className="text-sm text-red-900">{error}</p>
+            <p className="mt-1 text-sm text-red-900">
+              もう一度「削除する」を押してください。うまくいかない場合は、キャンセルして履歴の一覧に残っているか確認してください。
+            </p>
+          </div>
+        )}
+
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isDisabled}>キャンセル</AlertDialogCancel>
+          <Button
+            type="button"
+            onClick={handleConfirm}
+            disabled={isDisabled}
+            aria-busy={isDeleting}
+            className="bg-red-600 text-white hover:bg-red-700"
+          >
+            {isDeleting ? (
+              <>
+                <Loader2 className="animate-spin" aria-hidden="true" />
+                削除しています…
+              </>
+            ) : (
+              <>
+                <Trash2 aria-hidden="true" />
+                削除する
+              </>
+            )}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 };

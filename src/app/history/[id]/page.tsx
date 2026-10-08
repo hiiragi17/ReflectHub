@@ -13,6 +13,26 @@ import { Loader2 } from 'lucide-react';
 import type { Reflection } from '@/types/reflection';
 import type { Framework } from '@/types/framework';
 
+const PREVIEW_MAX_LENGTH = 60;
+
+/** 削除の確認で、どの記録かを見分けるための冒頭。型の項目順で、最初に入力のある項目を使う */
+function getPreview(
+  reflection: Reflection,
+  framework: Framework | undefined
+): string | undefined {
+  const ids = framework?.schema?.map((f) => f.id) ?? Object.keys(reflection.content);
+  for (const id of ids) {
+    const text = (reflection.content[id] ?? '').replace(/\s+/g, ' ').trim();
+    if (text) {
+      const chars = Array.from(text);
+      return chars.length > PREVIEW_MAX_LENGTH
+        ? `${chars.slice(0, PREVIEW_MAX_LENGTH).join('')}…`
+        : text;
+    }
+  }
+  return undefined;
+}
+
 /**
  * Reflection Detail Page
  *
@@ -216,6 +236,8 @@ export default function ReflectionDetailPage() {
             {showDeleteConfirm && (
               <DeleteConfirmDialog
                 reflectionDate={reflection.created_at?.split('T')[0] || reflection.reflection_date}
+                frameworkName={framework?.display_name}
+                preview={getPreview(reflection, framework)}
                 error={deleteError}
                 isLoading={false}
                 onConfirm={handleConfirmDelete}
