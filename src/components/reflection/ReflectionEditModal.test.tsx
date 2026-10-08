@@ -97,4 +97,13 @@ describe('ReflectionEditModal', () => {
       screen.getByRole('button', { name: '編集を閉じる' })
     ).toBeInTheDocument();
   });
+
+  it('背景は半透明で、後ろの画面が真っ黒に隠れない', () => {
+    const { container } = setup();
+    const overlay = container.querySelector('.fixed.inset-0.z-40');
+    expect(overlay).not.toBeNull();
+    // Tailwind v4 では bg-opacity-* が効かず、真っ黒になる。透明度つきの色で指定する
+    expect(overlay).toHaveClass('bg-black/50');
+    expect(overlay?.className).not.toMatch(/bg-opacity/);
+  });
 });

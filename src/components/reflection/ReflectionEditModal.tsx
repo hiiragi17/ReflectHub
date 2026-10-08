@@ -126,7 +126,7 @@ export const ReflectionEditModal: React.FC<ReflectionEditModalProps> = ({
     <>
       {/* Modal overlay */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
+        className="fixed inset-0 bg-black/50 z-40 transition-opacity"
         onClick={handleClose}
       />
 
