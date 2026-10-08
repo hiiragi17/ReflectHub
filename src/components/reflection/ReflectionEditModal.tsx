@@ -153,31 +153,6 @@ export const ReflectionEditModal: React.FC<ReflectionEditModalProps> = ({
 
           {/* Content */}
           <div className="p-6 space-y-6">
-            {/* 保存の失敗（原因と次の行動。入力は残っている） */}
-            {error && (
-              <div
-                role="alert"
-                className="rounded-lg bg-red-50 border border-red-200 p-4"
-              >
-                <p className="text-sm text-red-900 whitespace-pre-wrap">
-                  {error}
-                </p>
-              </div>
-            )}
-
-            {/* 入力の問題（項目ごとの内容は各入力欄の下に表示） */}
-            {Object.keys(errors).length > 0 && (
-              <div
-                role="alert"
-                className="rounded-lg bg-amber-50 border border-amber-300 p-4"
-              >
-                <p className="text-sm text-amber-900 font-medium">
-                  {errors['__form__'] ??
-                    '入力に問題があります。赤字で示した項目を直してから、もう一度「保存」を押してください。'}
-                </p>
-              </div>
-            )}
-
             {/* Form fields */}
             <div className="space-y-6">
               {framework.schema && framework.schema.length > 0 ? (
@@ -202,6 +177,31 @@ export const ReflectionEditModal: React.FC<ReflectionEditModalProps> = ({
 
           {/* Footer with actions */}
           <div className="sticky bottom-0 border-t border-gray-200 p-6 bg-gray-50 sm:rounded-b-lg space-y-3">
+          {/* 失敗・入力の問題は、スクロールしても見える固定フッターに出す（保存ボタンのすぐ上） */}
+          {error && (
+            <div
+              role="alert"
+              className="rounded-lg bg-red-50 border border-red-200 p-4"
+            >
+              <p className="text-sm text-red-900 whitespace-pre-wrap">
+                {error}
+              </p>
+            </div>
+          )}
+
+          {/* 入力の問題（項目ごとの内容は各入力欄の下に表示） */}
+          {Object.keys(errors).length > 0 && (
+            <div
+              role="alert"
+              className="rounded-lg bg-amber-50 border border-amber-300 p-4"
+            >
+              <p className="text-sm text-amber-900 font-medium">
+                {errors['__form__'] ??
+                  '入力に問題があります。赤字で示した項目を直してから、もう一度「保存」を押してください。'}
+              </p>
+            </div>
+          )}
+
             <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
               <Button
                 variant="outline"
