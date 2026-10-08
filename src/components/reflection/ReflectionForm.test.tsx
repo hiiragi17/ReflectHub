@@ -789,6 +789,15 @@ describe("ReflectionForm 下書きの自動保存", () => {
     expect(screen.queryByText(/前回の書きかけの下書きがあります/)).not.toBeInTheDocument();
   });
 
+  it("復元待ちの下書きがあるあいだは、ページ側に伝える（ログアウトの確認に使う）", () => {
+    saveDrafts("u1", { f1: { y: "前回の入力" } });
+    const onPendingDraftChange = vi.fn();
+    render(<ReflectionForm onPendingDraftChange={onPendingDraftChange} />);
+    expect(onPendingDraftChange).toHaveBeenLastCalledWith(true);
+    fireEvent.click(screen.getByRole("button", { name: "破棄する" }));
+    expect(onPendingDraftChange).toHaveBeenLastCalledWith(false);
+  });
+
   it("破棄すると、入力欄は空のまま、保存済みの下書きも消える", () => {
     saveDrafts("u1", { f1: { y: "前回の入力" } });
     render(<ReflectionForm />);
@@ -1207,5 +1216,24 @@ describe("ReflectionForm 下書きの自動保存", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("ReflectionForm 入力の注意の位置", () => {
+  it("保存の条件は、入力欄より前に表示される", () => {
+    const { container } = render(<ReflectionForm />);
+    const note = screen.getByText(/どれか1つの項目に入力すれば保存できます/);
+    const firstField = container.querySelector("textarea");
+    expect(firstField).not.toBeNull();
+    expect(
+      note.compareDocumentPosition(firstField as Element) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
+  it("保存前の扱いは、自動保存の実態に合わせて、履歴に登録されないことを伝える", () => {
+    render(<ReflectionForm />);
+    expect(screen.getByText(/このブラウザに自動で一時保存されます/)).toBeInTheDocument();
+    expect(screen.getByText(/履歴には登録されません/)).toBeInTheDocument();
   });
 });

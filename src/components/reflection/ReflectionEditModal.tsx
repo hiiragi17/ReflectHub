@@ -7,6 +7,7 @@ import type { Framework } from '@/types/framework';
 import DynamicField from './DynamicField';
 import { useValidation } from '@/hooks/useValidation';
 import { Button } from '@/components/ui/button';
+import { getSaveErrorMessage } from '@/utils/reflectionSaveError';
 
 interface ReflectionEditModalProps {
   reflection: Reflection;
@@ -40,10 +41,24 @@ export const ReflectionEditModal: React.FC<ReflectionEditModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const { validateFormData, sanitizeFormData, errors, clearErrors } =
-    useValidation();
+  const {
+    validateFormData,
+    validateSingleField,
+    sanitizeFormData,
+    errors,
+    clearErrors,
+    clearFieldError,
+  } = useValidation();
 
   const handleFieldChange = useCallback((fieldId: string, value: string) => {
+    // エラーの出ている項目だけ、入力のたびに検証し直す（直れば消える）
+    const fieldSchema = framework?.schema?.find((f) => f.id === fieldId);
+    if (errors[fieldId] && fieldSchema) {
+      validateSingleField(fieldId, value, fieldSchema);
+    }
+    if (errors['__form__'] && value.trim() !== '') {
+      clearFieldError('__form__');
+    }
     setFormData((prev) => {
       const updated = {
         ...prev,
@@ -56,33 +71,30 @@ export const ReflectionEditModal: React.FC<ReflectionEditModalProps> = ({
 
       return updated;
     });
-  }, [reflection.content]);
+  }, [reflection.content, framework, errors, validateSingleField, clearFieldError]);
 
   const handleSave = async () => {
-    if (!framework) return;
+    if (!framework || isSaving) return;
 
+    setError(null);
+
+    // 検証。結果は errors（state）に入り、項目の下と下の案内に表示する
+    const isValid = validateFormData(formData, framework.schema || []);
+    if (!isValid) return;
+
+    setIsSaving(true);
     try {
-      setError(null);
-
-      // Validate form data
-      const isValid = validateFormData(formData, framework.schema || []);
-      if (!isValid) {
-        const errorMessages = Object.entries(errors)
-          .map(([field, msg]) => `${field}: ${msg}`)
-          .join('\n');
-        setError(errorMessages || '入力を確認してください');
-        return;
-      }
-
-      // Sanitize and save
-      setIsSaving(true);
       const sanitized = sanitizeFormData(formData);
       await onSave(sanitized);
       setHasChanges(false);
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : '保存に失敗しました';
-      setError(errorMessage);
+      // 入力は保持し、保存ボタンも押せるままにして、そのまま再試行できるようにする
+      setError(
+        getSaveErrorMessage(
+          err as { code?: string; message?: string },
+          typeof navigator === 'undefined' ? true : navigator.onLine
+        )
+      );
       console.error('Failed to save reflection:', err);
     } finally {
       setIsSaving(false);
@@ -114,7 +126,7 @@ export const ReflectionEditModal: React.FC<ReflectionEditModalProps> = ({
     <>
       {/* Modal overlay */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
+        className="fixed inset-0 bg-black/50 z-40 transition-opacity"
         onClick={handleClose}
       />
 
@@ -133,23 +145,14 @@ export const ReflectionEditModal: React.FC<ReflectionEditModalProps> = ({
               onClick={handleClose}
               className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
               disabled={isSaving || isLoading}
-              aria-label="Close modal"
+              aria-label="編集を閉じる"
             >
-              <X className="w-6 h-6" />
+              <X className="w-6 h-6" aria-hidden="true" />
             </button>
           </div>
 
           {/* Content */}
           <div className="p-6 space-y-6">
-            {/* Error message */}
-            {error && (
-              <div className="rounded-lg bg-red-50 border border-red-200 p-4">
-                <p className="text-sm text-red-700 whitespace-pre-wrap">
-                  {error}
-                </p>
-              </div>
-            )}
-
             {/* Form fields */}
             <div className="space-y-6">
               {framework.schema && framework.schema.length > 0 ? (
@@ -160,6 +163,8 @@ export const ReflectionEditModal: React.FC<ReflectionEditModalProps> = ({
                     value={formData[field.id] || ''}
                     onChange={(value) => handleFieldChange(field.id, value)}
                     fieldIndex={idx}
+                    error={errors[field.id]}
+                    readOnly={isSaving}
                   />
                 ))
               ) : (
@@ -172,6 +177,31 @@ export const ReflectionEditModal: React.FC<ReflectionEditModalProps> = ({
 
           {/* Footer with actions */}
           <div className="sticky bottom-0 border-t border-gray-200 p-6 bg-gray-50 sm:rounded-b-lg space-y-3">
+          {/* 失敗・入力の問題は、スクロールしても見える固定フッターに出す（保存ボタンのすぐ上） */}
+          {error && (
+            <div
+              role="alert"
+              className="rounded-lg bg-red-50 border border-red-200 p-4"
+            >
+              <p className="text-sm text-red-900 whitespace-pre-wrap">
+                {error}
+              </p>
+            </div>
+          )}
+
+          {/* 入力の問題（項目ごとの内容は各入力欄の下に表示） */}
+          {Object.keys(errors).length > 0 && (
+            <div
+              role="alert"
+              className="rounded-lg bg-amber-50 border border-amber-300 p-4"
+            >
+              <p className="text-sm text-amber-900 font-medium">
+                {errors['__form__'] ??
+                  '入力に問題があります。赤字で示した項目を直してから、もう一度「保存」を押してください。'}
+              </p>
+            </div>
+          )}
+
             <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
               <Button
                 variant="outline"
@@ -205,11 +235,11 @@ export const ReflectionEditModal: React.FC<ReflectionEditModalProps> = ({
               </button>
             </div>
 
-            {hasChanges && (
-              <p className="text-xs text-gray-500 text-center">
-                変更されたフィールドを保存します
-              </p>
-            )}
+            <p className="text-xs text-gray-600 text-center">
+              {hasChanges
+                ? '変更した内容で、この振り返りを上書きします。'
+                : '内容を変更すると「保存」を押せます。'}
+            </p>
           </div>
         </div>
       </div>

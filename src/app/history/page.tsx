@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Calendar } from '@/components/reflection/Calendar';
@@ -9,7 +9,7 @@ import DashboardLoading from '@/app/dashboard/loading';
 import { reflectionService } from '@/services/reflectionService';
 import type { Reflection } from '@/types/reflection';
 import type { Framework } from '@/types/framework';
-import { X, ChevronRight } from 'lucide-react';
+import { X, ChevronRight, AlertCircle } from 'lucide-react';
 import { FadeIn } from '@/components/animations/FadeIn';
 import { SlideIn } from '@/components/animations/SlideIn';
 
@@ -37,53 +37,68 @@ export default function HistoryPage() {
   }, [user, authLoading, router]);
 
   // Fetch reflections and frameworks
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!user?.id) return;
+  const fetchData = useCallback(async () => {
+    if (!user?.id) return;
 
-      try {
-        setIsLoading(true);
-        setError(null);
+    try {
+      setIsLoading(true);
+      setError(null);
 
-        // Fetch reflections
-        const reflectionsData = await reflectionService.getByUser(user.id);
-        setReflections(reflectionsData);
+      // Fetch reflections
+      const reflectionsData = await reflectionService.getByUser(user.id);
+      setReflections(reflectionsData);
 
-        // Fetch frameworks
-        const { supabase } = await import('@/lib/supabase/client');
-        const { data: frameworksData, error: frameworksError } = await supabase
-          .from('frameworks')
-          .select('*')
-          .eq('is_active', true)
-          .order('sort_order', { ascending: true });
+      // Fetch frameworks
+      const { supabase } = await import('@/lib/supabase/client');
+      const { data: frameworksData, error: frameworksError } = await supabase
+        .from('frameworks')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
 
-        if (frameworksError) {
-          throw new Error('フレームワークの取得に失敗しました');
-        }
-
-        // Parse schema field if it's a string
-        const parsedFrameworks = (frameworksData || []).map((framework) => {
-          const schema = typeof framework.schema === 'string'
-            ? JSON.parse(framework.schema)
-            : framework.schema;
-
-          return {
-            ...framework,
-            schema: schema?.fields || [],
-          };
-        });
-
-        setFrameworks(parsedFrameworks);
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        setError(err instanceof Error ? err.message : 'データの取得に失敗しました');
-      } finally {
-        setIsLoading(false);
+      if (frameworksError) {
+        throw new Error('フレームワークの取得に失敗しました');
       }
-    };
 
-    fetchData();
+      // Parse schema field if it's a string
+      const parsedFrameworks = (frameworksData || []).map((framework) => {
+        const schema = typeof framework.schema === 'string'
+          ? JSON.parse(framework.schema)
+          : framework.schema;
+
+        return {
+          ...framework,
+          schema: schema?.fields || [],
+        };
+      });
+
+      setFrameworks(parsedFrameworks);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      // 取得に失敗したことと次の行動を伝える（内部のエラー文は画面に出さない）
+      setError(
+        '履歴を読み込めませんでした。通信状況を確認して、もう一度読み込んでください。'
+      );
+    } finally {
+      setIsLoading(false);
+    }
   }, [user?.id]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // 日付を選んだら、詳細の見出しへ移動する（スマホ幅では詳細がカレンダーの下に出るため）
+  const detailHeadingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (!selectedDetail) return;
+    const heading = detailHeadingRef.current;
+    if (!heading) return;
+    heading.focus({ preventScroll: true });
+    if (typeof heading.scrollIntoView === 'function') {
+      heading.scrollIntoView({ block: 'start' });
+    }
+  }, [selectedDetail]);
 
   // Handle sign out
   const handleSignOut = async () => {
@@ -144,17 +159,27 @@ export default function HistoryPage() {
       />
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Error Message */}
+        {/* 取得に失敗したとき: 「記録がない」と区別して、再読み込みを案内する */}
         {error && (
           <div
             role="alert"
-            aria-live="assertive"
-            className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg"
+            className="bg-white border border-red-200 rounded-lg p-6 text-center"
           >
-            <p className="text-red-800">{error}</p>
+            <p className="flex items-center justify-center gap-2 text-red-900 font-medium">
+              <AlertCircle className="w-5 h-5 shrink-0" aria-hidden="true" />
+              {error}
+            </p>
+            <button
+              type="button"
+              onClick={fetchData}
+              className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+            >
+              もう一度読み込む
+            </button>
           </div>
         )}
 
+        {!error && (<>
         {/* Stats */}
         <section aria-label="振り返り統計" className="mb-8">
           <SlideIn
@@ -182,7 +207,7 @@ export default function HistoryPage() {
           </div>
 
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <p className="text-sm text-gray-700 mb-1" id="stat-streak">継続日数</p>
+            <p className="text-sm text-gray-700 mb-1" id="stat-streak">記録した日数</p>
             <p className="text-3xl font-bold text-gray-900" aria-labelledby="stat-streak">
               {new Set(reflections.map((r) => r.reflection_date)).size}
             </p>
@@ -228,7 +253,11 @@ export default function HistoryPage() {
               >
                 {/* Panel Header */}
                 <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between flex-shrink-0">
-                  <h2 className="text-xl font-bold text-gray-900">
+                  <h2
+                    ref={detailHeadingRef}
+                    tabIndex={-1}
+                    className="text-xl font-bold text-gray-900 focus:outline-none"
+                  >
                     {formatDate(selectedDetail.date)}
                   </h2>
                   <button
@@ -326,6 +355,7 @@ export default function HistoryPage() {
             )}
           </FadeIn>
         )}
+        </>)}
       </main>
     </div>
   );

@@ -40,8 +40,13 @@ import {
   saveDrafts,
 } from "@/utils/reflectionDraft";
 
+// ページ移動: 書きかけはブラウザに一時保存されるが、保存できない設定のブラウザでは消える
 export const LEAVE_CONFIRM_MESSAGE =
-  "入力内容はまだ保存されていません。このページを離れると消えます。離れますか？";
+  "入力内容はまだ履歴に保存されていません。ブラウザに下書きが残る場合があります（保存できない設定のブラウザでは、ページを離れると消えます）。離れますか？";
+
+// ログアウト: この端末の下書きも消える（authStore.signOut が消す）
+export const SIGN_OUT_CONFIRM_MESSAGE =
+  "入力内容はまだ履歴に保存されていません。ログアウトすると、この端末に残る下書きも消えます。ログアウトしますか？";
 
 /**
  * 入力のうち、いま表示している型の項目だけを取り出す。
@@ -68,9 +73,17 @@ interface ReflectionFormProps {
    * ページ側が、リンク以外の離脱（ログアウトのボタンなど）に確認を出すために使う。
    */
   onUnsavedChange?: (hasUnsaved: boolean) => void;
+  /**
+   * 前回の下書きが、復元の確認を待っているかが変わったときに呼ばれる。
+   * ログアウトは端末の下書きも消すので、ページ側が、入力がなくても確認を出すために使う。
+   */
+  onPendingDraftChange?: (hasPendingDraft: boolean) => void;
 }
 
-export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps = {}) {
+export default function ReflectionForm({
+  onUnsavedChange,
+  onPendingDraftChange,
+}: ReflectionFormProps = {}) {
   const { selectedFrameworkId, selectedFramework, frameworks } =
     useFrameworkStore();
 
@@ -312,6 +325,15 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
   useEffect(() => {
     return () => onUnsavedChange?.(false);
   }, [onUnsavedChange]);
+
+  const hasPendingDraft = pendingDraft !== null;
+  useEffect(() => {
+    onPendingDraftChange?.(hasPendingDraft);
+  }, [hasPendingDraft, onPendingDraftChange]);
+
+  useEffect(() => {
+    return () => onPendingDraftChange?.(false);
+  }, [onPendingDraftChange]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -577,6 +599,14 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
         </div>
       )}
 
+      {/* 入力の注意（書き始める前に読めるよう、入力欄の前に置く。常に表示し、レイアウトが動かないようにする） */}
+      <ul className="mb-6 space-y-1 text-sm text-gray-700 list-disc pl-5">
+        <li>どれか1つの項目に入力すれば保存できます。全部を埋める必要はありません。</li>
+        <li>
+          書きかけの内容は、このブラウザに自動で一時保存されます（保存できない設定のブラウザでは、ページを閉じると消えます）。「保存する」を押すまで、履歴には登録されません。
+        </li>
+      </ul>
+
       {/* 入力フォーム */}
       <div className="space-y-6">
         {selectedFramework.schema?.map((field, index) => (
@@ -696,14 +726,6 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
           </p>
         </div>
       )}
-
-      {/* 入力の注意（入力前から常に表示し、レイアウトが動かないようにする） */}
-      <ul className="mt-4 space-y-1 text-sm text-gray-700 list-disc pl-5">
-        <li>どれか1つの項目に入力すれば保存できます。</li>
-        <li>
-          保存する前にページを閉じたり再読み込みしたりすると、入力内容は消えます。
-        </li>
-      </ul>
     </div>
   );
 }

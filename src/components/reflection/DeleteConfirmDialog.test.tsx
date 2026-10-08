@@ -37,7 +37,7 @@ describe('DeleteConfirmDialog', () => {
     );
 
     expect(screen.getByText('キャンセル')).toBeInTheDocument();
-    expect(screen.getByText('削除')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '削除する' })).toBeInTheDocument();
   });
 
   it('should call onCancel when cancel button is clicked', () => {
@@ -66,7 +66,7 @@ describe('DeleteConfirmDialog', () => {
       />
     );
 
-    const deleteButton = screen.getByText('削除');
+    const deleteButton = screen.getByRole('button', { name: '削除する' });
     fireEvent.click(deleteButton);
 
     await waitFor(() => {
@@ -89,8 +89,8 @@ describe('DeleteConfirmDialog', () => {
     expect(screen.getByText(errorMessage)).toBeInTheDocument();
   });
 
-  it('should close modal when clicking overlay', () => {
-    const { container } = render(
+  it('背景をクリックしても閉じない（削除は誤って閉じさせない）', () => {
+    render(
       <DeleteConfirmDialog
         reflectionDate={reflectionDate}
         onConfirm={mockOnConfirm}
@@ -98,11 +98,15 @@ describe('DeleteConfirmDialog', () => {
       />
     );
 
-    const overlay = container.querySelector('.fixed.inset-0.bg-black');
-    if (overlay) {
-      fireEvent.click(overlay);
-      expect(mockOnCancel).toHaveBeenCalled();
-    }
+    const overlay = document.querySelector<HTMLElement>(
+      '[data-slot="alert-dialog-overlay"]'
+    );
+    expect(overlay).toBeInTheDocument();
+    fireEvent.pointerDown(overlay!);
+    fireEvent.click(overlay!);
+
+    expect(mockOnCancel).not.toHaveBeenCalled();
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
   });
 
   it('should disable buttons when loading', () => {
@@ -115,7 +119,7 @@ describe('DeleteConfirmDialog', () => {
       />
     );
 
-    const deleteButton = screen.getByRole('button', { name: /削除$/ });
+    const deleteButton = screen.getByRole('button', { name: /削除する/ });
     const cancelButton = screen.getByRole('button', { name: /キャンセル/ });
 
     expect(deleteButton).toBeDisabled();
@@ -133,11 +137,75 @@ describe('DeleteConfirmDialog', () => {
       />
     );
 
-    const deleteButton = screen.getByText('削除');
+    const deleteButton = screen.getByRole('button', { name: '削除する' });
     fireEvent.click(deleteButton);
 
     await waitFor(() => {
-      expect(screen.getByText('削除中...')).toBeInTheDocument();
+      expect(screen.getByText('削除しています…')).toBeInTheDocument();
     });
+  });
+
+  it('型の名前と内容の冒頭を示し、同じ日の別の振り返りと見分けられる', () => {
+    render(
+      <DeleteConfirmDialog
+        reflectionDate={reflectionDate}
+        frameworkName="KPT"
+        preview="毎朝の散歩を続けられた"
+        onConfirm={mockOnConfirm}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    expect(screen.getByText('KPT')).toBeInTheDocument();
+    expect(screen.getByText(/毎朝の散歩を続けられた/)).toBeInTheDocument();
+  });
+
+  it('Escape で閉じられる', () => {
+    render(
+      <DeleteConfirmDialog
+        reflectionDate={reflectionDate}
+        onConfirm={mockOnConfirm}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'Escape' });
+    expect(mockOnCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('削除中は Escape でも閉じず、連打しても1回しか実行しない', async () => {
+    mockOnConfirm.mockImplementation(
+      () => new Promise((resolve) => setTimeout(resolve, 100))
+    );
+    render(
+      <DeleteConfirmDialog
+        reflectionDate={reflectionDate}
+        onConfirm={mockOnConfirm}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    const button = screen.getByRole('button', { name: '削除する' });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'Escape' });
+
+    await waitFor(() => expect(mockOnConfirm).toHaveBeenCalledTimes(1));
+    expect(mockOnCancel).not.toHaveBeenCalled();
+  });
+
+  it('失敗したときは、原因に加えて次の行動を示す', () => {
+    render(
+      <DeleteConfirmDialog
+        reflectionDate={reflectionDate}
+        error="通信に失敗しました"
+        onConfirm={mockOnConfirm}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('通信に失敗しました');
+    expect(alert).toHaveTextContent('もう一度「削除する」を押してください');
   });
 });

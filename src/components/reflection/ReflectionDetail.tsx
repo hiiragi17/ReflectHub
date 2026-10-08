@@ -86,21 +86,21 @@ export const ReflectionDetail: React.FC<ReflectionDetailProps> = ({
       <div className="border-b border-gray-200 p-6">
         <div className="flex items-center justify-end mb-4 gap-2">
           <button
-            onClick={onDelete}
-            className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={isLoading}
-            title="この振り返りを削除"
-          >
-            <Trash2 className="w-4 h-4" />
-            <span className="text-sm font-medium">削除</span>
-          </button>
-          <button
             onClick={onEdit}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isLoading}
           >
-            <Edit2 className="w-4 h-4" />
+            <Edit2 className="w-4 h-4" aria-hidden="true" />
             <span className="text-sm font-medium">編集</span>
+          </button>
+          {/* 取り消せない操作は、主な操作より控えめにし、確認で赤を使う */}
+          <button
+            onClick={onDelete}
+            className="flex items-center gap-2 bg-white text-red-700 border border-red-300 px-4 py-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isLoading}
+          >
+            <Trash2 className="w-4 h-4" aria-hidden="true" />
+            <span className="text-sm font-medium">削除</span>
           </button>
         </div>
 
