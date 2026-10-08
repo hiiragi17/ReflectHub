@@ -577,6 +577,14 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
         </div>
       )}
 
+      {/* 入力の注意（書き始める前に読めるよう、入力欄の前に置く。常に表示し、レイアウトが動かないようにする） */}
+      <ul className="mb-6 space-y-1 text-sm text-gray-700 list-disc pl-5">
+        <li>どれか1つの項目に入力すれば保存できます。全部を埋める必要はありません。</li>
+        <li>
+          書きかけの内容は、このブラウザに自動で一時保存されます（保存できない設定のブラウザでは、ページを閉じると消えます）。「保存する」を押すまで、履歴には登録されません。
+        </li>
+      </ul>
+
       {/* 入力フォーム */}
       <div className="space-y-6">
         {selectedFramework.schema?.map((field, index) => (
@@ -696,14 +704,6 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
           </p>
         </div>
       )}
-
-      {/* 入力の注意（入力前から常に表示し、レイアウトが動かないようにする） */}
-      <ul className="mt-4 space-y-1 text-sm text-gray-700 list-disc pl-5">
-        <li>どれか1つの項目に入力すれば保存できます。</li>
-        <li>
-          保存する前にページを閉じたり再読み込みしたりすると、入力内容は消えます。
-        </li>
-      </ul>
     </div>
   );
 }
