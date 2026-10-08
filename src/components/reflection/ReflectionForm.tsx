@@ -73,9 +73,17 @@ interface ReflectionFormProps {
    * ページ側が、リンク以外の離脱（ログアウトのボタンなど）に確認を出すために使う。
    */
   onUnsavedChange?: (hasUnsaved: boolean) => void;
+  /**
+   * 前回の下書きが、復元の確認を待っているかが変わったときに呼ばれる。
+   * ログアウトは端末の下書きも消すので、ページ側が、入力がなくても確認を出すために使う。
+   */
+  onPendingDraftChange?: (hasPendingDraft: boolean) => void;
 }
 
-export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps = {}) {
+export default function ReflectionForm({
+  onUnsavedChange,
+  onPendingDraftChange,
+}: ReflectionFormProps = {}) {
   const { selectedFrameworkId, selectedFramework, frameworks } =
     useFrameworkStore();
 
@@ -317,6 +325,15 @@ export default function ReflectionForm({ onUnsavedChange }: ReflectionFormProps 
   useEffect(() => {
     return () => onUnsavedChange?.(false);
   }, [onUnsavedChange]);
+
+  const hasPendingDraft = pendingDraft !== null;
+  useEffect(() => {
+    onPendingDraftChange?.(hasPendingDraft);
+  }, [hasPendingDraft, onPendingDraftChange]);
+
+  useEffect(() => {
+    return () => onPendingDraftChange?.(false);
+  }, [onPendingDraftChange]);
 
   useEffect(() => {
     if (!isLoading) {

@@ -21,8 +21,15 @@ vi.mock("@/components/reflection/FrameworkSelector", () => ({ default: () => nul
 
 vi.mock("@/components/reflection/ReflectionForm", () => ({
   SIGN_OUT_CONFIRM_MESSAGE: "ログアウトの確認メッセージ",
-  default: ({ onUnsavedChange }: { onUnsavedChange?: (v: boolean) => void }) => (
+  default: ({
+    onUnsavedChange,
+    onPendingDraftChange,
+  }: {
+    onUnsavedChange?: (v: boolean) => void;
+    onPendingDraftChange?: (v: boolean) => void;
+  }) => (
     <div>
+      <button onClick={() => onPendingDraftChange?.(true)}>復元待ちの下書きあり</button>
       <button onClick={() => onUnsavedChange?.(true)}>下書きを書く</button>
       <button onClick={() => onUnsavedChange?.(false)}>下書きを消す</button>
     </div>
@@ -57,6 +64,16 @@ describe("ReflectionPage ログアウト時の離脱確認", () => {
     expect(confirmSpy).toHaveBeenCalledWith("ログアウトの確認メッセージ");
     expect(signOut).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it("入力がなくても、復元待ちの下書きがあれば確認を出す（ログアウトは下書きも消す）", () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    render(<ReflectionPage />);
+    fireEvent.click(screen.getByRole("button", { name: "復元待ちの下書きあり" }));
+    fireEvent.click(screen.getByRole("button", { name: "ログアウト" }));
+    expect(confirmSpy).toHaveBeenCalledWith("ログアウトの確認メッセージ");
+    expect(signOut).not.toHaveBeenCalled();
     confirmSpy.mockRestore();
   });
 

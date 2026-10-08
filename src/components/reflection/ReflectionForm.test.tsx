@@ -789,6 +789,15 @@ describe("ReflectionForm 下書きの自動保存", () => {
     expect(screen.queryByText(/前回の書きかけの下書きがあります/)).not.toBeInTheDocument();
   });
 
+  it("復元待ちの下書きがあるあいだは、ページ側に伝える（ログアウトの確認に使う）", () => {
+    saveDrafts("u1", { f1: { y: "前回の入力" } });
+    const onPendingDraftChange = vi.fn();
+    render(<ReflectionForm onPendingDraftChange={onPendingDraftChange} />);
+    expect(onPendingDraftChange).toHaveBeenLastCalledWith(true);
+    fireEvent.click(screen.getByRole("button", { name: "破棄する" }));
+    expect(onPendingDraftChange).toHaveBeenLastCalledWith(false);
+  });
+
   it("破棄すると、入力欄は空のまま、保存済みの下書きも消える", () => {
     saveDrafts("u1", { f1: { y: "前回の入力" } });
     render(<ReflectionForm />);

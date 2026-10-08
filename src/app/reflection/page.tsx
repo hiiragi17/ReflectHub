@@ -19,6 +19,11 @@ export default function ReflectionPage() {
   const handleUnsavedChange = useCallback((hasUnsaved: boolean) => {
     hasUnsavedRef.current = hasUnsaved;
   }, []);
+  // 復元の確認を待つ前回の下書きがあるか。ログアウトでは、これも消える
+  const hasPendingDraftRef = useRef(false);
+  const handlePendingDraftChange = useCallback((hasPendingDraft: boolean) => {
+    hasPendingDraftRef.current = hasPendingDraft;
+  }, []);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -38,7 +43,10 @@ export default function ReflectionPage() {
   const handleSignOut = async () => {
     // ログアウトはリンクではなくボタンなので、フォーム側のリンク検知が効かない。
     // 未保存の入力があるときは、ここで確認を出す（ログアウトは下書きも消すので、専用の文言）。
-    if (hasUnsavedRef.current && !window.confirm(SIGN_OUT_CONFIRM_MESSAGE)) {
+    if (
+      (hasUnsavedRef.current || hasPendingDraftRef.current) &&
+      !window.confirm(SIGN_OUT_CONFIRM_MESSAGE)
+    ) {
       return;
     }
     try {
@@ -83,7 +91,10 @@ export default function ReflectionPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-              <ReflectionForm onUnsavedChange={handleUnsavedChange} />
+              <ReflectionForm
+                onUnsavedChange={handleUnsavedChange}
+                onPendingDraftChange={handlePendingDraftChange}
+              />
             </CardContent>
           </Card>
         </div>
