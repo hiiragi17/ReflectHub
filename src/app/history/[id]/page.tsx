@@ -145,10 +145,9 @@ export default function ReflectionDetailPage() {
 
       setShowEditModal(false);
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : '更新に失敗しました';
-      setError(errorMessage);
+      // 失敗の表示は、編集モーダルが入力を残したまま行う（ページ側には出さない）
       console.error('Failed to update reflection:', err);
+      throw err;
     } finally {
       setIsUpdating(false);
     }
