@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import DashboardLoading from "../dashboard/loading";
 import FrameworkSelector from "@/components/reflection/FrameworkSelector";
 import ReflectionForm, {
-  LEAVE_CONFIRM_MESSAGE,
+  SIGN_OUT_CONFIRM_MESSAGE,
 } from "@/components/reflection/ReflectionForm";
 import Header from "@/components/layout/Header";
 
@@ -37,8 +37,8 @@ export default function ReflectionPage() {
 
   const handleSignOut = async () => {
     // ログアウトはリンクではなくボタンなので、フォーム側のリンク検知が効かない。
-    // 未保存の入力があるときは、ここで同じ確認を出す。
-    if (hasUnsavedRef.current && !window.confirm(LEAVE_CONFIRM_MESSAGE)) {
+    // 未保存の入力があるときは、ここで確認を出す（ログアウトは下書きも消すので、専用の文言）。
+    if (hasUnsavedRef.current && !window.confirm(SIGN_OUT_CONFIRM_MESSAGE)) {
       return;
     }
     try {

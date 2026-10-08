@@ -89,8 +89,8 @@ describe('DeleteConfirmDialog', () => {
     expect(screen.getByText(errorMessage)).toBeInTheDocument();
   });
 
-  it('should close modal when clicking overlay', () => {
-    const { container } = render(
+  it('背景をクリックしても閉じない（削除は誤って閉じさせない）', () => {
+    render(
       <DeleteConfirmDialog
         reflectionDate={reflectionDate}
         onConfirm={mockOnConfirm}
@@ -98,11 +98,15 @@ describe('DeleteConfirmDialog', () => {
       />
     );
 
-    const overlay = container.querySelector('.fixed.inset-0.bg-black');
-    if (overlay) {
-      fireEvent.click(overlay);
-      expect(mockOnCancel).toHaveBeenCalled();
-    }
+    const overlay = document.querySelector<HTMLElement>(
+      '[data-slot="alert-dialog-overlay"]'
+    );
+    expect(overlay).toBeInTheDocument();
+    fireEvent.pointerDown(overlay!);
+    fireEvent.click(overlay!);
+
+    expect(mockOnCancel).not.toHaveBeenCalled();
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
   });
 
   it('should disable buttons when loading', () => {
