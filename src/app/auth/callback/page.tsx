@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase/client';
 import { apiFetch } from '@/lib/api/apiClient';
+import { getSafeRedirectPath } from '@/utils/safeRedirect';
 
 /**
  * アクセストークンの発行時刻 (iat) が「たった今」かを判定する。
@@ -38,7 +39,7 @@ export default function AuthCallback() {
       try {
         const url = new URL(window.location.href);
         const code = url.searchParams.get('code');
-        const next = url.searchParams.get('next') || '/dashboard';
+        const next = getSafeRedirectPath(url.searchParams.get('next'), '/dashboard');
 
         if (code) {
           const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);

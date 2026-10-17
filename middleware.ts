@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { getSafeRedirectPath } from '@/utils/safeRedirect';
 import {
   CSRF_COOKIE_NAME,
   CSRF_HEADER_NAME,
@@ -188,10 +189,12 @@ export async function middleware(request: NextRequest) {
     }
 
     if (request.nextUrl.pathname === '/auth' && claims) {
-      const rawNext = request.nextUrl.searchParams.get('next') || '/dashboard';
-      const safeNext = rawNext.startsWith('/') && !rawNext.startsWith('//')
-        ? rawNext
-        : '/dashboard';
+      // `/\evil.com` などは、素朴な `startsWith('/')` の検証をすり抜けて外部に
+      // 解決されるため、共通の検証関数を通す。
+      const safeNext = getSafeRedirectPath(
+        request.nextUrl.searchParams.get('next'),
+        '/dashboard',
+      );
 
       return withSessionCookies(
         NextResponse.redirect(new URL(safeNext, request.url)),
