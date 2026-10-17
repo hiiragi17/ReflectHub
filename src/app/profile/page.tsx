@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { ProfileCard } from '@/components/profile/ProfileCard';
 import { NotificationSettings } from '@/components/profile/NotificationSettings';
+import { SecuritySettings } from '@/components/profile/SecuritySettings';
 import Header from '@/components/layout/Header';
 import DashboardLoading from '../dashboard/loading';
 import { FadeIn } from '@/components/animations/FadeIn';
 import { apiFetch } from '@/lib/api/apiClient';
 
 export default function ProfilePage() {
-  const { user, signOut, isLoading, error } = useAuth();
+  const { user, signOut, signOutAllDevices, isLoading, error } = useAuth();
   const router = useRouter();
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
@@ -25,6 +26,12 @@ export default function ProfilePage() {
   const handleSignOut = async () => {
     await signOut();
     router.push('/auth');
+  };
+
+  const handleSignOutAllDevices = async (): Promise<boolean> => {
+    const ok = await signOutAllDevices();
+    if (ok) router.push('/auth');
+    return ok;
   };
 
   const handleUpdateProfile = async (name: string) => {
@@ -109,6 +116,12 @@ export default function ProfilePage() {
         <FadeIn duration={400}>
           <div className="mt-6">
             <NotificationSettings />
+          </div>
+        </FadeIn>
+
+        <FadeIn duration={400}>
+          <div className="mt-6">
+            <SecuritySettings onSignOutAllDevices={handleSignOutAllDevices} />
           </div>
         </FadeIn>
       </main>

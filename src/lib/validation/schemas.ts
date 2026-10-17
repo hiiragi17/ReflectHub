@@ -118,6 +118,22 @@ export const SessionCreateSchema = z
 export type SessionCreateInput = z.infer<typeof SessionCreateSchema>;
 
 // ───────────────────────────────────────────────────────────────────
+// /api/auth/logout POST
+// ───────────────────────────────────────────────────────────────────
+
+/**
+ * "local": この端末のセッションのみ破棄 (既定)。
+ * "global": 全端末のリフレッシュトークンを失効させる。
+ */
+export const LogoutSchema = z
+  .object({
+    scope: z.enum(['local', 'global']),
+  })
+  .strict();
+
+export type LogoutInput = z.infer<typeof LogoutSchema>;
+
+// ───────────────────────────────────────────────────────────────────
 // /api/logs/errors POST
 // ───────────────────────────────────────────────────────────────────
 

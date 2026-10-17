@@ -418,3 +418,76 @@ describe("authStore - signOut と書きかけの下書き", () => {
     expect(loadDrafts("u1")).toBeNull();
   });
 });
+
+describe("authStore - signOutAllDevices", () => {
+  const loginAs = () =>
+    useAuthStore.setState({
+      user: {
+        id: "u1",
+        email: "u1@example.com",
+        name: "U1",
+        provider: "google",
+        created_at: "",
+        updated_at: "",
+      },
+      isAuthenticated: true,
+      isLoading: false,
+      error: null,
+    });
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+    // apiFetch は先に CSRF トークンを GET するため、json() を持つレスポンスを返す
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ token: "t" }),
+    } as Response);
+    loginAs();
+  });
+
+  it("サーバーとクライアントの両方に global を指定し、ログアウト状態にする", async () => {
+    const { supabase } = await import("@/lib/supabase/client");
+    vi.mocked(supabase.auth.signOut).mockResolvedValue({ error: null });
+
+    const ok = await useAuthStore.getState().signOutAllDevices();
+
+    expect(ok).toBe(true);
+    expect(supabase.auth.signOut).toHaveBeenCalledWith({ scope: "global" });
+    const logoutCall = vi
+      .mocked(global.fetch)
+      .mock.calls.find(([url]) => url === "/api/auth/logout");
+    expect(JSON.parse(String(logoutCall?.[1]?.body))).toEqual({ scope: "global" });
+    expect(useAuthStore.getState().user).toBeNull();
+    expect(useAuthStore.getState().isAuthenticated).toBe(false);
+  });
+
+  it("失効に失敗したら false を返し、この端末のログイン状態は維持する", async () => {
+    const { supabase } = await import("@/lib/supabase/client");
+    vi.mocked(supabase.auth.signOut).mockResolvedValue({
+      error: new Error("network"),
+    } as never);
+
+    const ok = await useAuthStore.getState().signOutAllDevices();
+
+    expect(ok).toBe(false);
+    expect(useAuthStore.getState().user).not.toBeNull();
+    expect(useAuthStore.getState().isLoading).toBe(false);
+    // 画面全体のエラー表示にはしない
+    expect(useAuthStore.getState().error).toBeNull();
+  });
+
+  it("通常の signOut は local のまま", async () => {
+    const { supabase } = await import("@/lib/supabase/client");
+    vi.mocked(supabase.auth.signOut).mockResolvedValue({ error: null });
+
+    await useAuthStore.getState().signOut();
+
+    expect(supabase.auth.signOut).toHaveBeenCalledWith({ scope: "local" });
+    const logoutCall = vi
+      .mocked(global.fetch)
+      .mock.calls.find(([url]) => url === "/api/auth/logout");
+    expect(JSON.parse(String(logoutCall?.[1]?.body))).toEqual({ scope: "local" });
+  });
+});
