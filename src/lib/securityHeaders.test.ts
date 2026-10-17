@@ -37,6 +37,19 @@ describe('buildCsp', () => {
   });
 });
 
+describe('buildCsp (nonce)', () => {
+  it("nonce を渡すと 'unsafe-inline' を外し、nonce と strict-dynamic にする", () => {
+    const script = directive(buildCsp({ nonce: 'abc123' }), 'script-src');
+    expect(script).toContain("'nonce-abc123'");
+    expect(script).toContain("'strict-dynamic'");
+    expect(script).not.toContain("'unsafe-inline'");
+  });
+
+  it('nonce なしでは、従来どおり unsafe-inline を許可する', () => {
+    expect(directive(buildCsp({}), 'script-src')).toContain("'unsafe-inline'");
+  });
+});
+
 describe('buildSecurityHeaders', () => {
   const names = (opts: Parameters<typeof buildSecurityHeaders>[0]) =>
     buildSecurityHeaders(opts).map((h) => h.key);
@@ -52,6 +65,11 @@ describe('buildSecurityHeaders', () => {
         'Strict-Transport-Security',
       ]),
     );
+  });
+
+  it('omitCsp なら CSP を含めない (middleware で付けるとき)', () => {
+    expect(names({ omitCsp: true })).not.toContain('Content-Security-Policy');
+    expect(names({ omitCsp: true })).toContain('X-Frame-Options');
   });
 
   it('開発では HSTS を付けない', () => {

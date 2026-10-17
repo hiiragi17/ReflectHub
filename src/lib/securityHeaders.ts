@@ -18,6 +18,13 @@ export interface SecurityHeaderOptions {
   supabaseUrl?: string;
   /** 開発サーバー (HMR が eval と WebSocket を使う) では緩める */
   isDev?: boolean;
+  /**
+   * リクエストごとの nonce。指定すると script-src から 'unsafe-inline' を外し、
+   * nonce と 'strict-dynamic' に切り替える (ページは動的レンダリングが必要)。
+   */
+  nonce?: string;
+  /** true なら CSP を含めない (CSP を middleware でリクエストごとに付けるとき) */
+  omitCsp?: boolean;
 }
 
 function supabaseSources(supabaseUrl?: string): string[] {
@@ -31,8 +38,10 @@ function supabaseSources(supabaseUrl?: string): string[] {
   }
 }
 
-export function buildCsp({ supabaseUrl, isDev = false }: SecurityHeaderOptions = {}): string {
-  const scriptSrc = ["'self'", "'unsafe-inline'"];
+export function buildCsp({ supabaseUrl, isDev = false, nonce }: SecurityHeaderOptions = {}): string {
+  const scriptSrc = nonce
+    ? ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'"]
+    : ["'self'", "'unsafe-inline'"];
   const connectSrc = ["'self'", ...supabaseSources(supabaseUrl)];
   if (isDev) {
     scriptSrc.push("'unsafe-eval'");
@@ -67,7 +76,9 @@ export function buildSecurityHeaders(
   options: SecurityHeaderOptions = {},
 ): { key: string; value: string }[] {
   const headers = [
-    { key: 'Content-Security-Policy', value: buildCsp(options) },
+    ...(options.omitCsp
+      ? []
+      : [{ key: 'Content-Security-Policy', value: buildCsp(options) }]),
     // 古いブラウザ向け。frame-ancestors と同じ意味
     { key: 'X-Frame-Options', value: 'DENY' },
     { key: 'X-Content-Type-Options', value: 'nosniff' },

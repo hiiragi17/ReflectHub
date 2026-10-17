@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { buildCsp } from '@/lib/securityHeaders';
 import {
   CSRF_COOKIE_NAME,
   CSRF_HEADER_NAME,
@@ -70,7 +71,7 @@ function withSessionCookies(target: NextResponse, source: NextResponse): NextRes
   return target;
 }
 
-export async function middleware(request: NextRequest) {
+async function handleRequest(request: NextRequest) {
   // /api/* かつ mutation メソッドの場合は CSRF を先に検証する。
   // Supabase セッション初期化より前に走らせて、未認証でも同じ 403 で弾く。
   const pathname = request.nextUrl.pathname;
@@ -204,6 +205,30 @@ export async function middleware(request: NextRequest) {
     console.error('Middleware error:', error);
     return response;
   }
+}
+
+/**
+ * リクエストごとに nonce を作り、CSP (script-src は nonce + 'strict-dynamic') を付ける。
+ * Next.js は、リクエストヘッダの CSP から nonce を取り出して、フレームワークの
+ * スクリプトに付与する (ページが動的レンダリングであることが前提)。
+ */
+export async function middleware(request: NextRequest) {
+  const nonce = btoa(crypto.randomUUID());
+  const csp = buildCsp({
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    isDev: process.env.NODE_ENV !== 'production',
+    nonce,
+  });
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-nonce', nonce);
+  requestHeaders.set('Content-Security-Policy', csp);
+
+  const response = await handleRequest(
+    new NextRequest(request, { headers: requestHeaders }),
+  );
+  response.headers.set('Content-Security-Policy', csp);
+  return response;
 }
 
 export const config = {
