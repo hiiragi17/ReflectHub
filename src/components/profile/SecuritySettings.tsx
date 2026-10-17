@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, LogOut } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -20,10 +19,11 @@ interface SecuritySettingsProps {
 }
 
 /**
- * プロフィールページのセキュリティ設定セクション。
+ * プロフィールページ最下部の「他の端末からもログアウト」。
  *
- * 「すべての端末からログアウト」は、端末の紛失や共用端末へのログイン忘れに備えた
- * 操作。確認ダイアログを挟み、実行中は閉じられず二重に実行できない。失敗したときは
+ * 端末の紛失や共用端末へのログイン忘れに備えた操作。普段使う機能ではなく、
+ * 不要な心配を与えないよう、カードではなく控えめなテキストリンクで置く。
+ * 確認ダイアログを挟み、実行中は閉じられず二重に実行できない。失敗したときは
  * この端末のログイン状態が維持されるので、ダイアログ内で再試行を案内する。
  */
 export function SecuritySettings({ onSignOutAllDevices }: SecuritySettingsProps) {
@@ -46,73 +46,66 @@ export function SecuritySettings({ onSignOutAllDevices }: SecuritySettingsProps)
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>セキュリティ</CardTitle>
-        <CardDescription>
-          端末をなくしたときや、共用の端末でログインしたままにしたときに使います。
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => {
-            setFailed(false);
-            setOpen(true);
-          }}
-        >
-          <LogOut aria-hidden="true" />
-          すべての端末からログアウト
-        </Button>
+    <div className="text-center">
+      <Button
+        type="button"
+        variant="link"
+        size="sm"
+        className="text-gray-500 hover:text-gray-700"
+        onClick={() => {
+          setFailed(false);
+          setOpen(true);
+        }}
+      >
+        他の端末からもログアウト
+      </Button>
 
-        <AlertDialog
-          open={open}
-          onOpenChange={(next) => {
-            // 実行中は閉じない（結果が分からなくなるため）
-            if (!next && isRunning) return;
-            setOpen(next);
-          }}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>すべての端末からログアウトしますか？</AlertDialogTitle>
-              <AlertDialogDescription>
-                この端末を含む、ログイン中のすべての端末（ブラウザ・ホーム画面に追加したアプリ）からログアウトします。
-                もう一度使うには、それぞれの端末で再ログインが必要です。
-              </AlertDialogDescription>
-            </AlertDialogHeader>
+      <AlertDialog
+        open={open}
+        onOpenChange={(next) => {
+          // 実行中は閉じない（結果が分からなくなるため）
+          if (!next && isRunning) return;
+          setOpen(next);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>他の端末からもログアウトしますか？</AlertDialogTitle>
+            <AlertDialogDescription>
+              この端末を含む、ログイン中のすべての端末（ブラウザ・ホーム画面に追加したアプリ）からログアウトします。
+              もう一度使うには、それぞれの端末で再ログインが必要です。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
 
-            {failed && (
-              <div role="alert" className="rounded-lg bg-red-50 border border-red-200 p-3">
-                <p className="text-sm text-red-900">
-                  ログアウトに失敗しました。通信状況を確認して、もう一度お試しください。
-                </p>
-              </div>
-            )}
+          {failed && (
+            <div role="alert" className="rounded-lg bg-red-50 border border-red-200 p-3">
+              <p className="text-sm text-red-900">
+                ログアウトに失敗しました。通信状況を確認して、もう一度お試しください。
+              </p>
+            </div>
+          )}
 
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={isRunning}>キャンセル</AlertDialogCancel>
-              <Button
-                type="button"
-                onClick={handleConfirm}
-                disabled={isRunning}
-                aria-busy={isRunning}
-                className="bg-red-600 text-white hover:bg-red-700"
-              >
-                {isRunning ? (
-                  <>
-                    <Loader2 className="animate-spin" aria-hidden="true" />
-                    ログアウトしています…
-                  </>
-                ) : (
-                  'すべての端末からログアウト'
-                )}
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </CardContent>
-    </Card>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isRunning}>キャンセル</AlertDialogCancel>
+            <Button
+              type="button"
+              onClick={handleConfirm}
+              disabled={isRunning}
+              aria-busy={isRunning}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              {isRunning ? (
+                <>
+                  <Loader2 className="animate-spin" aria-hidden="true" />
+                  ログアウトしています…
+                </>
+              ) : (
+                'すべての端末からログアウト'
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }

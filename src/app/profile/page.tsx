@@ -119,11 +119,9 @@ export default function ProfilePage() {
           </div>
         </FadeIn>
 
-        <FadeIn duration={400}>
-          <div className="mt-6">
-            <SecuritySettings onSignOutAllDevices={handleSignOutAllDevices} />
-          </div>
-        </FadeIn>
+        <div className="mt-8">
+          <SecuritySettings onSignOutAllDevices={handleSignOutAllDevices} />
+        </div>
       </main>
     </div>
   );

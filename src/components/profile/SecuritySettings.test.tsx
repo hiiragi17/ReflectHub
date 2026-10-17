@@ -3,13 +3,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { SecuritySettings } from './SecuritySettings';
 
 const openDialog = () =>
-  fireEvent.click(screen.getByRole('button', { name: 'すべての端末からログアウト' }));
+  fireEvent.click(screen.getByRole('button', { name: '他の端末からもログアウト' }));
 
-// ダイアログ内の確定ボタン (トリガーと同じ名前なので、ダイアログ内から探す)
-const confirmButton = () =>
-  screen
-    .getAllByRole('button', { name: 'すべての端末からログアウト' })
-    .find((el) => el.closest('[role="alertdialog"]'))!;
+const confirmButton = () => screen.getByRole('button', { name: 'すべての端末からログアウト' });
 
 describe('SecuritySettings', () => {
   it('押しただけでは実行せず、確認ダイアログを出す', () => {
