@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
-const { signOut } = vi.hoisted(() => ({ signOut: vi.fn() }));
+const { signOut, getUser } = vi.hoisted(() => ({ signOut: vi.fn(), getUser: vi.fn() }));
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn().mockResolvedValue({
@@ -10,7 +10,7 @@ vi.mock('next/headers', () => ({
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn().mockResolvedValue({ auth: { signOut } }),
+  createClient: vi.fn().mockResolvedValue({ auth: { signOut, getUser } }),
 }));
 
 import { POST } from './route';
@@ -27,6 +27,7 @@ describe('POST /api/auth/logout', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     signOut.mockResolvedValue({ error: null });
+    getUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
   });
 
   it('ボディなしならこの端末のみ (local) でログアウトする', async () => {
@@ -39,6 +40,21 @@ describe('POST /api/auth/logout', () => {
     const res = await POST(req(JSON.stringify({ scope: 'global' })));
     expect(res.status).toBe(200);
     expect(signOut).toHaveBeenCalledWith({ scope: 'global' });
+  });
+
+  it('global は、有効なセッションがなければ失効を実行せず 401 を返す', async () => {
+    getUser.mockResolvedValue({ data: { user: null }, error: new Error('no session') });
+    const res = await POST(req(JSON.stringify({ scope: 'global' })));
+    expect(res.status).toBe(401);
+    expect(signOut).not.toHaveBeenCalled();
+    expect(res.headers.get('set-cookie')).toBeNull();
+  });
+
+  it('local はセッションがなくても (getUser を呼ばず) 従来どおりログアウトできる', async () => {
+    getUser.mockResolvedValue({ data: { user: null }, error: new Error('no session') });
+    const res = await POST(req(JSON.stringify({ scope: 'local' })));
+    expect(res.status).toBe(200);
+    expect(getUser).not.toHaveBeenCalled();
   });
 
   it('認証 Cookie を削除する', async () => {

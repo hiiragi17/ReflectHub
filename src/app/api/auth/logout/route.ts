@@ -36,6 +36,16 @@ export async function POST(request: NextRequest) {
     // 明示したときだけ 'global' にする。
     // 'global' の失効に失敗した場合はエラーを返し、クライアントに再試行させる
     // (Cookie を消して成功扱いにすると、他端末のセッションが残ったまま気づけない)。
+    //
+    // supabase-js は、セッションがない・リモートが 401/403/404 のとき、リモートの失効を
+    // 行わずにエラーなしで返す。'global' ではそれを成功と区別できないため、先にトークンを
+    // サーバーで検証 (getUser) し、有効なセッションがあるときだけ失効を実行する。
+    if (scope === 'global') {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) {
+        return NextResponse.json({ error: 'No valid session' }, { status: 401 });
+      }
+    }
     const { error: signOutError } = await supabase.auth.signOut({ scope });
     if (signOutError && scope === 'global') {
       console.error('Global logout error:', signOutError);
