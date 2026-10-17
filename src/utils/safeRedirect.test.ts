@@ -31,6 +31,12 @@ describe('getSafeRedirectPath', () => {
     ['スキームなしのホスト名', 'evil.com'],
     ['先頭が空白', ' /dashboard'],
     ['@ を使ったホスト偽装', '@evil.com'],
+    ['ドットセグメントの除去後に // になる', '/.//evil.com'],
+    ['エンコードされたドットセグメント', '/%2e//evil.com'],
+    ['親ディレクトリの除去後に // になる', '/..//evil.com'],
+    ['途中の親ディレクトリの除去後に // になる', '/a/..//evil.com'],
+    ['連続するドットセグメント', '/././/evil.com'],
+    ['エンコードされた親ディレクトリ', '/%2e%2e//evil.com'],
   ])('%s は fallback にする', (_label, input) => {
     expect(getSafeRedirectPath(input)).toBe('/dashboard');
   });
@@ -41,8 +47,22 @@ describe('getSafeRedirectPath', () => {
     expect(new URL(result, 'https://reflecthub.app').origin).toBe('https://reflecthub.app');
   });
 
+  it('返り値は、`//` で始まらない (呼び出し側が再度 URL として解決しても外部に出ない)', () => {
+    for (const input of ['/.//evil.com', '/..//evil.com', '/a/..//b', '/./a', '/%2e/a', '/']) {
+      expect(getSafeRedirectPath(input).startsWith('//')).toBe(false);
+    }
+  });
+
+  it('正当な、ドットセグメントを含むパスは、正規化して返す', () => {
+    expect(getSafeRedirectPath('/a/./b')).toBe('/a/b');
+    expect(getSafeRedirectPath('/a/b/../c')).toBe('/a/c');
+  });
+
   it('返り値は、どの入力でも自サイトのオリジンに解決される', () => {
-    const inputs = ['/a', '/a?b=//evil.com', '/a#//evil.com', '/%2F%2Fevil.com', '/./\\evil.com'];
+    const inputs = [
+      '/a', '/a?b=//evil.com', '/a#//evil.com', '/%2F%2Fevil.com', '/./\\evil.com',
+      '/.//evil.com', '/%2e//evil.com', '/..//evil.com', '/a/..//b', '/./a', '/a/./b/../c',
+    ];
     for (const input of inputs) {
       const out = getSafeRedirectPath(input);
       expect(new URL(out, 'https://reflecthub.app').origin).toBe('https://reflecthub.app');

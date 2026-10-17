@@ -235,7 +235,7 @@ describe('middleware オープンリダイレクト対策 (/auth?next=)', () => 
     expect(await redirectLocation('/history/abc?x=1')).toBe('http://localhost/history/abc?x=1');
   });
 
-  it.each([['/\\evil.com'], ['/\\/evil.com'], ['//evil.com'], ['/\t/evil.com'], ['https://evil.com']])(
+  it.each([['/\\evil.com'], ['/\\/evil.com'], ['//evil.com'], ['/\t/evil.com'], ['https://evil.com'], ['/.//evil.com'], ['/%2e//evil.com'], ['/..//evil.com']])(
     '外部に解決される next (%j) は /dashboard にする',
     async (next) => {
       expect(await redirectLocation(next)).toBe('http://localhost/dashboard');
