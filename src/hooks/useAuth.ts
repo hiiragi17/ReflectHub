@@ -8,6 +8,7 @@ export function useAuth() {
     error,
     signInWithGoogle,
     signOut,
+    signOutAllDevices,
     clearError,
   } = useAuthStore();
 
@@ -18,6 +19,7 @@ export function useAuth() {
     error,
     signInWithGoogle,
     signOut,
+    signOutAllDevices,
     clearError,
   };
 }

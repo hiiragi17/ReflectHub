@@ -13,6 +13,102 @@ import type {
 
 interface AuthStore extends AuthState, AuthActions {}
 
+type AuthSet = (partial: Partial<AuthStore>) => void;
+
+/**
+ * ログアウトの共通処理。
+ *
+ * - "local": この端末のセッションのみ破棄する。scope: 'global' だと全デバイスの
+ *   リフレッシュトークンが失効し、iOS では Safari と PWA が別セッション
+ *   のため「ブラウザでログアウトしたら PWA も切れる」挙動になる。通常のログアウトは
+ *   こちらを使う。
+ * - "global": 全端末のリフレッシュトークンを失効させる。端末の紛失・共用端末への
+ *   ログイン忘れなどに備えた、利用者が明示的に選ぶログアウト。失効に失敗した
+ *   (他端末のセッションが残っているかもしれない) ときは、成功したように
+ *   見せないため、この端末のログイン状態は維持して false を返す
+ *   (画面全体のエラー表示にはせず、呼び出し側が再試行を案内する)。
+ *   サーバー側の失効 (Cookie のセッションで行う) の結果を正とし、サーバーが
+ *   失敗したらクライアント側の呼び出しには進まない (supabase-js は 401/403/404 を
+ *   エラーにせずローカルだけ破棄するため、成功と見分けられなくなる)。
+ *   サーバーの失効が成功した後は、この端末の Cookie も削除済みなので、その後の
+ *   クライアント側の後始末が失敗しても、ログアウト済みとして状態を消して true を返す。
+ *   isLoading は立てない: 立てるとページが全画面ローディングに切り替わり、
+ *   失敗を伝える確認ダイアログごと消えてしまう (進行中の表示は呼び出し側が持つ)。
+ */
+async function runSignOut(set: AuthSet, scope: "local" | "global"): Promise<boolean> {
+  if (scope === "local") set({ isLoading: true });
+
+  // ログアウトのボタンを押したときは、書きかけの下書きもこの端末から消す
+  // （共用の端末に入力内容を残さない。セッション失効による自動のログアウトでは消さない）。
+  // 通信が失敗しても消えるよう、最初に行う
+  clearAllDrafts();
+
+  try {
+    // サーバー側のセッションもクリア
+    let serverOk = false;
+    try {
+      const res = await apiFetch("/api/auth/logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scope }),
+        credentials: "include",
+      });
+      serverOk = res.ok;
+    } catch (logoutError) {
+      console.error("Server logout error:", logoutError);
+    }
+    if (!serverOk && scope === "global") {
+      // 全端末の失効を確認できていない。この端末のログイン状態も維持して再試行させる
+      set({ isLoading: false });
+      return false;
+    }
+    // "local" は、サーバー側のログアウトが失敗してもクライアント側のログアウトは続行
+
+    // "global" はサーバーの失効が成功済み (上で確認) で、この端末の Cookie も
+    // 削除されているため、ここはブラウザ側の後始末。失敗しても (通信が切れた等)
+    // ログアウト済みの状態を維持せず、先に進んで状態を消す。
+    // "local" は、従来どおり例外は外側の catch で扱う。
+    try {
+      const { error } = await supabase.auth.signOut({ scope });
+      if (error) {
+        console.error("Signout error:", error);
+      }
+    } catch (signOutError) {
+      if (scope === "local") throw signOutError;
+      console.error("Signout error:", signOutError);
+    }
+
+    // ローカルストレージを明示的にクリア
+    try {
+      // Supabaseのセッション情報をクリア
+      const keys = Object.keys(localStorage);
+      keys.forEach((key) => {
+        if (key.startsWith("sb-")) {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch (storageError) {
+      console.error("LocalStorage clear error:", storageError);
+    }
+
+    set({
+      user: null,
+      isAuthenticated: false,
+      isLoading: false,
+      error: null,
+    });
+    return true;
+  } catch (error) {
+    console.error("Sign out error:", error);
+    if (scope === "global") {
+      set({ isLoading: false });
+    } else {
+      set({ error: "ログアウトに失敗しました。", isLoading: false });
+    }
+    return false;
+  }
+}
+
 export const useAuthStore = create<AuthStore>()(
   persist(
     (set, get) => ({
@@ -55,60 +151,10 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       signOut: async () => {
-        set({ isLoading: true });
-
-        // ログアウトのボタンを押したときは、書きかけの下書きもこの端末から消す
-        // （共用の端末に入力内容を残さない。セッション失効による自動のログアウトでは消さない）。
-        // 通信が失敗しても消えるよう、最初に行う
-        clearAllDrafts();
-
-        try {
-          // サーバー側のセッションもクリア
-          try {
-            await apiFetch('/api/auth/logout', {
-              method: 'POST',
-              credentials: 'include',
-            });
-          } catch (logoutError) {
-            console.error('Server logout error:', logoutError);
-            // サーバー側のログアウトが失敗してもクライアント側のログアウトは続行
-          }
-
-          // この端末のセッションのみ破棄する。scope: 'global' だと全デバイスの
-          // リフレッシュトークンが失効し、iOS では Safari と PWA が別セッション
-          // のため「ブラウザでログアウトしたら PWA も切れる」挙動になる。
-          const { error } = await supabase.auth.signOut({ scope: 'local' });
-          if (error) {
-            console.error("Signout error:", error);
-          }
-
-          // ローカルストレージを明示的にクリア
-          try {
-            // Supabaseのセッション情報をクリア
-            const keys = Object.keys(localStorage);
-            keys.forEach(key => {
-              if (key.startsWith('sb-')) {
-                localStorage.removeItem(key);
-              }
-            });
-          } catch (storageError) {
-            console.error('LocalStorage clear error:', storageError);
-          }
-
-          set({
-            user: null,
-            isAuthenticated: false,
-            isLoading: false,
-            error: null,
-          });
-        } catch (error) {
-          console.error("Sign out error:", error);
-          set({
-            error: "ログアウトに失敗しました。",
-            isLoading: false,
-          });
-        }
+        await runSignOut(set, "local");
       },
+
+      signOutAllDevices: () => runSignOut(set, "global"),
 
       createDefaultProfile: async (
         sessionUser: SupabaseUser

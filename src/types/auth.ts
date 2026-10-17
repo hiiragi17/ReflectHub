@@ -41,6 +41,8 @@ export interface ProfileData {
 export interface AuthActions {
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  /** 全端末のセッションを失効させてログアウトする。失敗時はこの端末のログイン状態を維持して false を返す */
+  signOutAllDevices: () => Promise<boolean>;
   initialize: () => Promise<void>;
   clearError: () => void;
   createDefaultProfile: (sessionUser: SupabaseUser) => Promise<ProfileData | null>;
