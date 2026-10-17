@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ChromeIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { getSafeRedirectPath } from '@/utils/safeRedirect';
 
 export default function LoginForm() {
   const { 
@@ -21,8 +22,7 @@ export default function LoginForm() {
     if (isAuthenticated) {
       // URLから next パラメータを取得して、元のページに戻る
       const searchParams = new URLSearchParams(window.location.search);
-      const next = searchParams.get('next') || '/';
-      router.push(next);
+      router.push(getSafeRedirectPath(searchParams.get('next'), '/'));
     }
   }, [isAuthenticated, router]);
 

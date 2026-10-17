@@ -211,3 +211,34 @@ describe('middleware session-redirect exemptions', () => {
     expect(res.status).toBeLessThan(400);
   });
 });
+
+describe('middleware オープンリダイレクト対策 (/auth?next=)', () => {
+  // ログイン済み (claims あり) のとき、/auth は next に戻す。外部には飛ばさない。
+  function mockLoggedIn() {
+    vi.mocked(createServerClient).mockReturnValue({
+      auth: {
+        getClaims: vi.fn().mockResolvedValue({ data: { claims: { sub: 'u1' } }, error: null }),
+      },
+    } as never);
+  }
+
+  async function redirectLocation(next: string): Promise<string | null> {
+    mockLoggedIn();
+    const req = new NextRequest(`http://localhost/auth?next=${encodeURIComponent(next)}`, {
+      method: 'GET',
+    });
+    const res = await middleware(req);
+    return res.headers.get('location');
+  }
+
+  it('自サイト内のパスには戻す', async () => {
+    expect(await redirectLocation('/history/abc?x=1')).toBe('http://localhost/history/abc?x=1');
+  });
+
+  it.each([['/\\evil.com'], ['/\\/evil.com'], ['//evil.com'], ['/\t/evil.com'], ['https://evil.com'], ['/.//evil.com'], ['/%2e//evil.com'], ['/..//evil.com']])(
+    '外部に解決される next (%j) は /dashboard にする',
+    async (next) => {
+      expect(await redirectLocation(next)).toBe('http://localhost/dashboard');
+    },
+  );
+});
