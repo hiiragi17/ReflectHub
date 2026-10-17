@@ -478,6 +478,44 @@ describe("authStore - signOutAllDevices", () => {
     expect(useAuthStore.getState().error).toBeNull();
   });
 
+  it("サーバーの失効が失敗 (HTTP エラー) したら、クライアント側に進まず false を返す", async () => {
+    const { supabase } = await import("@/lib/supabase/client");
+    global.fetch = vi.fn().mockImplementation(async (url: RequestInfo | URL) =>
+      String(url) === "/api/csrf"
+        ? ({ ok: true, status: 200, json: async () => ({ token: "t" }) } as Response)
+        : ({ ok: false, status: 500, json: async () => ({}) } as Response),
+    );
+
+    const ok = await useAuthStore.getState().signOutAllDevices();
+
+    expect(ok).toBe(false);
+    expect(supabase.auth.signOut).not.toHaveBeenCalled();
+    expect(useAuthStore.getState().user).not.toBeNull();
+  });
+
+  it("サーバーへの通信が例外になっても、false を返してログイン状態を維持する", async () => {
+    const { supabase } = await import("@/lib/supabase/client");
+    global.fetch = vi.fn().mockRejectedValue(new Error("network"));
+
+    const ok = await useAuthStore.getState().signOutAllDevices();
+
+    expect(ok).toBe(false);
+    expect(supabase.auth.signOut).not.toHaveBeenCalled();
+    expect(useAuthStore.getState().user).not.toBeNull();
+  });
+
+  it("実行中に isLoading を立てない (ページ全体がローディング表示に切り替わるのを防ぐ)", async () => {
+    const { supabase } = await import("@/lib/supabase/client");
+    vi.mocked(supabase.auth.signOut).mockResolvedValue({ error: null });
+    const seen: boolean[] = [];
+    const unsubscribe = useAuthStore.subscribe((state) => seen.push(state.isLoading));
+
+    await useAuthStore.getState().signOutAllDevices();
+    unsubscribe();
+
+    expect(seen).not.toContain(true);
+  });
+
   it("通常の signOut は local のまま", async () => {
     const { supabase } = await import("@/lib/supabase/client");
     vi.mocked(supabase.auth.signOut).mockResolvedValue({ error: null });

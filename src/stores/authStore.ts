@@ -27,9 +27,14 @@ type AuthSet = (partial: Partial<AuthStore>) => void;
  *   (他端末のセッションが残っているかもしれない) ときは、成功したように
  *   見せないため、この端末のログイン状態は維持して false を返す
  *   (画面全体のエラー表示にはせず、呼び出し側が再試行を案内する)。
+ *   サーバー側の失効 (Cookie のセッションで行う) の結果を正とし、サーバーが
+ *   失敗したらクライアント側の呼び出しには進まない (supabase-js は 401/403/404 を
+ *   エラーにせずローカルだけ破棄するため、成功と見分けられなくなる)。
+ *   isLoading は立てない: 立てるとページが全画面ローディングに切り替わり、
+ *   失敗を伝える確認ダイアログごと消えてしまう (進行中の表示は呼び出し側が持つ)。
  */
 async function runSignOut(set: AuthSet, scope: "local" | "global"): Promise<boolean> {
-  set({ isLoading: true });
+  if (scope === "local") set({ isLoading: true });
 
   // ログアウトのボタンを押したときは、書きかけの下書きもこの端末から消す
   // （共用の端末に入力内容を残さない。セッション失効による自動のログアウトでは消さない）。
@@ -38,17 +43,24 @@ async function runSignOut(set: AuthSet, scope: "local" | "global"): Promise<bool
 
   try {
     // サーバー側のセッションもクリア
+    let serverOk = false;
     try {
-      await apiFetch("/api/auth/logout", {
+      const res = await apiFetch("/api/auth/logout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scope }),
         credentials: "include",
       });
+      serverOk = res.ok;
     } catch (logoutError) {
       console.error("Server logout error:", logoutError);
-      // サーバー側のログアウトが失敗してもクライアント側のログアウトは続行
     }
+    if (!serverOk && scope === "global") {
+      // 全端末の失効を確認できていない。この端末のログイン状態も維持して再試行させる
+      set({ isLoading: false });
+      return false;
+    }
+    // "local" は、サーバー側のログアウトが失敗してもクライアント側のログアウトは続行
 
     // サーバーが先に全端末を失効済みでも、supabase-js は 401/403/404 を
     // エラーにしない (ローカルのセッションだけ破棄する) ため、ここでの
