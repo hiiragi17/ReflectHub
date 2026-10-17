@@ -30,6 +30,8 @@ type AuthSet = (partial: Partial<AuthStore>) => void;
  *   サーバー側の失効 (Cookie のセッションで行う) の結果を正とし、サーバーが
  *   失敗したらクライアント側の呼び出しには進まない (supabase-js は 401/403/404 を
  *   エラーにせずローカルだけ破棄するため、成功と見分けられなくなる)。
+ *   サーバーの失効が成功した後は、この端末の Cookie も削除済みなので、その後の
+ *   クライアント側の後始末が失敗しても、ログアウト済みとして状態を消して true を返す。
  *   isLoading は立てない: 立てるとページが全画面ローディングに切り替わり、
  *   失敗を伝える確認ダイアログごと消えてしまう (進行中の表示は呼び出し側が持つ)。
  */
@@ -62,16 +64,18 @@ async function runSignOut(set: AuthSet, scope: "local" | "global"): Promise<bool
     }
     // "local" は、サーバー側のログアウトが失敗してもクライアント側のログアウトは続行
 
-    // サーバーが先に全端末を失効済みでも、supabase-js は 401/403/404 を
-    // エラーにしない (ローカルのセッションだけ破棄する) ため、ここでの
-    // エラーは「失効の通信自体に失敗した」ことを表す。
-    const { error } = await supabase.auth.signOut({ scope });
-    if (error) {
-      console.error("Signout error:", error);
-      if (scope === "global") {
-        set({ isLoading: false });
-        return false;
+    // "global" はサーバーの失効が成功済み (上で確認) で、この端末の Cookie も
+    // 削除されているため、ここはブラウザ側の後始末。失敗しても (通信が切れた等)
+    // ログアウト済みの状態を維持せず、先に進んで状態を消す。
+    // "local" は、従来どおり例外は外側の catch で扱う。
+    try {
+      const { error } = await supabase.auth.signOut({ scope });
+      if (error) {
+        console.error("Signout error:", error);
       }
+    } catch (signOutError) {
+      if (scope === "local") throw signOutError;
+      console.error("Signout error:", signOutError);
     }
 
     // ローカルストレージを明示的にクリア

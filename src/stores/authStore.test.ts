@@ -463,7 +463,7 @@ describe("authStore - signOutAllDevices", () => {
     expect(useAuthStore.getState().isAuthenticated).toBe(false);
   });
 
-  it("失効に失敗したら false を返し、この端末のログイン状態は維持する", async () => {
+  it("サーバーの失効が成功した後は、ブラウザ側の後始末が失敗 (エラー) しても、ログアウト済みにして true を返す", async () => {
     const { supabase } = await import("@/lib/supabase/client");
     vi.mocked(supabase.auth.signOut).mockResolvedValue({
       error: new Error("network"),
@@ -471,11 +471,20 @@ describe("authStore - signOutAllDevices", () => {
 
     const ok = await useAuthStore.getState().signOutAllDevices();
 
-    expect(ok).toBe(false);
-    expect(useAuthStore.getState().user).not.toBeNull();
+    expect(ok).toBe(true);
+    expect(useAuthStore.getState().user).toBeNull();
+    expect(useAuthStore.getState().isAuthenticated).toBe(false);
     expect(useAuthStore.getState().isLoading).toBe(false);
-    // 画面全体のエラー表示にはしない
-    expect(useAuthStore.getState().error).toBeNull();
+  });
+
+  it("サーバーの失効が成功した後は、ブラウザ側の後始末が例外になっても、ログアウト済みにして true を返す", async () => {
+    const { supabase } = await import("@/lib/supabase/client");
+    vi.mocked(supabase.auth.signOut).mockRejectedValue(new Error("network"));
+
+    const ok = await useAuthStore.getState().signOutAllDevices();
+
+    expect(ok).toBe(true);
+    expect(useAuthStore.getState().user).toBeNull();
   });
 
   it("サーバーの失効が失敗 (HTTP エラー) したら、クライアント側に進まず false を返す", async () => {
