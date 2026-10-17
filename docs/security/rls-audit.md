@@ -16,7 +16,7 @@
 | # | 深刻度 | 内容 | 状態 |
 |---|---|---|---|
 | F1 | 高 (未確認) | `profiles` / `retrospectives` / `frameworks` / `ai_summaries` の RLS がリポジトリにない | 要確認 |
-| F2 | 中 | `next` パラメータの検証が不十分で、外部サイトへリダイレクトされる | 確認済み・未修正 |
+| F2 | 中 | `next` パラメータの検証が不十分で、外部サイトへリダイレクトされる | 確認済み・修正済み (`claude/fix-open-redirect`) |
 | F3 | 中 | `/api/logs/errors` は未認証で書き込めて、レート制限がない | 要検討 |
 | F4 | 低 | `/api/auth/session` は CSRF 免除で、Origin の確認がない | 要検討 |
 | F5 | 低 | `getSession()` (署名を検証しない) で認可に近い判定をしている箇所がある | 要検討 |
@@ -50,11 +50,11 @@ DELETE / SELECT している。コード内の所有者の確認 (`user_id !== u
 ログイン済みのユーザーが `https://<ドメイン>/auth?next=/\evil.com` を開くと、外部サイトに飛ばされる。
 `middleware.ts` の検証が `startsWith('/') && !startsWith('//')` だけで、`/\evil.com` を通してしまう。
 ブラウザの URL パーサーはバックスラッシュをスラッシュとして扱うため、`https://evil.com/` になる
-(`new URL('/\\evil.com', base)` で確認済み)。
+(`new URL('/\\evil.com', base)` で確認済み)。タブ・改行を挟んだ `/<TAB>/evil.com` も、除去されて `//evil.com` になり、同様に通る。
 
 同じ未検証の `next` が、次の 2 か所にもある。
 - `src/app/auth/callback/page.tsx`(`router.push(next)`)
-- `src/app/auth/page.tsx`(`router.push(next)`)
+- `src/components/auth/LoginForm.tsx`(`router.push(next)`)
 
 フィッシングに使われる。実害は、ログイン済みのユーザーがリンクを踏む必要がある点で限定的。
 
