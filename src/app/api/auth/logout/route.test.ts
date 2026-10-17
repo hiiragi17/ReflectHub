@@ -59,7 +59,10 @@ describe('POST /api/auth/logout', () => {
 
   it('認証 Cookie を削除する', async () => {
     const res = await POST(req(JSON.stringify({ scope: 'local' })));
-    expect(res.headers.get('set-cookie')).toContain('sb-abc-auth-token=');
+    const setCookie = res.headers.get('set-cookie') ?? '';
+    expect(setCookie).toContain('sb-abc-auth-token=;');
+    // 値が空であることに加え、過去の有効期限で削除されていること (更新ではない)
+    expect(setCookie).toMatch(/Expires=Thu, 01 Jan 1970/i);
   });
 
   it('global の失効に失敗したら 500 を返し、Cookie は消さない', async () => {
