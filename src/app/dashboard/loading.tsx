@@ -25,9 +25,12 @@ export default function DashboardLoading() {
           <div className="h-5 w-96 bg-gray-200 rounded animate-pulse"></div>
         </div>
 
+        {/* 主ボタン（新しい振り返り）のスケルトン */}
+        <div className="h-[76px] w-full bg-gray-200 rounded-lg animate-pulse mb-6"></div>
+
         {/* Cards Skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {[1, 2, 3, 4].map((i) => (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {[1, 2, 3].map((i) => (
             <div key={i} className="bg-white rounded-lg border p-6">
               <div className="w-8 h-8 bg-gray-200 rounded mx-auto mb-3 animate-pulse"></div>
               <div className="h-5 w-24 bg-gray-200 rounded mx-auto mb-2 animate-pulse"></div>
