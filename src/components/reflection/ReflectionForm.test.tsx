@@ -409,6 +409,26 @@ describe("ReflectionForm 保存時の検証エラーの消去", () => {
     expect(screen.queryByText("この項目は必須です")).not.toBeInTheDocument();
   });
 
+  it("保存時の検証に失敗したら、最初のエラー項目にフォーカスが移る", async () => {
+    render(<ReflectionForm />);
+    typeInto(/任意項目/, "x");
+    fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+    await screen.findByText("この項目は必須です");
+    expect(screen.getByLabelText(/必須項目/)).toHaveFocus();
+  });
+
+  it("項目に紐づかないエラー（どれか1つ以上入力）のときは、そのメッセージにフォーカスが移る", async () => {
+    useFrameworkStore.setState({
+      frameworks: [framework],
+      selectedFrameworkId: "f1",
+      selectedFramework: framework,
+    });
+    render(<ReflectionForm />);
+    fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+    const message = await screen.findByText("どれか1つ以上のフィールドに入力してください");
+    expect(message.closest('[role="alert"]')).toHaveFocus();
+  });
+
   it("「どれか1つ以上入力」のエラーは、入力したら消える", async () => {
     useFrameworkStore.setState({
       frameworks: [framework],

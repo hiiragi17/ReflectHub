@@ -111,6 +111,10 @@ export default function ReflectionForm({
   const previousFrameworkIdRef = useRef<string | null>(null);
   // state の更新は再描画後に反映されるため、連打対策は ref で同期的に行う
   const isSubmittingRef = useRef(false);
+  // 保存時の検証に失敗した直後か。エラーが state に反映されてから、最初のエラー項目へフォーカスを移すために使う
+  const focusFirstErrorRef = useRef(false);
+  const formLevelErrorRef = useRef<HTMLDivElement>(null);
+  const fieldsContainerRef = useRef<HTMLDivElement>(null);
   // 冪等性キー。失敗後の再試行では同じキーを送り、サーバーに届いていた保存が二重にならないようにする。
   // 型と入力内容の組ごとに保持する（別の型の保存を挟んでも、元の型の再試行で同じキーを使える）。
   // 入力内容か型が変わったら別の振り返りとして扱うので、別のキーになる
@@ -393,6 +397,24 @@ export default function ReflectionForm({
     };
   }, [hasUnsavedInput]);
 
+  // 保存に失敗したとき、最初のエラー項目（項目の並び順）へフォーカスを移す。
+  // 長いフォームやスマホで、エラーに気づけるようにする
+  useEffect(() => {
+    if (!focusFirstErrorRef.current) return;
+    focusFirstErrorRef.current = false;
+    const firstErrorField = currentSchema.find((field) => errors[field.id]);
+    if (firstErrorField) {
+      const container = Array.from(
+        fieldsContainerRef.current?.querySelectorAll<HTMLElement>("[data-field-id]") ?? []
+      ).find((el) => el.dataset.fieldId === firstErrorField.id);
+      container?.querySelector<HTMLElement>("textarea")?.focus();
+    } else if (errors["__form__"]) {
+      formLevelErrorRef.current?.focus();
+    }
+    // errors が更新されたときだけ実行する
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [errors]);
+
   const handleFieldChange = (fieldId: string, value: string) => {
     setIsSaved(false);
 
@@ -427,7 +449,10 @@ export default function ReflectionForm({
 
     const submittedData = pickSchemaFields(formData, currentSchema);
     const isValid = validateFormData(submittedData, currentSchema);
-    if (!isValid) return;
+    if (!isValid) {
+      focusFirstErrorRef.current = true;
+      return;
+    }
 
     isSubmittingRef.current = true;
     setIsSaved(false);
@@ -608,9 +633,9 @@ export default function ReflectionForm({
       </ul>
 
       {/* 入力フォーム */}
-      <div className="space-y-6">
+      <div className="space-y-6" ref={fieldsContainerRef}>
         {selectedFramework.schema?.map((field, index) => (
-          <div key={field.id}>
+          <div key={field.id} data-field-id={field.id}>
             <DynamicField
               field={field}
               value={formData[field.id] || ""}
@@ -627,6 +652,8 @@ export default function ReflectionForm({
       {formLevelError && (
         <div
           role="alert"
+          ref={formLevelErrorRef}
+          tabIndex={-1}
           className="mt-6 p-4 bg-amber-50 border-2 border-amber-300 rounded text-sm"
         >
           <p className="text-amber-900 font-medium flex items-center gap-2">
