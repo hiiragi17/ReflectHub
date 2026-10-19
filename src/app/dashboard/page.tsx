@@ -86,23 +86,23 @@ export default function DashboardPage() {
 
         {/* Quick Actions */}
         <nav aria-label="クイックアクション" className="mb-8">
+          {/* 主な操作: 新しい振り返り（ほかの3つより大きく、色を付けて目立たせる） */}
+          <FadeIn className="mb-6" duration={400}>
+            <Link
+              href="/reflection"
+              className="flex items-center justify-center gap-3 w-full rounded-lg bg-blue-600 px-6 py-5 text-lg font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+            >
+              <PlusCircle className="w-6 h-6" aria-hidden="true" />
+              新しい振り返りを書く
+            </Link>
+          </FadeIn>
+
           <SlideIn
             direction="bottom"
             delay={100}
             duration={400}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+            className="grid grid-cols-1 md:grid-cols-3 gap-6"
           >
-          {/* 新しい振り返り */}
-          <Link href="/reflection" aria-label="新しい振り返り: 今週の振り返りを作成">
-            <Card className="cursor-pointer hover:shadow-md transition-shadow h-full">
-              <CardContent className="p-6 text-center">
-                <PlusCircle className="w-8 h-8 text-blue-600 mx-auto mb-3" aria-hidden="true" />
-                <h3 className="font-semibold mb-2">新しい振り返り</h3>
-                <p className="text-sm text-gray-700">今週の振り返りを作成</p>
-              </CardContent>
-            </Card>
-          </Link>
-
           {/* 履歴を見る */}
           <Link href="/history" aria-label="履歴を見る: 過去の振り返りを確認">
             <Card className="cursor-pointer hover:shadow-md transition-shadow h-full">
@@ -156,7 +156,7 @@ export default function DashboardPage() {
                 <div>
                   <h4 className="font-medium">振り返りフレームワークを選択</h4>
                   <p className="text-sm text-gray-700">
-                    YWT、KPT、DAKI、STAR、WLTなど、7種類のフレームワークから目的に合ったものを選択できます
+                    YWT、KPT、DAKI、STAR、WLTなど、さまざまなフレームワークから目的に合ったものを選択できます
                   </p>
                 </div>
               </li>
