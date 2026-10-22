@@ -92,8 +92,8 @@ importers:
         specifier: ^3.3.1
         version: 3.4.0
       uuid:
-        specifier: ^13.0.1
-        version: 13.0.2
+        specifier: ^14.0.3
+        version: 14.0.3
       web-push:
         specifier: ^3.6.7
         version: 3.6.7(supports-color@7.2.0)
@@ -3548,8 +3548,8 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
-  uuid@13.0.2:
-    resolution: {integrity: sha512-vzi9uRZ926x4XV73S/4qQaTwPXM2JBj6/6lI/byHH1jOpCzb0zDbfytgA9LcN/hzb2l7WQSQnxITOVx5un/wGw==}
+  uuid@14.0.3:
+    resolution: {integrity: sha512-Sc5u1VVln93y1Xnz4R+CunOZc7R9LUcTmhj7Rc7Eg3HVcf7rVn2FOoa812fe0W8p3jD7xeoGSYbfqCGGH2B6xw==}
     hasBin: true
 
   victory-vendor@37.3.6:
@@ -7161,7 +7161,7 @@ snapshots:
     dependencies:
       react: 19.1.7
 
-  uuid@13.0.2: {}
+  uuid@14.0.3: {}
 
   victory-vendor@37.3.6:
     dependencies:
