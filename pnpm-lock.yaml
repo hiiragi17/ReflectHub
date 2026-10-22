@@ -20,8 +20,8 @@ importers:
   .:
     dependencies:
       '@line/bot-sdk':
-        specifier: ^10.2.0
-        version: 10.5.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)
+        specifier: ^11.3.0
+        version: 11.3.0
       '@radix-ui/react-alert-dialog':
         specifier: ^1.1.15
         version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.4))(@types/react@19.2.4)(react-dom@19.1.7(react@19.1.7))(react@19.1.7)
@@ -729,9 +729,9 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@line/bot-sdk@10.5.0':
-    resolution: {integrity: sha512-YmFDH1fr6b3kWiTDld8JID80cI+O5IlYegYeqhvBZx/zh2GBHdeV7i+pdwDjATRY9FHahYkcYmHb27UQldh0qw==}
-    engines: {node: '>=20'}
+  '@line/bot-sdk@11.3.0':
+    resolution: {integrity: sha512-AHCtmdgcVDElRLlrR8jxSracF4beWholl3Ywnl6TrPgEiSYH81fSovgWVO/LbyN0tlGidCzJMAsOLXNddF5FGg==}
+    engines: {node: '>=22'}
 
   '@napi-rs/wasm-runtime@0.2.12':
     resolution: {integrity: sha512-ZVWUcfwY4E/yPitQJl481FjFo3K22D6qF0DuFH6Y/nbnE11GY5uguDxZMGXPQ8WQ0128MXQD7TnfHyK4oWoIJQ==}
@@ -4201,14 +4201,9 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@line/bot-sdk@10.5.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)':
+  '@line/bot-sdk@11.3.0':
     dependencies:
       '@types/node': 24.10.1
-    optionalDependencies:
-      axios: 1.20.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)
-    transitivePeerDependencies:
-      - debug
-      - supports-color
 
   '@napi-rs/wasm-runtime@0.2.12':
     dependencies:
