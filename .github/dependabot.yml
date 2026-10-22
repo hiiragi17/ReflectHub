@@ -1,6 +1,8 @@
 # Dependabot 設定
 # - 毎週月曜 9:00(JST)に更新を確認する
-# - minor / patch は 1 本の PR にまとめる。major は破壊的変更の確認のため個別の PR にする
+# - 更新は 1 件ずつ個別の PR にする(minor / patch / major を区別せず、すべて個別)
+#   `groups` で minor / patch だけをまとめる設定は、グループの PR が開いたままだと major の更新 PR が
+#   作られなくなる Dependabot の不具合(dependabot-core#16113、修正は既定で無効)があるため使わない
 # - 公開から 3 日以内の新バージョンは通常の更新の対象外にする(公開直後の不具合や乗っ取りを避けるため)
 #   セキュリティ更新にはこの待機は適用されない
 version: 2
@@ -15,8 +17,3 @@ updates:
     open-pull-requests-limit: 5
     cooldown:
       default-days: 3
-    groups:
-      npm-minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
