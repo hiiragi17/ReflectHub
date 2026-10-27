@@ -41,8 +41,8 @@ importers:
         specifier: ^2.118.0
         version: 2.118.0
       '@tanstack/react-query':
-        specifier: ^5.85.5
-        version: 5.90.8(react@19.1.7)
+        specifier: ^5.104.5
+        version: 5.104.5(@types/react@19.2.4)(react@19.1.7)
       '@vercel/analytics':
         specifier: ^1.5.0
         version: 1.5.0(next@16.4.2(@babel/core@7.28.5(supports-color@7.2.0))(@types/node@20.19.25)(react-dom@19.1.7(react@19.1.7))(react@19.1.7))(react@19.1.7)
@@ -1434,13 +1434,17 @@ packages:
   '@tailwindcss/postcss@4.1.17':
     resolution: {integrity: sha512-+nKl9N9mN5uJ+M7dBOOCzINw94MPstNR/GtIhz1fpZysxL/4a+No64jCBD6CPN+bIHWFx3KWuu8XJRrj/572Dw==}
 
-  '@tanstack/query-core@5.90.8':
-    resolution: {integrity: sha512-4E0RP/0GJCxSNiRF2kAqE/LQkTJVlL/QNU7gIJSptaseV9HP6kOuA+N11y4bZKZxa3QopK3ZuewwutHx6DqDXQ==}
+  '@tanstack/query-core@5.104.5':
+    resolution: {integrity: sha512-Q94gI8Opd+CbdVNOdj8ZCyV8WqLYitrDq1t96Xc8WZT6lY0r5iRnJLXYDxMex7EEf2v+mXvn4FcjaBKSxXZQ9A==}
 
-  '@tanstack/react-query@5.90.8':
-    resolution: {integrity: sha512-/3b9QGzkf4rE5/miL6tyhldQRlLXzMHcySOm/2Tm2OLEFE9P1ImkH0+OviDBSvyAvtAOJocar5xhd7vxdLi3aQ==}
+  '@tanstack/react-query@5.104.5':
+    resolution: {integrity: sha512-RORgFe052U+93weaNuqg7qHq7vNVNzXN/VrXqD4bbAuQCWUqOl2lV5Ui9flWk5CVvMyL/Bh27QWhzwH0aaOx9g==}
     peerDependencies:
+      '@types/react': ^18 || ^19
       react: ^18 || ^19
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
 
   '@testing-library/dom@10.4.1':
     resolution: {integrity: sha512-o4PXJQidqJl82ckFaXUeoAW+XysPLauYI43Abki5hABd853iMhitooc6znOnczgbTYmEP6U6/y1ZyKAIsvMKGg==}
@@ -4796,12 +4800,14 @@ snapshots:
       postcss: 8.5.31
       tailwindcss: 4.1.17
 
-  '@tanstack/query-core@5.90.8': {}
+  '@tanstack/query-core@5.104.5': {}
 
-  '@tanstack/react-query@5.90.8(react@19.1.7)':
+  '@tanstack/react-query@5.104.5(@types/react@19.2.4)(react@19.1.7)':
     dependencies:
-      '@tanstack/query-core': 5.90.8
+      '@tanstack/query-core': 5.104.5
       react: 19.1.7
+    optionalDependencies:
+      '@types/react': 19.2.4
 
   '@testing-library/dom@10.4.1':
     dependencies:
