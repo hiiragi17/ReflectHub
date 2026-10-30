@@ -185,6 +185,15 @@ describe('middleware session-redirect exemptions', () => {
     expect(res.status).toBeLessThan(400);
   });
 
+  it.each(['/terms', '/privacy'])(
+    'does not redirect unauthenticated GET %s to /auth (ログイン画面から読める)',
+    async (pathname) => {
+      const res = await middleware(makeRequest({ pathname, method: 'GET' }));
+      expect(isRedirectStatus(res.status)).toBe(false);
+      expect(res.status).toBeLessThan(400);
+    },
+  );
+
   it('still redirects unauthenticated GET /dashboard to /auth', async () => {
     const res = await middleware(
       makeRequest({ pathname: '/dashboard', method: 'GET' }),
