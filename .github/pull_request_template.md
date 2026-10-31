@@ -20,9 +20,8 @@
 <!-- UI変更がある場合は画像を添付 -->
 
 ## チェックリスト
-- [ ] pnpm lint:fixを行った
+<!-- lint・型チェック・テスト・ビルドは CI (lint / test / build) が自動で実行する -->
+- [ ] CI (lint / test / build) が通る
 - [ ] CodeRabbitで問題がない
-- [ ] `pnpm run build`で問題が出ない
 - [ ] Vercel botで問題が出ない
-- [ ] テストが通る
 - [ ] ドキュメントを更新した（必要に応じて）
