@@ -37,6 +37,12 @@ describe("FrameworkSelector", () => {
     expect(screen.getByRole("radio", { name: /KPT/ })).toBeInTheDocument();
   });
 
+  it("必須の項目には文字で「必須」が付き、凡例も出る", () => {
+    render(<FrameworkSelector />);
+    expect(screen.getByText("必須")).toBeInTheDocument();
+    expect(screen.getByText(/「必須」は入力が必要な項目/)).toBeInTheDocument();
+  });
+
   it("選択中のカードには文字で「選択中」と出る", () => {
     render(<FrameworkSelector />);
     expect(screen.getAllByText("選択中")).toHaveLength(1);

@@ -34,6 +34,58 @@ describe("DynamicField", () => {
     expect(textarea).toHaveAttribute("aria-invalid", "true");
   });
 
+  it("必須の項目には、文字で「必須」と表示する", () => {
+    render(<DynamicField field={{ ...field, required: true }} value="" onChange={() => {}} />);
+    expect(screen.getByText("必須")).toBeInTheDocument();
+    expect(screen.queryByText("*")).not.toBeInTheDocument();
+  });
+
+  it("必須でない項目には「必須」を表示しない", () => {
+    render(<DynamicField field={{ ...field, required: false }} value="" onChange={() => {}} />);
+    expect(screen.queryByText("必須")).not.toBeInTheDocument();
+  });
+
+  it("項目の説明があれば表示し、入力欄に紐づける", () => {
+    render(
+      <DynamicField
+        field={{ ...field, description: "やめることを書く" }}
+        value=""
+        onChange={() => {}}
+      />
+    );
+    const description = screen.getByText("やめることを書く");
+    expect(screen.getByLabelText(/やったこと/).getAttribute("aria-describedby")).toContain(
+      description.id
+    );
+  });
+
+  it("他の項目のIDと同じ文字列になっても、説明のIDは衝突しない", () => {
+    // 項目 "plan" の説明を、項目 "plan-description" の入力欄と取り違えない
+    render(
+      <>
+        <DynamicField
+          field={{ id: "plan", label: "計画", placeholder: "", description: "計画の説明" }}
+          value=""
+          onChange={() => {}}
+        />
+        <DynamicField
+          field={{ id: "plan-description", label: "説明欄", placeholder: "" }}
+          value=""
+          onChange={() => {}}
+        />
+      </>
+    );
+    const description = screen.getByText("計画の説明");
+    expect(document.querySelectorAll(`[id="${description.id}"]`)).toHaveLength(1);
+    expect(screen.getByLabelText(/説明欄/).tagName).toBe("TEXTAREA");
+  });
+
+  it("項目の説明がなければ、説明の要素を出さない", () => {
+    render(<DynamicField field={field} value="" onChange={() => {}} />);
+    const describedBy = screen.getByLabelText(/やったこと/).getAttribute("aria-describedby") ?? "";
+    expect(describedBy).not.toContain("description");
+  });
+
   it("問題がなければ aria-invalid は false", () => {
     render(<DynamicField field={field} value="abc" onChange={() => {}} />);
     expect(screen.getByLabelText(/やったこと/)).toHaveAttribute("aria-invalid", "false");
