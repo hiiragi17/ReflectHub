@@ -385,8 +385,10 @@ describe("ReflectionForm 保存時の検証エラーの消去", () => {
   it("必須の項目がある型では、「必須」の凡例を表示する", () => {
     render(<ReflectionForm />);
     expect(
-      screen.getByText("「必須」と書かれた項目は、必ず入力してください。")
+      screen.getByText("「必須」と書かれた項目は、必ず入力してください。それ以外の項目は、空欄でも保存できます。")
     ).toBeInTheDocument();
+    // 必須の項目があるときは、「どれか1つでよい」という案内を出さない（検証と食い違うため）
+    expect(screen.queryByText(/どれか1つの項目に入力すれば保存できます/)).not.toBeInTheDocument();
   });
 
   it("上限超過で保存を止められたあと、文字を減らして上限内にしたらエラーも消える", async () => {
@@ -1274,5 +1276,6 @@ describe("ReflectionForm 必須の凡例", () => {
     });
     render(<ReflectionForm />);
     expect(screen.queryByText(/と書かれた項目は、必ず入力してください/)).not.toBeInTheDocument();
+    expect(screen.getByText(/どれか1つの項目に入力すれば保存できます/)).toBeInTheDocument();
   });
 });

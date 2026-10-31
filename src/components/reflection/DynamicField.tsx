@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useId } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { FrameworkField } from "@/types/framework";
@@ -52,7 +52,8 @@ export default function DynamicField({
   const countId = `${fieldId}-count`;
   const warningId = `${fieldId}-warning`;
   const errorId = `${fieldId}-error`;
-  const descriptionId = `${fieldId}-description`;
+  // 項目IDから作る他のIDと衝突しないよう、説明だけは React が払い出すIDにする
+  const descriptionId = useId();
 
   // 上限を超える入力（貼り付けなど）を黙って捨てず、そのまま受け付けて
   // 超過数を表示する。超過したままでは保存時の検証で止まる。

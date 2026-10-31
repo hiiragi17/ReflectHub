@@ -59,6 +59,27 @@ describe("DynamicField", () => {
     );
   });
 
+  it("他の項目のIDと同じ文字列になっても、説明のIDは衝突しない", () => {
+    // 項目 "plan" の説明を、項目 "plan-description" の入力欄と取り違えない
+    render(
+      <>
+        <DynamicField
+          field={{ id: "plan", label: "計画", placeholder: "", description: "計画の説明" }}
+          value=""
+          onChange={() => {}}
+        />
+        <DynamicField
+          field={{ id: "plan-description", label: "説明欄", placeholder: "" }}
+          value=""
+          onChange={() => {}}
+        />
+      </>
+    );
+    const description = screen.getByText("計画の説明");
+    expect(document.querySelectorAll(`[id="${description.id}"]`)).toHaveLength(1);
+    expect(screen.getByLabelText(/説明欄/).tagName).toBe("TEXTAREA");
+  });
+
   it("項目の説明がなければ、説明の要素を出さない", () => {
     render(<DynamicField field={field} value="" onChange={() => {}} />);
     const describedBy = screen.getByLabelText(/やったこと/).getAttribute("aria-describedby") ?? "";

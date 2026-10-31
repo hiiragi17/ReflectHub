@@ -627,11 +627,13 @@ export default function ReflectionForm({
 
       {/* 入力の注意（書き始める前に読めるよう、入力欄の前に置く。常に表示し、レイアウトが動かないようにする） */}
       <ul className="mb-6 space-y-1 text-sm text-gray-700 list-disc pl-5">
-        <li>どれか1つの項目に入力すれば保存できます。全部を埋める必要はありません。</li>
-        {selectedFramework.schema?.some((field) => field.required) && (
+        {/* 必須の項目があるときは、その項目が入力されていないと保存できない（保存時の検証と同じ） */}
+        {selectedFramework.schema?.some((field) => field.required) ? (
           <li>
-            「{DYNAMIC_FIELD_CONSTANTS.LABELS.REQUIRED}」と書かれた項目は、必ず入力してください。
+            「{DYNAMIC_FIELD_CONSTANTS.LABELS.REQUIRED}」と書かれた項目は、必ず入力してください。それ以外の項目は、空欄でも保存できます。
           </li>
+        ) : (
+          <li>どれか1つの項目に入力すれば保存できます。全部を埋める必要はありません。</li>
         )}
         <li>
           書きかけの内容は、このブラウザに自動で一時保存されます（保存できない設定のブラウザでは、ページを閉じると消えます）。「保存する」を押すまで、履歴には登録されません。
