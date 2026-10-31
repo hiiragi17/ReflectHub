@@ -52,6 +52,7 @@ export default function DynamicField({
   const countId = `${fieldId}-count`;
   const warningId = `${fieldId}-warning`;
   const errorId = `${fieldId}-error`;
+  const descriptionId = `${fieldId}-description`;
 
   // 上限を超える入力（貼り付けなど）を黙って捨てず、そのまま受け付けて
   // 超過数を表示する。超過したままでは保存時の検証で止まる。
@@ -60,6 +61,7 @@ export default function DynamicField({
   };
 
   const describedBy = [
+    field.description ? descriptionId : null,
     countId,
     isNearLimit || isOverLimit ? warningId : null,
     error && !isOverLimit ? errorId : null,
@@ -80,7 +82,7 @@ export default function DynamicField({
             <span
               className={DYNAMIC_FIELD_CONSTANTS.CLASS_NAMES.REQUIRED_INDICATOR}
             >
-              *
+              {DYNAMIC_FIELD_CONSTANTS.LABELS.REQUIRED}
             </span>
           )}
         </Label>
@@ -99,6 +101,16 @@ export default function DynamicField({
           {characterCount} / {maxLength}
         </span>
       </div>
+
+      {/* 項目の説明（項目名だけでは意味が分からない場合の補足） */}
+      {field.description && (
+        <p
+          id={descriptionId}
+          className={DYNAMIC_FIELD_CONSTANTS.CLASS_NAMES.DESCRIPTION}
+        >
+          {field.description}
+        </p>
+      )}
 
       {/* テキスト入力欄 */}
       <Textarea
