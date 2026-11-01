@@ -68,6 +68,42 @@ describe('isSameOriginRequest', () => {
     ).toBe(true);
   });
 
+  it('Host に既定ポートが付いていても、同じオリジンとして扱う', () => {
+    expect(
+      isSameOriginRequest(req({ origin: 'https://app.example.com', host: 'app.example.com:443' })),
+    ).toBe(true);
+    expect(
+      isSameOriginRequest(
+        req({ origin: 'http://app.example.com', host: 'app.example.com:80' }, 'http://app.example.com/api'),
+      ),
+    ).toBe(true);
+  });
+
+  it('既定でないポートは、Host に付いていれば Origin にも要る', () => {
+    expect(
+      isSameOriginRequest(req({ origin: 'https://app.example.com', host: 'app.example.com:8443' })),
+    ).toBe(false);
+    expect(
+      isSameOriginRequest(req({ origin: 'https://app.example.com:8443', host: 'app.example.com:8443' })),
+    ).toBe(true);
+  });
+
+  it('ホスト名の大文字・小文字の違いは、同じオリジンとして扱う', () => {
+    expect(
+      isSameOriginRequest(req({ origin: 'https://app.example.com', host: 'App.Example.com' })),
+    ).toBe(true);
+  });
+
+  it('Host にパスや認証情報のような値が入っていたら拒否する', () => {
+    expect(
+      isSameOriginRequest(req({ origin: 'https://app.example.com', host: 'app.example.com/evil' })),
+    ).toBe(false);
+    expect(
+      isSameOriginRequest(req({ origin: 'https://app.example.com', host: 'user@app.example.com' })),
+    ).toBe(false);
+    expect(isSameOriginRequest(req({ origin: 'https://app.example.com', host: 'app example.com' }))).toBe(false);
+  });
+
   it('スキームが分からなければ拒否する', () => {
     expect(
       isSameOriginRequest({ headers: new Headers({ origin: 'https://app.example.com', host: 'app.example.com' }) }),

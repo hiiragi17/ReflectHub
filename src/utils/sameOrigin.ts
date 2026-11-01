@@ -29,8 +29,16 @@ export function isSameOriginRequest(request: { headers: Headers; url?: string })
     return false;
   }
 
+  // Host にパスなどが紛れ込んだ値を、URL として解釈して通してしまわない
+  if (!/^[^\s/?#@\\]+$/.test(host)) {
+    return false;
+  }
+
+  // 両方を URL として正規化してから比べる。文字列のままだと、`Host: app.example.com:443`
+  // （既定ポートが付いている）や、ホスト名の大文字・小文字の違いで、
+  // 正しいリクエストまで拒否してしまう。
   try {
-    return new URL(origin).origin === `${scheme}://${host}`;
+    return new URL(origin).origin === new URL(`${scheme}://${host}`).origin;
   } catch {
     return false;
   }
