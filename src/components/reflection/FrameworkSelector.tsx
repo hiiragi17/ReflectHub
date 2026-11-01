@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertCircle, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Framework } from '@/types/framework';
+import { DYNAMIC_FIELD_CONSTANTS } from '@/constants/dynamicField';
 
 function FrameworkCard({
   framework,
@@ -198,7 +199,10 @@ export default function FrameworkSelector() {
             {selectedFramework.schema && selectedFramework.schema.length > 0 && (
               <div>
                 <p className="text-xs font-medium text-gray-600 mb-2">
-                  記入項目（<span className="text-red-600">*</span>は必須）:
+                  記入項目
+                  {selectedFramework.schema.some((field) => field.required) &&
+                    `（「${DYNAMIC_FIELD_CONSTANTS.LABELS.REQUIRED}」は入力が必要な項目）`}
+                  :
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {selectedFramework.schema.map((field) => (
@@ -207,7 +211,11 @@ export default function FrameworkSelector() {
                       className="px-2 py-1 bg-white rounded text-xs text-gray-700 border border-blue-200"
                     >
                       {field.label}
-                      {field.required && <span className="text-red-500">*</span>}
+                      {field.required && (
+                        <span className="ml-1 font-medium text-red-700">
+                          {DYNAMIC_FIELD_CONSTANTS.LABELS.REQUIRED}
+                        </span>
+                      )}
                     </span>
                   ))}
                 </div>
