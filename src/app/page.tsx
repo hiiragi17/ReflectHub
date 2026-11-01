@@ -51,7 +51,7 @@ export default function HomePage() {
             3分で今週の振り返りを記録し、継続的な成長を実現しましょう。
           </p>
           <p className="text-sm text-gray-500 mb-8 max-w-2xl mx-auto">
-            YWT、KPT、DAKI、STAR、WLTなど、7種類のフレームワークから目的に合ったものを選べます
+            YWT、KPT、DAKI、STAR、WLTなど、さまざまなフレームワークから目的に合ったものを選べます
           </p>
           <a
             href="/auth?mode=signup"
@@ -131,7 +131,7 @@ export default function HomePage() {
                     振り返りフレームワークを選択
                   </h4>
                   <p className="text-gray-600">
-                    YWT、KPT、DAKI、STAR、WLTなど、7種類のフレームワークから目的に合ったものを選択できます
+                    YWT、KPT、DAKI、STAR、WLTなど、さまざまなフレームワークから目的に合ったものを選択できます
                   </p>
                 </div>
               </div>
@@ -165,7 +165,7 @@ export default function HomePage() {
                     継続して成長を実感
                   </h4>
                   <p className="text-gray-600">
-                    週回の振り返りを続けることで、確実な成長を実感できます
+                    週1回の振り返りを続けることで、確実な成長を実感できます
                   </p>
                 </div>
               </div>
