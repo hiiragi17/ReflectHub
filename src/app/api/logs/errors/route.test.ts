@@ -27,8 +27,8 @@ function makeSupabaseMock(overrides: Record<string, unknown> = {}) {
 
   return {
     auth: {
-      getSession: vi.fn().mockResolvedValue({
-        data: { session: { user: { id: mockUserId } } },
+      getClaims: vi.fn().mockResolvedValue({
+        data: { claims: { sub: mockUserId } },
         error: null,
       }),
     },
@@ -116,6 +116,72 @@ describe('POST /api/logs/errors', () => {
     );
   });
 
+  const makeLog = (overrides: Record<string, unknown> = {}) => ({
+    id: 'log-meta',
+    errorType: 'network',
+    message: 'meta',
+    context: { page: '/', url: 'http://localhost/', timestamp: Date.now() },
+    severity: 'error',
+    resolved: false,
+    createdAt: Date.now(),
+    ...overrides,
+  });
+
+  const postAndGetRows = async (
+    logs: unknown[],
+    claims: { sub: string } | null = { sub: mockUserId },
+  ) => {
+    const supabase = makeSupabaseMock();
+    supabase.auth.getClaims = vi.fn().mockResolvedValue({
+      data: claims ? { claims } : null,
+      error: null,
+    });
+    const upsertMock = vi.fn().mockResolvedValue({ error: null });
+    supabase.from.mockReturnValue({ upsert: upsertMock });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (createClient as any).mockResolvedValue(supabase);
+
+    const req = new NextRequest('http://localhost/api/logs/errors', {
+      method: 'POST',
+      body: JSON.stringify({ logs, sessionId: 'sess_1' }),
+    });
+    const res = await POST(req);
+    return { res, rows: upsertMock.mock.calls[0]?.[0] as Array<Record<string, unknown>> };
+  };
+
+  it('保存する user_id は、検証したトークンの sub を使う（クライアントの userId は信用しない）', async () => {
+    const { res, rows } = await postAndGetRows([makeLog({ userId: 'someone-else' })]);
+    expect(res.status).toBe(200);
+    expect(rows[0].user_id).toBe(mockUserId);
+  });
+
+  it('未ログインのときは user_id を null で保存する', async () => {
+    const { res, rows } = await postAndGetRows([makeLog({ userId: 'someone-else' })], null);
+    expect(res.status).toBe(200);
+    expect(rows[0].user_id).toBeNull();
+  });
+
+  it('上限以内の metadata は、そのまま保存する', async () => {
+    const { rows } = await postAndGetRows([makeLog({ metadata: { reason: 'timeout' } })]);
+    expect(rows[0].metadata).toEqual({ reason: 'timeout' });
+  });
+
+  it('上限を超える metadata は、拒否せずに、超過した事実だけを残して置き換える', async () => {
+    const huge = { blob: 'x'.repeat(20_000) };
+    const { res, rows } = await postAndGetRows([makeLog({ metadata: huge })]);
+    // 400 にするとクライアントが再送し続けて後続のログも止まるため、200 で受ける
+    expect(res.status).toBe(200);
+    expect(rows[0].metadata).toEqual({
+      truncated: true,
+      originalSize: JSON.stringify(huge).length,
+    });
+  });
+
+  it('metadata がなければ null で保存する', async () => {
+    const { rows } = await postAndGetRows([makeLog()]);
+    expect(rows[0].metadata).toBeNull();
+  });
+
   it('returns 500 when DB insert fails', async () => {
     const supabase = makeSupabaseMock();
     supabase.from.mockReturnValue({
@@ -153,8 +219,8 @@ describe('GET /api/logs/errors', () => {
 
   it('returns 401 when not authenticated', async () => {
     const supabase = makeSupabaseMock();
-    supabase.auth.getSession = vi.fn().mockResolvedValue({
-      data: { session: null },
+    supabase.auth.getClaims = vi.fn().mockResolvedValue({
+      data: null,
       error: null,
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

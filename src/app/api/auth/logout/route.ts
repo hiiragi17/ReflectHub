@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     // レスポンスを作成してクッキーをクリア
     const response = NextResponse.json({ success: true });
 
-    // セッション関連のクッキーを削除
+    // 以前のログインで発行された、使われていないクッキーを消す（現在は発行していない）
     response.cookies.delete('session-set');
 
     // Supabase の認証クッキーも削除
