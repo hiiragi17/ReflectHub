@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { isSameOriginRequest } from './sameOrigin';
 
-const req = (headers: Record<string, string>) => ({ headers: new Headers(headers) });
+const req = (headers: Record<string, string>, url = 'https://app.example.com/api/auth/session') => ({
+  headers: new Headers(headers),
+  url,
+});
 
 describe('isSameOriginRequest', () => {
   it('Sec-Fetch-Site が same-origin なら許可する', () => {
@@ -33,8 +36,42 @@ describe('isSameOriginRequest', () => {
   });
 
   it('ポート付きのホストも比較する', () => {
-    expect(isSameOriginRequest(req({ origin: 'http://localhost:3000', host: 'localhost:3000' }))).toBe(true);
-    expect(isSameOriginRequest(req({ origin: 'http://localhost:3001', host: 'localhost:3000' }))).toBe(false);
+    const url = 'http://localhost:3000/api/auth/session';
+    expect(isSameOriginRequest(req({ origin: 'http://localhost:3000', host: 'localhost:3000' }, url))).toBe(true);
+    expect(isSameOriginRequest(req({ origin: 'http://localhost:3001', host: 'localhost:3000' }, url))).toBe(false);
+  });
+
+  it('スキームが違えば拒否する（http のページから、https のエンドポイントへの POST）', () => {
+    expect(
+      isSameOriginRequest(req({ origin: 'http://app.example.com', host: 'app.example.com' })),
+    ).toBe(false);
+  });
+
+  it('X-Forwarded-Proto があれば、リクエスト URL より優先してスキームを決める', () => {
+    // プロキシの内側では、リクエスト URL が http でも、利用者が見ているのは https
+    const internalUrl = 'http://app.example.com/api/auth/session';
+    expect(
+      isSameOriginRequest(
+        req({ origin: 'https://app.example.com', host: 'app.example.com', 'x-forwarded-proto': 'https' }, internalUrl),
+      ),
+    ).toBe(true);
+    expect(
+      isSameOriginRequest(
+        req({ origin: 'http://app.example.com', host: 'app.example.com', 'x-forwarded-proto': 'https' }, internalUrl),
+      ),
+    ).toBe(false);
+  });
+
+  it('既定ポートの表記があっても、同じオリジンとして扱う', () => {
+    expect(
+      isSameOriginRequest(req({ origin: 'https://app.example.com:443', host: 'app.example.com' })),
+    ).toBe(true);
+  });
+
+  it('スキームが分からなければ拒否する', () => {
+    expect(
+      isSameOriginRequest({ headers: new Headers({ origin: 'https://app.example.com', host: 'app.example.com' }) }),
+    ).toBe(false);
   });
 
   it('ホスト名の前方一致では許可しない', () => {
