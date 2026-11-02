@@ -6,7 +6,10 @@ export async function GET() {
     // Cookie の読み書き (getAll / setAll) は共通の createClient に集約。
     const supabase = await createClient();
 
-    const { data: { session }, error } = await supabase.auth.getSession();
+    // getSession() は Cookie の中身を検証せずに返すため、署名を検証する getClaims() を使う
+    // (middleware と同じ)。非対称鍵の JWT ならローカルで検証でき、認証サーバーへの
+    // 往復は増えない。
+    const { data: claimsData, error } = await supabase.auth.getClaims();
 
     if (error) {
       return NextResponse.json(
@@ -15,7 +18,10 @@ export async function GET() {
       );
     }
 
-    if (session?.user) {
+    const claims = claimsData?.claims;
+
+    if (claims?.sub) {
+      const userId = claims.sub;
       // クライアントの初期化 (authStore.initialize) が verify に続けて
       // /api/auth/profile/{id} を直列で叩いていた 2 往復を 1 往復に短縮する
       // ため、ここでプロフィールも一緒に返す。プロフィールはログイン時
@@ -25,7 +31,7 @@ export async function GET() {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', session.user.id)
+        .eq('id', userId)
         .single();
 
       let resolvedProfile = profile ?? null;
@@ -37,18 +43,18 @@ export async function GET() {
       // 無いユーザーが、合成名のまま初期化され、プロフィールページを開くまで
       // 行が作られない状態になる。
       if (!resolvedProfile && profileError?.code === 'PGRST116') {
-        const meta = session.user.user_metadata ?? {};
+        const meta = claims.user_metadata ?? {};
         const name =
           meta.full_name ||
           meta.name ||
-          session.user.email?.split('@')[0] ||
+          claims.email?.split('@')[0] ||
           'ユーザー';
 
         const { data: createdProfile } = await supabase
           .from('profiles')
           .insert({
-            id: session.user.id,
-            email: session.user.email,
+            id: userId,
+            email: claims.email,
             name,
             provider: 'google',
             created_at: new Date().toISOString(),
@@ -63,8 +69,8 @@ export async function GET() {
       return NextResponse.json({
         authenticated: true,
         user: {
-          id: session.user.id,
-          email: session.user.email,
+          id: userId,
+          email: claims.email,
         },
         profile: resolvedProfile,
       });

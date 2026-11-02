@@ -6,6 +6,7 @@ import {
   markUserNotified,
 } from '@/services/reminderService';
 import { sendPushToFirstAvailable } from '@/services/webPushSender';
+import { safeEqual } from '@/utils/safeEqual';
 
 /**
  * GET /api/cron/weekly-reminder
@@ -24,7 +25,7 @@ import { sendPushToFirstAvailable } from '@/services/webPushSender';
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   const auth = request.headers.get('authorization');
-  if (!cronSecret || auth !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || !auth || !safeEqual(auth, `Bearer ${cronSecret}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

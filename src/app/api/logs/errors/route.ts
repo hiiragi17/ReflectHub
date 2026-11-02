@@ -15,6 +15,30 @@ import { parseJsonBody } from '@/lib/validation/parse';
  */
 type ParsedLog = ErrorLogsBatchInput['logs'][number];
 
+/**
+ * 保存する `metadata` の大きさの上限（JSON にした文字数）。
+ * ログイン前でも書き込める API のため、1 件で DB の容量を使い切られないようにする。
+ */
+const MAX_METADATA_CHARS = 10_000;
+
+/**
+ * 上限を超える `metadata` は、拒否せずに、超過した事実だけを残して置き換える。
+ * 拒否 (400) にすると、クライアントが同じバッチを再送し続け、後続のログも止まるため。
+ */
+function limitMetadata(metadata: unknown): Record<string, unknown> | null {
+  if (metadata === undefined || metadata === null) return null;
+  let size: number;
+  try {
+    size = JSON.stringify(metadata).length;
+  } catch {
+    return { truncated: true };
+  }
+  if (size > MAX_METADATA_CHARS) {
+    return { truncated: true, originalSize: size };
+  }
+  return metadata as Record<string, unknown>;
+}
+
 function rowFromLog(log: ParsedLog, userId: string | null, fallbackSessionId: string | undefined) {
   return {
     id: log.id,
@@ -29,7 +53,7 @@ function rowFromLog(log: ParsedLog, userId: string | null, fallbackSessionId: st
     url: log.context?.url ?? null,
     user_agent: log.context?.userAgent ?? null,
     session_id: log.context?.sessionId ?? fallbackSessionId ?? null,
-    metadata: (log as { metadata?: Record<string, unknown> }).metadata ?? null,
+    metadata: limitMetadata((log as { metadata?: unknown }).metadata),
     resolved: false,
     created_at: safeToISOString(log.createdAt) ?? new Date().toISOString(),
   };
@@ -76,12 +100,11 @@ export async function POST(request: NextRequest) {
     const logs = body.logs.slice(0, MAX_BATCH_SIZE);
 
     const supabase = await createClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    // Always use the server-verified userId; never trust client-supplied values.
-    const userId = session?.user?.id ?? null;
+    // getSession() は Cookie の中身を検証せずに返すため、署名を検証する getClaims() を使う。
+    // クライアントが送ってきた userId は信用せず、検証したトークンの sub だけを使う。
+    // 未ログイン（ログイン前のクラッシュなど）の場合は null で保存する。
+    const { data: claimsData } = await supabase.auth.getClaims();
+    const userId = claimsData?.claims?.sub ?? null;
 
     const rows = logs.map((log) => rowFromLog(log, userId, body.sessionId));
 
@@ -110,23 +133,21 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession();
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
+    const sessionUserId = claimsData?.claims?.sub;
 
-    if (sessionError || !session) {
+    if (claimsError || !sessionUserId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('user_id') ?? session.user.id;
+    const userId = searchParams.get('user_id') ?? sessionUserId;
     const page = parsePositiveInt(searchParams.get('page'), 1);
     const perPage = Math.min(100, parsePositiveInt(searchParams.get('per_page'), 20));
     const offset = (page - 1) * perPage;
 
     // Users can only access their own logs
-    if (userId !== session.user.id) {
+    if (userId !== sessionUserId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

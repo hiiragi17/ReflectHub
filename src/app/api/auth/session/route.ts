@@ -4,8 +4,15 @@ import { cookies } from 'next/headers';
 import { SessionCreateSchema } from '@/lib/validation/schemas';
 import { parseJsonBody } from '@/lib/validation/parse';
 import { sanitizePlainText } from '@/utils/sanitize';
+import { isSameOriginRequest } from '@/utils/sameOrigin';
 
 export async function POST(request: NextRequest) {
+  // CSRF トークンを免除している（ログイン直後でトークンを取得する前に呼ばれる）ため、
+  // 他サイトから、攻撃者のトークンで被害者をログインさせられないよう、自サイト発のみ受け付ける。
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   try {
     const parsed = await parseJsonBody(request, SessionCreateSchema);
     if (!parsed.ok) return parsed.response;
@@ -108,13 +115,6 @@ export async function POST(request: NextRequest) {
       } catch (err) {
         console.error('Profile operation error:', err);
       }
-
-      response.cookies.set('session-set', 'true', {
-        httpOnly: false,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7
-      });
 
       return response;
     }
