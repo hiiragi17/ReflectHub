@@ -29,8 +29,19 @@ describe('ServiceWorkerProvider', () => {
     expect(registerServiceWorker).toHaveBeenCalledTimes(1);
   });
 
-  it('アプリを開いたとき（マウント時）に、バッジを消す', () => {
+  it('表示された状態でアプリを開いたとき（マウント時）に、バッジを消す', () => {
     render(<ServiceWorkerProvider />);
+    expect(clearAppBadge).toHaveBeenCalledTimes(1);
+  });
+
+  it('背景のタブで読み込まれたとき（マウント時に画面が隠れている）は、バッジを消さない。表示されたら消す', () => {
+    setVisibility('hidden');
+    vi.mocked(clearAppBadge).mockClear();
+
+    render(<ServiceWorkerProvider />);
+    expect(clearAppBadge).not.toHaveBeenCalled();
+
+    setVisibility('visible');
     expect(clearAppBadge).toHaveBeenCalledTimes(1);
   });
 
