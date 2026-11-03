@@ -10,6 +10,8 @@
  *   (オプトインしないとキャッシュしない) としている。
  * - Web Push 通知 (`push` / `notificationclick`) を受信し、
  *   週次リマインダー等のペイロードをユーザーに表示する。
+ *   あわせて、アプリを見ていないときは、アプリアイコンに未読のバッジ (Badging API) を付ける。
+ *   バッジは、通知をタップしたとき、またはアプリを開いたとき (クライアント側) に消す。
  *
  * バージョン更新時は `CACHE_VERSION` を上げる。古いキャッシュは activate で
  * 削除される。
@@ -189,6 +191,45 @@ self.addEventListener('message', (event) => {
   }
 });
 
+/**
+ * アプリアイコンのバッジを付ける / 消す (Badging API)。
+ * 対応していない環境 (ブラウザ・OS) では何もしない。失敗しても通知の表示を妨げない。
+ */
+async function setAppBadgeSafe(count) {
+  const nav = self.navigator;
+  if (!nav || typeof nav.setAppBadge !== 'function') return;
+  try {
+    await nav.setAppBadge(count);
+  } catch (err) {
+    console.warn('[sw] setAppBadge failed', err);
+  }
+}
+
+async function clearAppBadgeSafe() {
+  const nav = self.navigator;
+  if (!nav || typeof nav.clearAppBadge !== 'function') return;
+  try {
+    await nav.clearAppBadge();
+  } catch (err) {
+    console.warn('[sw] clearAppBadge failed', err);
+  }
+}
+
+/**
+ * 通知を受け取ったときに、未読のバッジを付ける。
+ * アプリを見ている最中 (表示中のウィンドウがある) は、通知を見たのと同じなので付けない。
+ * 通知は同じ tag で置き換わるため、未読は常に 1 件として扱う。
+ */
+async function markUnreadBadge() {
+  try {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (windows.some((client) => client.visibilityState === 'visible')) return;
+  } catch (err) {
+    // 画面の状態が分からなくても、バッジは付ける (見落としより、消し忘れのほうが害が小さい)。
+  }
+  await setAppBadgeSafe(1);
+}
+
 // Web Push 通知の受信。サーバから配信された JSON ペイロードを表示する。
 self.addEventListener('push', (event) => {
   let payload = {};
@@ -212,7 +253,9 @@ self.addEventListener('push', (event) => {
     renotify: false,
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    Promise.all([self.registration.showNotification(title, options), markUnreadBadge()]),
+  );
 });
 
 // 通知クリックで該当 URL を開く (既に開いていればフォーカス)。
@@ -221,17 +264,20 @@ self.addEventListener('notificationclick', (event) => {
   const targetUrl = (event.notification.data && event.notification.data.url) || '/dashboard';
 
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      const destination = new URL(targetUrl, self.location.origin).href;
-      for (const client of clientList) {
-        if (client.url === destination && 'focus' in client) {
-          return client.focus();
+    Promise.all([
+      clearAppBadgeSafe(),
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        const destination = new URL(targetUrl, self.location.origin).href;
+        for (const client of clientList) {
+          if (client.url === destination && 'focus' in client) {
+            return client.focus();
+          }
         }
-      }
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(destination);
-      }
-      return undefined;
-    }),
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(destination);
+        }
+        return undefined;
+      }),
+    ]),
   );
 });
