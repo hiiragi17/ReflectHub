@@ -62,7 +62,7 @@ importers:
         specifier: ^4.1.0
         version: 4.4.0
       dompurify:
-        specifier: ^3.4.13
+        specifier: ^3.4.18
         version: 3.4.18
       grapheme-splitter:
         specifier: ^1.0.4
