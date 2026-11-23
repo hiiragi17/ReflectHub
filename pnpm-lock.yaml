@@ -74,8 +74,8 @@ importers:
         specifier: 16.4.5
         version: 16.4.5(@types/node@20.19.43)(react-dom@19.1.7(react@19.1.7))(react@19.1.7)
       openai:
-        specifier: ^5.16.0
-        version: 5.23.2(ws@8.23.0)(zod@4.6.7)
+        specifier: ^7.61.0
+        version: 7.61.0(undici@8.12.4)(ws@8.23.0)(zod@4.6.7)
       react:
         specifier: 19.1.7
         version: 19.1.7
@@ -2935,13 +2935,28 @@ packages:
     resolution: {integrity: sha512-XrsrhT5sybtKI6wakr2SPOlGZWWYbUXZ7a0jT8/QOeAPau+1X/bSegNe5YR75oJmEZQbKningirmGOEJCIk61Q==}
     engines: {node: '>=12.20.0'}
 
-  openai@5.23.2:
-    resolution: {integrity: sha512-MQBzmTulj+MM5O8SKEk/gL8a7s5mktS9zUtAkU257WjvobGc9nKcBuVwjyEEcb9SI8a8Y2G/mzn3vm9n1Jlleg==}
-    hasBin: true
+  openai@7.61.0:
+    resolution: {integrity: sha512-Tl030M8hWYLIloVJo0UKaIwpzGxBASgeR8/Fa+rOJAhQQSVSSv4jYp0rdDmPmUkox13x/t3jlCoklPkcOCqKFg==}
+    engines: {node: '>=22.0.0'}
     peerDependencies:
+      '@aws-sdk/credential-provider-node': '>=3.972.0 <4'
+      '@smithy/hash-node': '>=4.3.0 <5'
+      '@smithy/signature-v4': '>=5.4.0 <6'
+      google-auth-library: '>=9.15.1 <12'
+      undici: '>=5 <9'
       ws: ^8.21.0
-      zod: ^3.23.8
+      zod: ^3.25 || ^4.0
     peerDependenciesMeta:
+      '@aws-sdk/credential-provider-node':
+        optional: true
+      '@smithy/hash-node':
+        optional: true
+      '@smithy/signature-v4':
+        optional: true
+      google-auth-library:
+        optional: true
+      undici:
+        optional: true
       ws:
         optional: true
       zod:
@@ -6302,8 +6317,9 @@ snapshots:
 
   obug@2.2.1: {}
 
-  openai@5.23.2(ws@8.23.0)(zod@4.6.7):
+  openai@7.61.0(undici@8.12.4)(ws@8.23.0)(zod@4.6.7):
     optionalDependencies:
+      undici: 8.12.4
       ws: 8.23.0
       zod: 4.6.7
 
