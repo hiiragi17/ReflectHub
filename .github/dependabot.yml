@@ -17,3 +17,9 @@ updates:
     open-pull-requests-limit: 5
     cooldown:
       default-days: 3
+    ignore:
+      # @types/node は実行環境(package.json の engines.node: 24.x / CI の Node 24)と
+      # メジャーを揃える。上のメジャーの型だと Node 24 に無い API も型検査を通ってしまう(#197)。
+      # engines の Node を上げるときに、この上限も合わせて上げる
+      - dependency-name: "@types/node"
+        versions: [">=25"]
