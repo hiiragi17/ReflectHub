@@ -155,6 +155,9 @@ export default function ReflectionForm({
   // （数えると、離脱の確認が消えなくなる）
   const hasUnsavedInput =
     hasInput ||
+    // 入力キャッシュは ref で持ち、書き換え時は forceRender で再描画している。
+    // state への移行は下書きロジックの組み直しが必要なため #206 で対応する
+    // eslint-disable-next-line react-hooks/refs
     Object.entries(cacheRef.current).some(([frameworkId, data]) => {
       const cachedFramework = frameworks.find((f) => f.id === frameworkId);
       // 一覧にない型、または、その型の現在の項目にない入力は、見えないので数えない
@@ -209,6 +212,9 @@ export default function ReflectionForm({
     touchedFrameworksRef.current = new Set();
     ownedDraftsRef.current = {};
     if (!userId) {
+      // ユーザー切り替え時に下書きを読み直す。effect 外への移行は hydration との兼ね合いがあり
+      // 下書きロジックの組み直しが必要なため #206 で対応する
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPendingDraft(null);
       setDraftLoaded(false);
       return;
@@ -340,13 +346,15 @@ export default function ReflectionForm({
     return () => onPendingDraftChange?.(false);
   }, [onPendingDraftChange]);
 
+  // 保存が長引いたら案内を出す
   useEffect(() => {
-    if (!isLoading) {
-      setIsSlowSave(false);
-      return;
-    }
+    if (!isLoading) return;
     const timer = setTimeout(() => setIsSlowSave(true), SLOW_SAVE_NOTICE_MS);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      // 次の保存で、前回の「時間がかかっています」が最初から出ないように戻す
+      setIsSlowSave(false);
+    };
   }, [isLoading]);
 
   // 未保存の入力があるままページを離れようとしたとき、確認を出す。

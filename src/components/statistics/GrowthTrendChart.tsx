@@ -29,15 +29,13 @@ export default function GrowthTrendChart({
 
   const data = useMemo(() => {
     const recent = trends.monthly.slice(-normalizedMonths);
+    const points: { label: string; cumulative: number; added: number }[] = [];
     let cumulative = 0;
-    return recent.map((point) => {
+    for (const point of recent) {
       cumulative += point.count;
-      return {
-        label: point.period,
-        cumulative,
-        added: point.count,
-      };
-    });
+      points.push({ label: point.period, cumulative, added: point.count });
+    }
+    return points;
   }, [trends, normalizedMonths]);
 
   const totalAdded = data.reduce((sum, point) => sum + point.added, 0);
