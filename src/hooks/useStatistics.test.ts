@@ -90,4 +90,47 @@ describe('useStatistics', () => {
     });
     expect(result.current.error).toBe('リクエストに失敗しました (500)');
   });
+
+  it('古い refetch が失敗したあとに新しいユーザーの refetch が失敗しても、そのエラーを返す', async () => {
+    const useStatistics = await loadHook();
+    const { result, rerender } = renderHook(({ id }) => useStatistics(id), {
+      initialProps: { id: 'user-1' },
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    // 1. user-1 の refetch を保留にしたまま、user-2 に切り替える(user-2 の初回取得は成功)
+    let rejectOld: (err: Error) => void = () => {};
+    fetchMock.mockImplementation(() => new Promise((_, reject) => { rejectOld = reject; }));
+    let oldRefetch: Promise<void> = Promise.resolve();
+    act(() => {
+      oldRefetch = result.current.refetch();
+    });
+    fetchMock.mockImplementation(async (url: string) =>
+      new Response(JSON.stringify(okResponse(url)), { status: 200 }),
+    );
+    rerender({ id: 'user-2' });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    // 2. user-2 の refetch を保留で開始する
+    let rejectNew: (err: Error) => void = () => {};
+    fetchMock.mockImplementation(() => new Promise((_, reject) => { rejectNew = reject; }));
+    let newRefetch: Promise<void> = Promise.resolve();
+    act(() => {
+      newRefetch = result.current.refetch();
+    });
+
+    // 3. 古い user-1 の refetch が失敗する
+    await act(async () => {
+      rejectOld(new Error('user-1 の失敗'));
+      await oldRefetch;
+    });
+
+    // 4. user-2 の refetch が失敗する: user-2 のエラーが返る
+    await act(async () => {
+      rejectNew(new Error('user-2 の失敗'));
+      await newRefetch;
+    });
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.error).toBe('user-2 の失敗');
+  });
 });

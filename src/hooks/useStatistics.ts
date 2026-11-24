@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   AnalyticsSummary,
   AnalyticsTrends,
@@ -131,17 +131,24 @@ export const useStatistics = (userId: string | null | undefined): UseStatisticsS
     };
   }, [userId]);
 
+  // いま表示しているユーザー。refetch の完了時に、結果がまだ必要かを判定する
+  const currentUserIdRef = useRef(userId);
+  useEffect(() => {
+    currentUserIdRef.current = userId;
+  }, [userId]);
+
   const refetch = useCallback(async () => {
     if (!userId) return;
     setRefetchingUserId(userId);
     setErrorState(null);
     try {
       const data = await fetchStatistics(userId, true);
-      // 待っている間にユーザーが切り替わっていたら、別ユーザーの結果・エラーを上書きしない
-      setResult((prev) => (prev && prev.userId !== userId ? prev : { userId, ...data }));
+      // 待っている間にユーザーが切り替わっていたら、古い結果は捨てる
+      if (currentUserIdRef.current !== userId) return;
+      setResult({ userId, ...data });
     } catch (err) {
-      const message = toErrorMessage(err);
-      setErrorState((prev) => (prev && prev.userId !== userId ? prev : { userId, message }));
+      if (currentUserIdRef.current !== userId) return;
+      setErrorState({ userId, message: toErrorMessage(err) });
     } finally {
       setRefetchingUserId((prev) => (prev === userId ? null : prev));
     }
