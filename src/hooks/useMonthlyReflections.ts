@@ -108,6 +108,9 @@ export const useMonthlyReflections = (
       });
     return () => {
       cancelled = true;
+      // 対象を切り替えたら、戻ってきたときも取得が終わるまで読み込み中として扱う
+      // (前に取得し終えたキーと同じでも、新しい取得が走っている間は isLoading を true にする)
+      setSettledKey(null);
     };
   }, [user?.id, requestKey, load]);
 

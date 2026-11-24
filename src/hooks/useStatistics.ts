@@ -61,22 +61,30 @@ interface StatisticsData {
 async function fetchStatistics(userId: string, force: boolean): Promise<StatisticsData> {
   const cache = getCache(userId);
 
+  // キャッシュを使った項目は時刻を更新しない(更新すると、60 秒未満の再訪問で取り直しが起きなくなる)
+  const fetchedAt = Date.now();
+
   const summaryPromise = force || !isFresh(cache.summary)
-    ? fetchJson<{ summary: AnalyticsSummary }>('/api/analytics/summary').then(
-        (res) => res.summary,
-      )
+    ? fetchJson<{ summary: AnalyticsSummary }>('/api/analytics/summary').then((res) => {
+        cache.summary = { data: res.summary, timestamp: fetchedAt };
+        return res.summary;
+      })
     : Promise.resolve(cache.summary!.data);
 
   const trendsPromise = force || !isFresh(cache.trends)
-    ? fetchJson<{ trends: AnalyticsTrends }>('/api/analytics/trends').then(
-        (res) => res.trends,
-      )
+    ? fetchJson<{ trends: AnalyticsTrends }>('/api/analytics/trends').then((res) => {
+        cache.trends = { data: res.trends, timestamp: fetchedAt };
+        return res.trends;
+      })
     : Promise.resolve(cache.trends!.data);
 
   const distributionPromise = force || !isFresh(cache.distribution)
-    ? fetchJson<{ distribution: AnalyticsDistribution }>(
-        '/api/analytics/distribution',
-      ).then((res) => res.distribution)
+    ? fetchJson<{ distribution: AnalyticsDistribution }>('/api/analytics/distribution').then(
+        (res) => {
+          cache.distribution = { data: res.distribution, timestamp: fetchedAt };
+          return res.distribution;
+        },
+      )
     : Promise.resolve(cache.distribution!.data);
 
   const [summary, trends, distribution] = await Promise.all([
@@ -84,10 +92,6 @@ async function fetchStatistics(userId: string, force: boolean): Promise<Statisti
     trendsPromise,
     distributionPromise,
   ]);
-
-  cache.summary = { data: summary, timestamp: Date.now() };
-  cache.trends = { data: trends, timestamp: Date.now() };
-  cache.distribution = { data: distribution, timestamp: Date.now() };
 
   return { summary, trends, distribution };
 }
@@ -103,7 +107,8 @@ export const useStatistics = (userId: string | null | undefined): UseStatisticsS
   const [errorState, setErrorState] = useState<{ userId: string; message: string } | null>(
     null,
   );
-  const [isRefetching, setIsRefetching] = useState(false);
+  // refetch 中のユーザー(ユーザーが切り替わったら、前のユーザーの refetch は読み込み中に数えない)
+  const [refetchingUserId, setRefetchingUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -128,15 +133,17 @@ export const useStatistics = (userId: string | null | undefined): UseStatisticsS
 
   const refetch = useCallback(async () => {
     if (!userId) return;
-    setIsRefetching(true);
+    setRefetchingUserId(userId);
     setErrorState(null);
     try {
       const data = await fetchStatistics(userId, true);
-      setResult({ userId, ...data });
+      // 待っている間にユーザーが切り替わっていたら、別ユーザーの結果・エラーを上書きしない
+      setResult((prev) => (prev && prev.userId !== userId ? prev : { userId, ...data }));
     } catch (err) {
-      setErrorState({ userId, message: toErrorMessage(err) });
+      const message = toErrorMessage(err);
+      setErrorState((prev) => (prev && prev.userId !== userId ? prev : { userId, message }));
     } finally {
-      setIsRefetching(false);
+      setRefetchingUserId((prev) => (prev === userId ? null : prev));
     }
   }, [userId]);
 
@@ -144,7 +151,7 @@ export const useStatistics = (userId: string | null | undefined): UseStatisticsS
   const cached = userId ? cacheByUser[userId] : undefined;
   const current = result && result.userId === userId ? result : null;
 
-  const isLoading = Boolean(userId) && (isRefetching || settledUserId !== userId);
+  const isLoading = Boolean(userId) && (refetchingUserId === userId || settledUserId !== userId);
   const error =
     !isLoading && errorState && errorState.userId === userId ? errorState.message : null;
 
