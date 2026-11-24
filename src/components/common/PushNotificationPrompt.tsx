@@ -35,6 +35,9 @@ export function PushNotificationPrompt({
   const isClient = useIsClient();
   // 閉じた・許可/拒否の結果が出た後は、以降このマウント中は表示しない
   const [closed, setClosed] = useState(false);
+  // 「有効にする」を押した後は、許可が granted に変わっても登録が終わるまで表示を続ける
+  // (購読・登録に失敗したときに再試行できるようにするため)
+  const [started, setStarted] = useState(false);
   const [busy, setBusy] = useState(false);
 
   // ブラウザ API と localStorage は SSR では読めないため、hydration 後に判定する
@@ -43,7 +46,7 @@ export function PushNotificationPrompt({
     isPushSupported() &&
     localStorage.getItem(DISMISS_KEY) !== '1' &&
     getPushPermission() === 'default';
-  const visible = eligible && !closed;
+  const visible = !closed && (eligible || started);
 
   const handleDismiss = useCallback(() => {
     if (typeof window !== 'undefined') {
@@ -57,6 +60,7 @@ export function PushNotificationPrompt({
       showToast('プッシュ通知の設定が完了していません。', 'error');
       return;
     }
+    setStarted(true);
     setBusy(true);
     try {
       const permission = await requestPushPermission();
