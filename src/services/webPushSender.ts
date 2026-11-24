@@ -1,4 +1,10 @@
-import webpush, { type PushSubscription as WebPushSubscription, type SendResult, WebPushError } from 'web-push';
+import {
+  sendNotification,
+  setVapidDetails,
+  type PushSubscription as WebPushSubscription,
+  type SendResult,
+  WebPushError,
+} from 'web-push';
 import type { PushSubscription } from '@/types/push';
 
 /**
@@ -20,7 +26,7 @@ function configureVapid() {
       'VAPID keys are not configured: set NEXT_PUBLIC_VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY',
     );
   }
-  webpush.setVapidDetails(subject, publicKey, privateKey);
+  setVapidDetails(subject, publicKey, privateKey);
   vapidConfigured = true;
 }
 
@@ -62,7 +68,7 @@ export async function sendPush(
   const body = typeof payload === 'string' ? payload : JSON.stringify(payload);
 
   try {
-    const result: SendResult = await webpush.sendNotification(
+    const result: SendResult = await sendNotification(
       toWebPushSubscription(subscription),
       body,
     );

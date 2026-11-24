@@ -13,15 +13,14 @@ vi.mock('web-push', () => {
     }
   }
   return {
-    default: {
-      setVapidDetails: vi.fn(),
-      sendNotification: vi.fn(),
-    },
+    setVapidDetails: vi.fn(),
+    sendNotification: vi.fn(),
     WebPushError: WebPushError,
   };
 });
 
-import webpush, { WebPushError } from 'web-push';
+import * as webpush from 'web-push';
+import { WebPushError } from 'web-push';
 import {
   __resetVapidConfigForTests,
   sendPush,
