@@ -50,6 +50,9 @@ export async function logoutUser(redirectUrl: string = "/") {
   } catch (error) {
     console.error("ログアウト処理でエラーが発生:", error);
     // エラーが発生しても / にリダイレクト
+    // ログアウト時はフルリロードでクライアントの状態(認証ストア等)を確実に破棄するため、
+    // router ではなく location で遷移する(このモジュールは React 外のユーティリティでもある)
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = "/";
   }
 }

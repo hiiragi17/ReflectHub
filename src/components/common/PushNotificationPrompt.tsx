@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/useToast';
 import { useCSRFToken } from '@/hooks/useCSRFToken';
+import { useIsClient } from '@/hooks/useIsClient';
 import {
   getPushPermission,
   isPushSupported,
@@ -31,22 +32,27 @@ export function PushNotificationPrompt({
 }: PushNotificationPromptProps) {
   const { showToast } = useToast();
   const { withCSRFHeader } = useCSRFToken();
-  const [visible, setVisible] = useState(false);
+  const isClient = useIsClient();
+  // 閉じた・許可/拒否の結果が出た後は、以降このマウント中は表示しない
+  const [closed, setClosed] = useState(false);
+  // 「有効にする」を押した後は、許可が granted に変わっても登録が終わるまで表示を続ける
+  // (購読・登録に失敗したときに再試行できるようにするため)
+  const [started, setStarted] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    if (!isPushSupported()) return;
-    if (typeof window !== 'undefined' && localStorage.getItem(DISMISS_KEY) === '1') return;
-    if (getPushPermission() === 'default') {
-      setVisible(true);
-    }
-  }, []);
+  // ブラウザ API と localStorage は SSR では読めないため、hydration 後に判定する
+  const eligible =
+    isClient &&
+    isPushSupported() &&
+    localStorage.getItem(DISMISS_KEY) !== '1' &&
+    getPushPermission() === 'default';
+  const visible = !closed && (eligible || started);
 
   const handleDismiss = useCallback(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem(DISMISS_KEY, '1');
     }
-    setVisible(false);
+    setClosed(true);
   }, []);
 
   const handleEnable = useCallback(async () => {
@@ -54,12 +60,13 @@ export function PushNotificationPrompt({
       showToast('プッシュ通知の設定が完了していません。', 'error');
       return;
     }
+    setStarted(true);
     setBusy(true);
     try {
       const permission = await requestPushPermission();
       if (permission !== 'granted') {
         showToast('通知の許可が得られませんでした。', 'warning');
-        setVisible(false);
+        setClosed(true);
         return;
       }
       const subscription = await subscribeToPush(vapidPublicKey);
@@ -75,7 +82,7 @@ export function PushNotificationPrompt({
       }
       showToast('プッシュ通知を有効にしました。', 'success');
       onSubscribed?.(subscription);
-      setVisible(false);
+      setClosed(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'プッシュ通知の登録に失敗しました。';
       showToast(message, 'error');

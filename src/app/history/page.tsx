@@ -18,6 +18,41 @@ interface ReflectionDetail {
   reflections: Reflection[];
 }
 
+interface HistoryData {
+  reflections: Reflection[];
+  frameworks: Framework[];
+}
+
+// Fetch reflections and frameworks
+async function fetchHistoryData(userId: string): Promise<HistoryData> {
+  const reflections = await reflectionService.getByUser(userId);
+
+  const { supabase } = await import('@/lib/supabase/client');
+  const { data: frameworksData, error: frameworksError } = await supabase
+    .from('frameworks')
+    .select('*')
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true });
+
+  if (frameworksError) {
+    throw new Error('フレームワークの取得に失敗しました');
+  }
+
+  // Parse schema field if it's a string
+  const frameworks = (frameworksData || []).map((framework) => {
+    const schema = typeof framework.schema === 'string'
+      ? JSON.parse(framework.schema)
+      : framework.schema;
+
+    return {
+      ...framework,
+      schema: schema?.fields || [],
+    };
+  });
+
+  return { reflections, frameworks };
+}
+
 export default function HistoryPage() {
   const { user, signOut, isLoading: authLoading } = useAuth();
   const router = useRouter();
@@ -36,57 +71,39 @@ export default function HistoryPage() {
     }
   }, [user, authLoading, router]);
 
-  // Fetch reflections and frameworks
-  const fetchData = useCallback(async () => {
-    if (!user?.id) return;
+  const userId = user?.id;
 
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // Fetch reflections
-      const reflectionsData = await reflectionService.getByUser(user.id);
-      setReflections(reflectionsData);
-
-      // Fetch frameworks
-      const { supabase } = await import('@/lib/supabase/client');
-      const { data: frameworksData, error: frameworksError } = await supabase
-        .from('frameworks')
-        .select('*')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true });
-
-      if (frameworksError) {
-        throw new Error('フレームワークの取得に失敗しました');
-      }
-
-      // Parse schema field if it's a string
-      const parsedFrameworks = (frameworksData || []).map((framework) => {
-        const schema = typeof framework.schema === 'string'
-          ? JSON.parse(framework.schema)
-          : framework.schema;
-
-        return {
-          ...framework,
-          schema: schema?.fields || [],
-        };
+  // 取得結果の反映は promise のコールバックで行う(effect 内で同期的に setState しない)
+  const applyHistory = useCallback((promise: Promise<HistoryData>) => {
+    return promise
+      .then(({ reflections: reflectionsData, frameworks: frameworksData }) => {
+        setReflections(reflectionsData);
+        setFrameworks(frameworksData);
+        setError(null);
+      })
+      .catch((err) => {
+        console.error('Error fetching data:', err);
+        // 取得に失敗したことと次の行動を伝える（内部のエラー文は画面に出さない）
+        setError(
+          '履歴を読み込めませんでした。通信状況を確認して、もう一度読み込んでください。'
+        );
+      })
+      .finally(() => {
+        setIsLoading(false);
       });
-
-      setFrameworks(parsedFrameworks);
-    } catch (err) {
-      console.error('Error fetching data:', err);
-      // 取得に失敗したことと次の行動を伝える（内部のエラー文は画面に出さない）
-      setError(
-        '履歴を読み込めませんでした。通信状況を確認して、もう一度読み込んでください。'
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user?.id]);
+  }, []);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (!userId) return;
+    void applyHistory(fetchHistoryData(userId));
+  }, [userId, applyHistory]);
+
+  const handleRetry = () => {
+    if (!userId) return;
+    setIsLoading(true);
+    setError(null);
+    void applyHistory(fetchHistoryData(userId));
+  };
 
   // 日付を選んだら、詳細の見出しへ移動する（スマホ幅では詳細がカレンダーの下に出るため）
   const detailHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -171,7 +188,7 @@ export default function HistoryPage() {
             </p>
             <button
               type="button"
-              onClick={fetchData}
+              onClick={handleRetry}
               className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
             >
               もう一度読み込む

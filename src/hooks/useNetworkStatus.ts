@@ -1,58 +1,38 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
+
+const subscribeOnlineStatus = (onChange: () => void) => {
+  window.addEventListener('online', onChange);
+  window.addEventListener('offline', onChange);
+  return () => {
+    window.removeEventListener('online', onChange);
+    window.removeEventListener('offline', onChange);
+  };
+};
+
+const getEffectiveType = (): string | null =>
+  (navigator as unknown as { connection?: { effectiveType: string } }).connection
+    ?.effectiveType ?? null;
 
 /**
  * Hook to monitor network status
  */
 export function useNetworkStatus() {
-  const [isOnline, setIsOnline] = useState(true);
-  const [isSlowConnection, setIsSlowConnection] = useState(false);
+  const isOnline = useSyncExternalStore(
+    subscribeOnlineStatus,
+    () => navigator.onLine,
+    () => true,
+  );
+  // 回線種別は online/offline イベントのタイミングで読み直す(従来と同じ更新契機)
+  const effectiveType = useSyncExternalStore(
+    subscribeOnlineStatus,
+    getEffectiveType,
+    () => null,
+  );
 
-  useEffect(() => {
-    // Check initial online status
-    setIsOnline(typeof window !== 'undefined' && navigator.onLine);
-
-    // Handle online/offline events
-    const handleOnline = (): void => {
-      setIsOnline(true);
-      setIsSlowConnection(false);
-    };
-
-    const handleOffline = (): void => {
-      setIsOnline(false);
-    };
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    // Check connection speed
-    const checkConnectionSpeed = (): void => {
-      if (!navigator.onLine) {
-        setIsSlowConnection(true);
-        return;
-      }
-
-      const connection =
-        (navigator as unknown as { connection?: { effectiveType: string } })
-          .connection || null;
-      if (connection) {
-        const effectiveType = connection.effectiveType;
-        setIsSlowConnection(effectiveType === '2g' || effectiveType === '3g');
-      }
-    };
-
-    checkConnectionSpeed();
-    window.addEventListener('online', checkConnectionSpeed);
-    window.addEventListener('offline', checkConnectionSpeed);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      window.removeEventListener('online', checkConnectionSpeed);
-      window.removeEventListener('offline', checkConnectionSpeed);
-    };
-  }, []);
+  const isSlowConnection =
+    !isOnline || effectiveType === '2g' || effectiveType === '3g';
 
   return { isOnline, isSlowConnection };
 }
