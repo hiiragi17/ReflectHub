@@ -1279,3 +1279,75 @@ describe("ReflectionForm 必須の凡例", () => {
     expect(screen.getByText(/どれか1つの項目に入力すれば保存できます/)).toBeInTheDocument();
   });
 });
+
+describe("ReflectionForm 下書きの読み込み（ユーザーの切り替えと SSR）", () => {
+  it("表示したままユーザーが変わったら、新しいユーザーの下書きを読み直す", () => {
+    saveDrafts("u1", { f1: { y: "u1 の下書き" } });
+    saveDrafts("u2", { f1: { y: "u2 の下書き" } });
+    auth.user = { id: "u1" };
+    const { rerender } = render(<ReflectionForm />);
+    expect(screen.getByText(/前回の書きかけの下書きがあります/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "復元する" }));
+    expect(screen.getByLabelText(/やったこと/)).toHaveValue("u1 の下書き");
+
+    // ログアウトしたら、確認は出さない
+    auth.user = null;
+    rerender(<ReflectionForm />);
+    expect(screen.queryByText(/前回の書きかけの下書きがあります/)).not.toBeInTheDocument();
+
+    // 別のユーザーでログインしたら、そのユーザーの下書きを確認に出す
+    auth.user = { id: "u2" };
+    rerender(<ReflectionForm />);
+    expect(screen.getByText(/前回の書きかけの下書きがあります/)).toBeInTheDocument();
+  });
+
+  it("同じユーザーで再ログインしたら、前回の下書きをもう一度読み込む", () => {
+    saveDrafts("u1", { f1: { y: "u1 の下書き" } });
+    auth.user = { id: "u1" };
+    const { rerender } = render(<ReflectionForm />);
+    // 確認に答えないまま、いったんログアウトする（下書きは端末に残る）
+    auth.user = null;
+    rerender(<ReflectionForm />);
+    expect(screen.queryByText(/前回の書きかけの下書きがあります/)).not.toBeInTheDocument();
+
+    auth.user = { id: "u1" };
+    rerender(<ReflectionForm />);
+    expect(screen.getByText(/前回の書きかけの下書きがあります/)).toBeInTheDocument();
+  });
+
+  it("SSR の HTML を hydrate しても表示が食い違わず、hydrate 後に下書きの確認を出す", async () => {
+    const { renderToString } = await import("react-dom/server");
+    const { hydrateRoot } = await import("react-dom/client");
+    saveDrafts("u1", { f1: { y: "前回の入力" } });
+    auth.user = { id: "u1" };
+
+    // サーバーでは localStorage を読まないので、確認は出ない
+    const getItem = vi.spyOn(Storage.prototype, "getItem");
+    const html = renderToString(<ReflectionForm />);
+    expect(html).not.toContain("前回の書きかけの下書きがあります");
+    expect(getItem).not.toHaveBeenCalledWith(draftStorageKey("u1"));
+    getItem.mockRestore();
+
+    const container = document.createElement("div");
+    container.innerHTML = html;
+    document.body.appendChild(container);
+    const recoverableErrors: unknown[] = [];
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const root = await act(async () =>
+        hydrateRoot(container, <ReflectionForm />, {
+          onRecoverableError: (error) => recoverableErrors.push(error),
+        })
+      );
+      expect(recoverableErrors).toEqual([]);
+      expect(
+        consoleError.mock.calls.some((args) => String(args[0]).includes("hydrat"))
+      ).toBe(false);
+      expect(container.textContent).toContain("前回の書きかけの下書きがあります");
+      act(() => root.unmount());
+    } finally {
+      consoleError.mockRestore();
+      container.remove();
+    }
+  });
+});
