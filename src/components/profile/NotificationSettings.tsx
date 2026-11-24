@@ -13,6 +13,7 @@ import {
 } from '@/lib/push/client';
 import { isIOSDevice } from '@/lib/pwa/standalone';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
+import { useIsClient } from '@/hooks/useIsClient';
 import { DEFAULT_REMINDER_HOUR } from '@/types/push';
 import type { NotificationPreferences } from '@/types/push';
 
@@ -71,13 +72,8 @@ export function NotificationSettings() {
   const [savedHour, setSavedHour] = useState<string>(DEFAULT_HOUR_VALUE);
   // インストール状態と UA 判定は SSR と一致しないため、マウント後に評価する
   // (hydration mismatch を避けるため、確定するまで案内を描画しない)。
-  const [mounted, setMounted] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    setIsIOS(isIOSDevice());
-  }, []);
+  const mounted = useIsClient();
+  const isIOS = mounted && isIOSDevice();
 
   /** サーバから現在の保存済み reminder_weekday / reminder_hour を取得して select の値に変換する。 */
   const fetchSavedPreferences = useCallback(async (): Promise<{

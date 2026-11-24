@@ -39,14 +39,13 @@ export function SlideIn({
   as: Component = 'div',
 }: SlideInProps) {
   const prefersReducedMotion = useReducedMotion();
-  const [visible, setVisible] = useState<boolean>(() => prefersReducedMotion);
+  const [timerElapsed, setTimerElapsed] = useState(false);
+  // reduced-motion のときは待たずに表示する
+  const visible = prefersReducedMotion || timerElapsed;
 
   useEffect(() => {
-    if (prefersReducedMotion) {
-      setVisible(true);
-      return;
-    }
-    const timer = window.setTimeout(() => setVisible(true), Math.max(0, delay));
+    if (prefersReducedMotion) return;
+    const timer = window.setTimeout(() => setTimerElapsed(true), Math.max(0, delay));
     return () => window.clearTimeout(timer);
   }, [delay, prefersReducedMotion]);
 

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { isIOSDevice, isStandaloneDisplay } from '@/lib/pwa/standalone';
+import { useIsClient } from './useIsClient';
 
 /**
  * Chrome / Edge が発火する beforeinstallprompt の型定義。
@@ -19,13 +20,15 @@ export interface BeforeInstallPromptEvent extends Event {
 const DISMISS_KEY = 'reflecthub:install-prompt:dismissed-at';
 const DISMISS_COOLDOWN_MS = 1000 * 60 * 60 * 24 * 14; // 14 日
 
-function readDismissedAt(): number | null {
+/** クールダウン中なら閉じた時刻を返す。未記録・期限切れなら null。 */
+function readActiveDismissedAt(): number | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = window.localStorage.getItem(DISMISS_KEY);
     if (!raw) return null;
     const ts = Number(raw);
-    return Number.isFinite(ts) ? ts : null;
+    if (!Number.isFinite(ts)) return null;
+    return Date.now() - ts < DISMISS_COOLDOWN_MS ? ts : null;
   } catch {
     return null;
   }
@@ -62,38 +65,31 @@ export function useInstallPrompt(): UseInstallPromptResult {
   const [installed, setInstalled] = useState<boolean>(() => isStandaloneDisplay());
   const [isPrompting, setIsPrompting] = useState(false);
   const [outcome, setOutcome] = useState<'accepted' | 'dismissed' | null>(null);
+  // クールダウン中のときだけ閉じた時刻を持つ(期限切れは読み込み時点で null)。
   const [dismissedAt, setDismissedAt] = useState<number | null>(() =>
-    readDismissedAt(),
+    readActiveDismissedAt(),
   );
-  const [isIOS, setIsIOS] = useState(false);
-
-  // UA 判定は SSR 中には走らせず、マウント後に評価する。
-  useEffect(() => {
-    setIsIOS(isIOSDevice());
-  }, []);
+  // UA 判定は SSR 中には走らせず、hydration 後に評価する。
+  const isClient = useIsClient();
+  const isIOS = isClient && isIOSDevice();
 
   // dismissedAt が更新されるたびに残り時間ぶんの setTimeout を貼り直す。
-  // `cooldownActive` を派生値にすることで、別タブから DISMISS_KEY が更新されて
-  // タイムスタンプだけ変わった場合 (true → true) でも timer を再スケジュール
-  // できる。タブを長期間開きっぱなしでも 14 日経過後は再表示できる。
+  // 別タブから DISMISS_KEY が更新されてタイムスタンプだけ変わった場合でも
+  // timer を再スケジュールできる。タブを長期間開きっぱなしでも 14 日経過後に
+  // timer が dismissedAt を null に落とし、再表示できる。
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const recompute = (e?: StorageEvent) => {
       // 関係ないキーの storage 更新は無視する。
       if (e && e.key !== null && e.key !== DISMISS_KEY) return;
-      setDismissedAt(readDismissedAt());
+      setDismissedAt(readActiveDismissedAt());
     };
 
     let timer: number | undefined;
     if (dismissedAt !== null) {
       const remaining = DISMISS_COOLDOWN_MS - (Date.now() - dismissedAt);
-      if (remaining <= 0) {
-        // 既に期限切れ → 状態を null に落として cooldownActive を false にする。
-        setDismissedAt(null);
-      } else {
-        timer = window.setTimeout(() => setDismissedAt(null), remaining);
-      }
+      timer = window.setTimeout(() => setDismissedAt(null), Math.max(0, remaining));
     }
 
     window.addEventListener('storage', recompute);
@@ -171,9 +167,8 @@ export function useInstallPrompt(): UseInstallPromptResult {
     setDismissedAt(now);
   }, []);
 
-  // dismissedAt から派生。タブが長く開いていても render ごとに再評価される。
-  const cooldownActive =
-    dismissedAt !== null && Date.now() - dismissedAt < DISMISS_COOLDOWN_MS;
+  // 期限切れの dismissedAt は読み込み時と timer で null に落とすため、null でなければクールダウン中。
+  const cooldownActive = dismissedAt !== null;
 
   const canInstall =
     !installed && !cooldownActive && deferredPrompt !== null && !isPrompting;

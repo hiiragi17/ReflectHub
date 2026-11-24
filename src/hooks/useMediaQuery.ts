@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 
 export const BREAKPOINTS = {
   sm: 640,
@@ -14,26 +14,26 @@ export type Breakpoint = keyof typeof BREAKPOINTS;
 
 const buildMinWidthQuery = (px: number): string => `(min-width: ${px}px)`;
 
+const canMatchMedia = (): boolean =>
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function';
+
 export const useMediaQuery = (query: string): boolean => {
-  const [matches, setMatches] = useState<boolean>(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-      return false;
-    }
-    return window.matchMedia(query).matches;
-  });
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      if (!canMatchMedia()) return () => {};
+      const mql = window.matchMedia(query);
+      mql.addEventListener('change', onChange);
+      return () => mql.removeEventListener('change', onChange);
+    },
+    [query],
+  );
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-      return;
-    }
-    const mql = window.matchMedia(query);
-    const handler = (event: MediaQueryListEvent) => setMatches(event.matches);
-    setMatches(mql.matches);
-    mql.addEventListener('change', handler);
-    return () => mql.removeEventListener('change', handler);
-  }, [query]);
+  const getSnapshot = useCallback(
+    () => (canMatchMedia() ? window.matchMedia(query).matches : false),
+    [query],
+  );
 
-  return matches;
+  return useSyncExternalStore(subscribe, getSnapshot, () => false);
 };
 
 export const useBreakpoint = (breakpoint: Breakpoint): boolean => {
