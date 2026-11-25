@@ -3,12 +3,12 @@
 import React, {
   useEffect,
   useState,
-  useReducer,
   useRef,
   useCallback,
 } from "react";
 import { useFrameworkStore } from "@/stores/frameworkStore";
 import { useAuthStore } from "@/stores/authStore";
+import { useIsClient } from "@/hooks/useIsClient";
 import { useValidation } from "@/hooks/useValidation";
 import { useReflectionMutation } from "@/hooks/useReflectionMutation";
 import DynamicField from "./DynamicField";
@@ -62,6 +62,16 @@ const pickSchemaFields = (
   return Object.fromEntries(Object.entries(data).filter(([id]) => ids.has(id)));
 };
 
+/** 型ごとの入力キャッシュから、指定した型を除いたコピーを返す */
+const omitFramework = (
+  cache: Record<string, Record<string, string>>,
+  frameworkId: string
+): Record<string, Record<string, string>> => {
+  if (!(frameworkId in cache)) return cache;
+  const { [frameworkId]: _omitted, ...rest } = cache;
+  return rest;
+};
+
 // 入力が止まってから、下書きをブラウザに保存するまでの時間
 const DRAFT_SAVE_DEBOUNCE_MS = 500;
 
@@ -103,7 +113,8 @@ export default function ReflectionForm({
     clearError,
   } = useReflectionMutation();
 
-  const cacheRef = useRef<Record<string, Record<string, string>>>({});
+  // 切り替え前に書いた、別の型の入力（型ごと）
+  const [cache, setCache] = useState<Record<string, Record<string, string>>>({});
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [isSaved, setIsSaved] = useState(false);
   // 保存を試した型。保存中に別の型へ切り替えても、失敗の案内を別の型の下に出さないために使う
@@ -124,10 +135,44 @@ export default function ReflectionForm({
   const currentFrameworkIdRef = useRef(selectedFrameworkId);
   // 下書きの自動保存（ブラウザの localStorage）。ユーザーごとに分けて保存する
   const userId = useAuthStore((state) => state.user?.id);
+  // ユーザーごとに読み込んだ前回の下書き。stored は読み込んだときの内容、pending は復元するか確認するまで
+  // 残しておく内容（復元・破棄・保存・別タブの更新で変わる）
+  const [draftState, setDraftState] = useState<{
+    userId: string;
+    stored: ReflectionDrafts | null;
+    pending: ReflectionDrafts | null;
+  } | null>(null);
+  // localStorage は SSR と hydration 中は読めない（読むと表示が食い違う）ので、hydration 後に読む。
+  // ユーザーが変わったら（ログアウトを含む）、描画中に読み直す（props が変わったときに state を合わせるパターン）
+  const isClient = useIsClient();
+  if (isClient && (draftState?.userId ?? null) !== (userId ?? null)) {
+    if (userId) {
+      const stored = loadDrafts(userId);
+      setDraftState({ userId, stored, pending: stored });
+    } else {
+      setDraftState(null);
+    }
+  }
+  const currentDraftState = draftState && draftState.userId === userId ? draftState : null;
   // 前回の下書きが残っているとき、復元するか確認するまで入れておく
-  const [pendingDraft, setPendingDraft] = useState<ReflectionDrafts | null>(null);
+  const pendingDraft = currentDraftState?.pending ?? null;
   // 前回の下書きを調べ終えたか（調べる前に、空の入力で保存済みの下書きを消さないため）
-  const [draftLoaded, setDraftLoaded] = useState(false);
+  const draftLoaded = currentDraftState !== null;
+  const setPendingDraft = useCallback(
+    (
+      next:
+        | ReflectionDrafts
+        | null
+        | ((current: ReflectionDrafts | null) => ReflectionDrafts | null)
+    ) => {
+      setDraftState((prev) =>
+        prev
+          ? { ...prev, pending: typeof next === "function" ? next(prev.pending) : next }
+          : prev
+      );
+    },
+    []
+  );
   const lastPersistedRef = useRef<string | null>(null);
   const pendingWriteRef = useRef<{
     userId: string;
@@ -143,8 +188,6 @@ export default function ReflectionForm({
   const ownsStoredDraft = (stored: ReflectionDrafts, frameworkId: string) =>
     JSON.stringify(stored[frameworkId]) ===
     JSON.stringify(ownedDraftsRef.current[frameworkId]);
-  // キャッシュ（ref）だけを書き換えたとき、未保存の判定を取り直すための再描画
-  const [, forceRender] = useReducer((n: number) => n + 1, 0);
 
   // いま表示している型の項目だけを対象にする（消えた項目の入力は、見えないので数えない）
   const currentSchema = selectedFramework?.schema ?? [];
@@ -155,10 +198,7 @@ export default function ReflectionForm({
   // （数えると、離脱の確認が消えなくなる）
   const hasUnsavedInput =
     hasInput ||
-    // 入力キャッシュは ref で持ち、書き換え時は forceRender で再描画している。
-    // state への移行は下書きロジックの組み直しが必要なため #206 で対応する
-    // eslint-disable-next-line react-hooks/refs
-    Object.entries(cacheRef.current).some(([frameworkId, data]) => {
+    Object.entries(cache).some(([frameworkId, data]) => {
       const cachedFramework = frameworks.find((f) => f.id === frameworkId);
       // 一覧にない型、または、その型の現在の項目にない入力は、見えないので数えない
       return (
@@ -175,8 +215,8 @@ export default function ReflectionForm({
     const previousId = previousFrameworkIdRef.current;
 
     if (!previousId) {
-      const cached = cacheRef.current[selectedFrameworkId];
-      delete cacheRef.current[selectedFrameworkId];
+      const cached = cache[selectedFrameworkId];
+      setCache((prev) => omitFramework(prev, selectedFrameworkId));
       setFormData(cached || {});
       clearErrors();
       previousFrameworkIdRef.current = selectedFrameworkId;
@@ -184,48 +224,39 @@ export default function ReflectionForm({
     }
 
     if (previousId !== selectedFrameworkId) {
-      if (Object.keys(formData).length > 0) {
-        cacheRef.current[previousId] = formData;
-      }
+
       // 別の型に切り替えたら「保存しました」は消す
       // （戻した型の未保存の下書きが、保存済みに見えないように）
       setIsSaved(false);
 
       // 戻ってきた型の入力は formData が持つので、キャッシュには残さない
       // （残すと、あとで消しても「未保存の入力あり」と誤判定する）
-      const cached = cacheRef.current[selectedFrameworkId];
-      delete cacheRef.current[selectedFrameworkId];
+      const cached = cache[selectedFrameworkId];
+      setCache((prev) => {
+        const next = { ...omitFramework(prev, selectedFrameworkId) };
+        if (Object.keys(formData).length > 0) next[previousId] = formData;
+        return next;
+      });
       setFormData(cached || {});
       clearErrors();
       previousFrameworkIdRef.current = selectedFrameworkId;
     }
-  }, [selectedFrameworkId, clearErrors, formData]);
+  }, [selectedFrameworkId, clearErrors, formData, cache]);
 
   useEffect(() => {
     currentFrameworkIdRef.current = selectedFrameworkId;
   }, [selectedFrameworkId]);
 
-  // ユーザーが決まったら、前回の下書きがあるか調べる
+  // 前回の下書きを読み直したら（ユーザーが変わったら）、このタブの書き込みの記録をやり直す
+  const loadedUserId = draftState?.userId ?? null;
+  const loadedStored = draftState?.stored ?? null;
   useEffect(() => {
-    lastPersistedRef.current = null;
     pendingWriteRef.current = null;
     touchedFrameworksRef.current = new Set();
-    ownedDraftsRef.current = {};
-    if (!userId) {
-      // ユーザー切り替え時に下書きを読み直す。effect 外への移行は hydration との兼ね合いがあり
-      // 下書きロジックの組み直しが必要なため #206 で対応する
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setPendingDraft(null);
-      setDraftLoaded(false);
-      return;
-    }
-    const stored = loadDrafts(userId);
-    setPendingDraft(stored);
-    setDraftLoaded(true);
     // 読み込んだだけの下書きは、書き直さない（書き直すと保存日時が更新され、有効期限が延び続ける）
-    lastPersistedRef.current = stored ? JSON.stringify(stored) : null;
-    ownedDraftsRef.current = stored ?? {};
-  }, [userId]);
+    lastPersistedRef.current = loadedStored ? JSON.stringify(loadedStored) : null;
+    ownedDraftsRef.current = loadedStored ?? {};
+  }, [loadedUserId, loadedStored]);
 
   // 別のタブで下書きが保存・破棄されたら、確認の表示を読み直す
   // （古い下書きを復元して、同じ内容を二重に保存しないため）
@@ -240,7 +271,7 @@ export default function ReflectionForm({
     };
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
-  }, [userId, pendingDraft]);
+  }, [userId, pendingDraft, setPendingDraft]);
 
   const flushDraft = useCallback(() => {
     const pending = pendingWriteRef.current;
@@ -281,7 +312,7 @@ export default function ReflectionForm({
       return;
     }
     const all: ReflectionDrafts = {
-      ...cacheRef.current,
+      ...cache,
       [selectedFrameworkId]: formData,
     };
     // 一覧にない型・いまの項目にない入力は、見えないので残さない
@@ -491,7 +522,7 @@ export default function ReflectionForm({
         // 保存できたので、次の振り返りは別のキーにする
         idempotencyKeysRef.current.delete(signature);
         // 送信した型の下書きは保存済みなので、キャッシュからも消す
-        delete cacheRef.current[savedFrameworkId];
+        setCache((prev) => omitFramework(prev, savedFrameworkId));
         // 書き込みの順番待ちの下書きからも、保存した型を外す
         // （待ち時間のうちにページを閉じたとき、保存前の下書きが書き戻されないように）
         const queued = pendingWriteRef.current;
@@ -536,13 +567,11 @@ export default function ReflectionForm({
             return Object.keys(remaining).length > 0 ? remaining : null;
           });
         }
+        // 保存中に別の型へ切り替えていたら、いま表示中の型の下書きは消さない
         if (currentFrameworkIdRef.current === savedFrameworkId) {
           setFormData({});
           clearErrors();
           setIsSaved(true);
-        } else {
-          // 保存中に別の型へ切り替えた。いま表示中の型の下書きは消さない
-          forceRender();
         }
       }
     } catch {
@@ -559,14 +588,13 @@ export default function ReflectionForm({
         // 確認を待つ間に入力した内容を優先し、空の項目だけ下書きで埋める
         setFormData((prev) => ({ ...data, ...compactDrafts({ _: prev })._ }));
       } else {
-        cacheRef.current[frameworkId] = {
-          ...data,
-          ...cacheRef.current[frameworkId],
-        };
+        setCache((prev) => ({
+          ...prev,
+          [frameworkId]: { ...data, ...prev[frameworkId] },
+        }));
       }
     }
     setPendingDraft(null);
-    forceRender();
   };
 
   const handleDiscardDraft = () => {
